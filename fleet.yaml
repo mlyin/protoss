@@ -1,0 +1,51 @@
+# Your bots. `python scripts/fleet.py` registers any that don't exist yet, sets their limits,
+# starts them all, and streams their logs with a name prefix. Keys are cached in .fleet-keys.json (gitignored).
+#
+# Each bot: a script (anything that reads ARENA_URL / ARENA_API_KEY), the markets it may touch,
+# its sandbox limits, and env vars passed to the script.
+
+api: http://localhost:8000
+admin_token_env: ADMIN_TOKEN        # read from this env var (default: change-me)
+owner: matthew
+starting_equity: 10000
+
+bots:
+  - name: momentum-btc
+    strategy: "3/10-tick moving-average crossover on BTC and ETH, ~3x target"
+    runtime: Python SDK
+    script: agents/momentum.py
+    markets: [BTC, ETH]
+    limits: { max_leverage: 5, drawdown_flatten_pct: 10, daily_loss_pct: 4 }
+    env: { RISK_FRACTION: "0.6", INTERVAL: "3" }
+
+  - name: meanrev-alts
+    strategy: "Fade >1.5σ moves vs 20-tick mean on ETH/SOL/HYPE, exit at mean or 3σ stop"
+    runtime: Python SDK
+    script: agents/meanrev.py
+    markets: [ETH, SOL, HYPE]
+    limits: { max_leverage: 3, drawdown_flatten_pct: 8, daily_loss_pct: 3 }
+    env: { RISK_FRACTION: "0.4", INTERVAL: "3" }
+
+  - name: momentum-equities
+    strategy: "Same crossover on HIP-3 equity perps (xyz:NVDA, xyz:SP500)"
+    runtime: Python SDK
+    script: agents/momentum.py
+    markets: ["xyz:NVDA", "xyz:SP500"]
+    limits: { max_leverage: 3, drawdown_flatten_pct: 10, daily_loss_pct: 4 }
+    env: { RISK_FRACTION: "0.5", INTERVAL: "3", MARKETS: "xyz:NVDA,xyz:SP500" }
+
+  - name: meanrev-btc
+    strategy: "Mean reversion on BTC only, tight 2% daily loss"
+    runtime: Python SDK
+    script: agents/meanrev.py
+    markets: [BTC]
+    limits: { max_leverage: 2, drawdown_flatten_pct: 6, daily_loss_pct: 2 }
+    env: { RISK_FRACTION: "0.5", INTERVAL: "3", MARKETS: "BTC" }
+
+  - name: yolo-control
+    strategy: "Control bot: over-sized momentum with a 3% drawdown cap, exists to show the sandbox halting"
+    runtime: Python SDK
+    script: agents/momentum.py
+    markets: [BTC]
+    limits: { max_leverage: 5, drawdown_flatten_pct: 3, daily_loss_pct: 4 }
+    env: { RISK_FRACTION: "2.0", INTERVAL: "2", MARKETS: "BTC" }

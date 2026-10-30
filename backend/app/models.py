@@ -24,6 +24,7 @@ class Agent(Base):
     name: Mapped[str] = mapped_column(String(64), unique=True)
     owner: Mapped[str] = mapped_column(String(64))
     runtime: Mapped[str] = mapped_column(String(64), default="Python SDK")
+    strategy: Mapped[str | None] = mapped_column(Text, nullable=True)  # one-line description shown on the leaderboard
     created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
     # credentials: hashed; the plaintext is returned exactly once at creation

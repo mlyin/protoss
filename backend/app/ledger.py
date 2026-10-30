@@ -18,6 +18,7 @@ class AgentMetrics:
     name: str
     owner: str
     runtime: str
+    strategy: str | None
     status: str
     halted_reason: str | None
     equity: float
@@ -97,6 +98,7 @@ def metrics_for(db: Session, ex: ExchangeAdapter, agent: Agent, window_days: int
         name=agent.name,
         owner=agent.owner,
         runtime=agent.runtime,
+        strategy=agent.strategy,
         status=agent.status,
         halted_reason=agent.halted_reason,
         equity=round(equity, 2),

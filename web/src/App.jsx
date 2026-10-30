@@ -47,6 +47,7 @@ function AgentDrawer({ id, onClose }) {
         <span className="spacer" />
         <button className="seg" onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--muted)' }} aria-label="close">✕</button>
       </div>
+      {m.strategy && <div className="sub">{m.strategy}</div>}
       <div className="kv"><span>Equity</span><span>{fmtUsd(m.equity)} <span className={cls(m.pnl_total_pct)}>({fmtPct(m.pnl_total_pct)})</span></span></div>
       <div className="kv"><span>Max drawdown</span><span>{m.max_drawdown_pct}% / cap {L.drawdown_flatten_pct}%</span></div>
       <div className="kv"><span>Status</span><span><Status a={m} /></span></div>
@@ -139,7 +140,7 @@ export default function App() {
                   {agents.map((a) => (
                     <tr key={a.id} className="row" onClick={() => setSel(a.id)}>
                       <td className="sub">{a.rank}</td>
-                      <td className="text"><b>{a.name}</b><br /><span className="sub">by {a.owner}</span></td>
+                      <td className="text"><b>{a.name}</b><br /><span className="sub">{a.strategy ? a.strategy : `by ${a.owner}`}</span></td>
                       <td className="text sub">{a.runtime}</td>
                       <td className={`num ${cls(a.pnl_window_pct)}`}>{fmtPct(a.pnl_window_pct)}</td>
                       <td className="num">{fmtUsd(a.equity)}</td>

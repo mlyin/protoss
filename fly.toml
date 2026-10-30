@@ -1,0 +1,21 @@
+# fly launch --no-deploy && fly secrets set ADMIN_TOKEN=... HL_MASTER_PRIVATE_KEY=... && fly deploy
+app = "arena-hl"
+primary_region = "ewr"
+
+[build]
+
+[env]
+  ARENA_MODE = "paper"
+  DATABASE_URL = "sqlite:////data/arena.db"
+  TICK_SECONDS = "5"
+  SNAPSHOT_SECONDS = "60"
+
+[http_service]
+  internal_port = 8000
+  force_https = true
+  auto_stop_machines = false
+  min_machines_running = 1
+
+[mounts]
+  source = "arena_data"
+  destination = "/data"

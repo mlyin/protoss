@@ -1,3 +1,4 @@
 -e ./backend
 -e ./sdk
+pyyaml>=6
 pytest>=8

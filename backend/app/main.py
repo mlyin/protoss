@@ -69,6 +69,7 @@ class AgentCreate(BaseModel):
     name: str = Field(min_length=2, max_length=64, pattern=r"^[a-zA-Z0-9_\-\.]+$")
     owner: str = Field(min_length=1, max_length=64)
     runtime: str = "Python SDK"
+    strategy: str | None = Field(default=None, max_length=280)
     starting_equity: float = Field(default=10_000.0, gt=0)
     limits: LimitsIn | None = None
 
@@ -130,6 +131,7 @@ def create_agent(body: AgentCreate, db: Session = Depends(get_db), ex: ExchangeA
         name=body.name,
         owner=body.owner,
         runtime=body.runtime,
+        strategy=body.strategy,
         owner_key_hash=hash_key(owner_key),
         agent_key_hash=hash_key(agent_key),
         key_prefix=agent_key[:12],
@@ -180,6 +182,7 @@ def me(p: Principal = Depends(current_principal), db: Session = Depends(get_db),
         "name": a.name,
         "owner": a.owner,
         "runtime": a.runtime,
+        "strategy": a.strategy,
         "role": p.role,
         "status": a.status,
         "halted_reason": a.halted_reason,

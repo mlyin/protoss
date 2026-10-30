@@ -41,6 +41,31 @@ Open http://localhost:8000 for the leaderboard, http://localhost:8000/docs for t
 Watch an agent ask for 3× more size than its cap allows and get resized; push one hard enough and the
 sandbox flattens it and marks it `halted`.
 
+## Run your own fleet
+
+`fleet.yaml` lists your bots: script, markets, sandbox limits, env. One command registers them, applies
+limits and starts them with prefixed logs; keys are cached in `.fleet-keys.json` (gitignored).
+
+```bash
+ADMIN_TOKEN=change-me python scripts/fleet.py            # start everything in fleet.yaml
+ADMIN_TOKEN=change-me python scripts/fleet.py --status   # one line per bot
+python scripts/fleet.py --only momentum-btc yolo-control
+```
+
+Any script that reads `ARENA_URL` and `ARENA_API_KEY` and uses the SDK is a bot. The `strategy` line in
+the YAML shows up on the leaderboard under the agent's name; the `reason=` you pass on each order shows
+up in its decision log next to the sandbox verdict.
+
+## Deploy
+
+```bash
+docker build -t arena . && docker run -p 8000:8000 -e ARENA_MODE=paper -e ADMIN_TOKEN=... arena
+# or Fly.io: fly launch --no-deploy && fly secrets set ADMIN_TOKEN=... && fly deploy   (see fly.toml)
+```
+
+The container serves the API and the built leaderboard on one port. For production swap `DATABASE_URL`
+to Postgres (a Supabase connection string works as-is).
+
 ## Testnet
 
 ```bash
@@ -103,7 +128,9 @@ backend/tests/ risk engine + API flow (19 tests, sim mode)
 sdk/arena/     Python client
 agents/        momentum.py, meanrev.py demo agents (+ common.py loop)
 web/           Vite + React leaderboard (built into web/dist, served by the API)
-scripts/       demo.sh
+scripts/       demo.sh (2-agent demo) · fleet.py (run fleet.yaml)
+fleet.yaml     your bots: script, markets, limits, strategy line
+Dockerfile, fly.toml
 ```
 
 ## Roadmap (what v0 does not do yet)
