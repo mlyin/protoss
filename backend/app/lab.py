@@ -27,6 +27,7 @@ from .config import get_settings
 log = logging.getLogger("coliseum.lab")
 router = APIRouter(prefix="/lab", tags=["lab"])
 Bar = Literal["1h", "4h", "1d"]
+WD = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 
 
 def norm_market(v: str) -> str:
@@ -34,16 +35,21 @@ def norm_market(v: str) -> str:
     return f"{v.split(':')[0].lower()}:{v.split(':', 1)[1].upper()}" if ":" in v else v.upper()
 
 
+# ------------------------------------------------------------------------------------------- specs
+
 class _Common(BaseModel):
     model_config = ConfigDict(extra="ignore")
     days: int = Field(default=180, ge=2, le=730)
     starting_equity: float = Field(default=10_000.0, gt=0)
     fee_bps: float = Field(default=4.5, ge=0, le=100)
 
-    @field_validator("market", check_fields=False)
+    @field_validator("market", "markets", check_fields=False)
     @classmethod
-    def _market(cls, v: str) -> str:
-        return norm_market(v)
+    def _norm(cls, v):
+        return [norm_market(m) for m in v] if isinstance(v, list) else (norm_market(v) if v else v)
+
+    def label(self) -> str:
+        return LABELS[self.type](self)
 
 
 class EventBuySpec(_Common):
@@ -55,24 +61,12 @@ class EventBuySpec(_Common):
     side: Literal["long", "short"] = "long"
     size_pct: float = Field(default=1.0, gt=0, le=1.0)
 
-    def label(self) -> str:
-        what = "major hacks" if self.event_set == "major_hacks" else f"{len(self.custom_dates or [])} custom dates"
-        return f"{'Buy' if self.side == 'long' else 'Short'} {self.market} on {what}, hold {self.hold_days}d"
-
 
 class TailWalletSpec(_Common):
     type: Literal["tail_wallet"] = "tail_wallet"
     address: str = Field(pattern=r"^0x[0-9a-fA-F]{40}$")
     scale: float | None = Field(default=None, gt=0)
     markets: list[str] | None = None
-
-    @field_validator("markets")
-    @classmethod
-    def _markets(cls, v: list[str] | None) -> list[str] | None:
-        return [norm_market(m) for m in v] if v else None
-
-    def label(self) -> str:
-        return f"Tail {self.address[:6]}…{self.address[-4:]}"
 
 
 class MomentumSpec(_Common):
@@ -88,9 +82,6 @@ class MomentumSpec(_Common):
             raise ValueError("fast must be shorter than slow")
         return self
 
-    def label(self) -> str:
-        return f"{self.fast}/{self.slow} momentum crossover on {self.market} ({self.bar})"
-
 
 class MeanRevSpec(_Common):
     type: Literal["meanrev"] = "meanrev"
@@ -99,18 +90,12 @@ class MeanRevSpec(_Common):
     z: float = Field(default=1.5, gt=0, le=10)
     bar: Bar = "1h"
 
-    def label(self) -> str:
-        return f"Mean reversion on {self.market}: fade {self.z:g} sd of {self.lookback}-bar mean ({self.bar})"
-
 
 class DcaSpec(_Common):
     type: Literal["dca"] = "dca"
     market: str
     every_days: int = Field(default=7, ge=1, le=365)
     amount: float = Field(default=100.0, gt=0)
-
-    def label(self) -> str:
-        return f"DCA ${self.amount:,.0f} into {self.market} every {self.every_days}d"
 
 
 class WeekdaySpec(_Common):
@@ -120,17 +105,10 @@ class WeekdaySpec(_Common):
     sell_weekday: int = Field(default=4, ge=0, le=6)
     bar: Literal["1h"] = "1h"
 
-    def label(self) -> str:
-        d = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-        return f"Buy {self.market} {d[self.buy_weekday]} open, sell {d[self.sell_weekday]} close"
-
 
 class BuyHoldSpec(_Common):
     type: Literal["buy_hold"] = "buy_hold"
     market: str
-
-    def label(self) -> str:
-        return f"Buy and hold {self.market}"
 
 
 class Clarify(BaseModel):
@@ -142,8 +120,18 @@ class LabError(Exception):
     """The message was understood but cannot be run (bad address, unlisted market)."""
 
 
-Spec = Annotated[Union[EventBuySpec, TailWalletSpec, MomentumSpec, MeanRevSpec, DcaSpec, WeekdaySpec, BuyHoldSpec], Field(discriminator="type")]
-PlanAdapter: TypeAdapter = TypeAdapter(Annotated[Union[EventBuySpec, TailWalletSpec, MomentumSpec, MeanRevSpec, DcaSpec, WeekdaySpec, BuyHoldSpec, Clarify], Field(discriminator="type")])
+LABELS = {
+    "event_buy": lambda s: f"{'Buy' if s.side == 'long' else 'Short'} {s.market} on {'major hacks' if s.event_set == 'major_hacks' else f'{len(s.custom_dates or [])} custom dates'}, hold {s.hold_days}d",
+    "tail_wallet": lambda s: f"Tail {s.address[:6]}…{s.address[-4:]}",
+    "momentum": lambda s: f"{s.fast}/{s.slow} momentum crossover on {s.market} ({s.bar})",
+    "meanrev": lambda s: f"Mean reversion on {s.market}: fade {s.z:g} sd of {s.lookback}-bar mean ({s.bar})",
+    "dca": lambda s: f"DCA ${s.amount:,.0f} into {s.market} every {s.every_days}d",
+    "weekday": lambda s: f"Buy {s.market} {WD[s.buy_weekday]} open, sell {WD[s.sell_weekday]} close",
+    "buy_hold": lambda s: f"Buy and hold {s.market}",
+}
+SPECS = (EventBuySpec, TailWalletSpec, MomentumSpec, MeanRevSpec, DcaSpec, WeekdaySpec, BuyHoldSpec)
+Spec = Annotated[Union[SPECS], Field(discriminator="type")]
+PlanAdapter: TypeAdapter = TypeAdapter(Annotated[Union[SPECS + (Clarify,)], Field(discriminator="type")])
 
 EXAMPLES = [
     "What if I bought XMR every time a major company got hacked and held 7 days?",
@@ -205,7 +193,19 @@ WORDS = {
 ALIASES = {"NVDA": "xyz:NVDA", "TSLA": "xyz:TSLA", "SPX": "xyz:SP500", "SP500": "xyz:SP500", "SOXL": "xyz:SOXL"}
 STOP = {"DCA", "YTD", "MA", "SMA", "EMA", "USD", "USDC", "BUY", "SELL", "HOLD", "AND", "THE", "PNL", "API", "ETF", "OK", "AI", "HL", "PERP", "PERPS", "LONG", "SHORT", "VS", "WHAT", "IF", "SD", "HODL"}
 DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+DAY_RE = "|".join(d[:3] + "(?:" + d[3:] + ")?" for d in DAYS)
 MONTHS = ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"]
+UNITS = {"day": 1, "week": 7, "month": 30, "year": 365}
+KINDS = [  # first match wins; tail_wallet is handled before these
+    ("event_buy", r"hack|breach|exploit|cyber ?attack|ransomware"),
+    ("momentum", r"momentum|crossover|ma cross|moving average"),
+    ("meanrev", r"mean[\s-]?rev|reversion|\bfade\b|z[\s-]?score|standard deviation|\bsigma\b"),
+    ("dca", r"\bdca\b|dollar[\s-]cost"),
+    ("weekday", rf"every\s+({DAY_RE})|weekday|buy\w*\s+(?:on\s+|every\s+)?({DAY_RE})"),
+    ("dca", r"every\s+(?:other\s+)?(?:week|day|month|\d+\s*days?)|\b(weekly|daily|monthly)\b"),
+    ("buy_hold", r"buy (?:and|&) hold|hodl|just bought|bought and held|held it|\bhold\b"),
+]
+HOLD_RE = re.compile(r"(?:hold|held|holding)\b[^0-9]{0,24}?(\d+)\s*-?\s*(day|week)s?|\bfor\s+(\d+)\s*(day|week)s?\b|(\d+)\s*-?\s*(day|week)\s+hold")
 
 
 def _num(s: str, suffix: str | None) -> float:
@@ -213,41 +213,34 @@ def _num(s: str, suffix: str | None) -> float:
 
 
 def _market(raw: str, low: str, known: set[str]) -> str | None:
-    m = re.search(r"\b([a-z]{2,8}):([A-Za-z0-9]{1,10})\b", raw)
-    if m:
+    if m := re.search(r"\b([a-z]{2,8}):([A-Za-z0-9]{1,10})\b", raw):
         return norm_market(m.group(0))
     cands = [ALIASES.get(t, t) for t in re.findall(r"\b[A-Z][A-Z0-9]{1,7}\b", raw) if t not in STOP]
-    for c in cands:
-        if c in known:
-            return c
+    if hit := next((c for c in cands if c in known), None):
+        return hit
     for word in sorted(WORDS, key=len, reverse=True):
         if re.search(rf"(?<![a-z&]){re.escape(word)}(?![a-z])", low):
             return WORDS[word]
     return cands[0] if cands else None
 
 
-def _days(low: str, default: int, today: dt.date) -> int:
-    units = {"day": 1, "week": 7, "month": 30, "year": 365}
+def _days(low: str, today: dt.date) -> int:
+    """Window length stated in the message, 0 if none."""
     if m := re.search(r"(?:last|past|over|previous)\s+(\d+)\s*(day|week|month|year)s?", low):
-        return int(int(m.group(1)) * units[m.group(2)])
+        return int(m.group(1)) * UNITS[m.group(2)]
     if re.search(r"(?:last|past)\s+year|\b12 months\b|\b1y\b", low):
         return 365
     if m := re.search(r"(?:last|past)\s+(week|month)\b", low):
-        return units[m.group(1)]
+        return UNITS[m.group(1)]
     if re.search(r"\bytd\b|this year|since jan(?:uary)?\b(?!\s+20)", low):
-        return max(2, (today - dt.date(today.year, 1, 1)).days)
+        return (today - dt.date(today.year, 1, 1)).days
     if m := re.search(r"since\s+(" + "|".join(MONTHS) + r")(?:\s+(20\d\d))?", low):
         month = MONTHS.index(m.group(1)) + 1
         year = int(m.group(2)) if m.group(2) else (today.year if month <= today.month else today.year - 1)
-        return max(2, (today - dt.date(year, month, 1)).days)
+        return (today - dt.date(year, month, 1)).days
     if m := re.search(r"since\s+(20\d\d)\b", low):
-        return max(2, (today - dt.date(int(m.group(1)), 1, 1)).days)
-    return default
-
-
-def _weekdays(low: str) -> list[int]:
-    found = re.findall(r"\b(" + "|".join(d[:3] + r"(?:" + d[3:] + ")?" for d in DAYS) + r")\b", low)
-    return [next(i for i, d in enumerate(DAYS) if d.startswith(f)) for f in found]
+        return (today - dt.date(int(m.group(1)), 1, 1)).days
+    return 0
 
 
 def plan_rules(message: str, starting_equity: float, days: int, known: set[str], today: dt.date | None = None) -> Union[Spec, Clarify]:
@@ -261,9 +254,9 @@ def plan_rules(message: str, starting_equity: float, days: int, known: set[str],
             iso_dates.append(dt.date.fromisoformat(d))
         except ValueError:
             continue
-    low_nd = re.sub(r"\b20\d\d-\d\d-\d\d\b", " ", low)
+    low_nd = re.sub(r"\b20\d\d-\d\d-\d\d\b", " ", low)  # numbers inside dates must not look like parameters
     market = _market(raw, low, known)
-    explicit_days = _days(low, 0, today)
+    explicit_days = _days(low, today)
     if iso_dates and not explicit_days:  # a custom event list should fit in the window
         days = max(days, (today - min(iso_dates)).days + 30)
     common: dict = {"days": min(730, max(2, explicit_days or days)), "starting_equity": starting_equity}
@@ -277,34 +270,22 @@ def plan_rules(message: str, starting_equity: float, days: int, known: set[str],
             raise LabError(f"{address.group(0)[:12]}… is not a valid wallet address: expected 0x followed by 40 hex characters.")
         return TailWalletSpec(address=address.group(0), **common)
 
-    kind = None
-    if re.search(r"hack|breach|exploit|cyber ?attack|ransomware", low) or (iso_dates and re.search(r"\b(after|on|following)\b", low)):
+    kind = next((k for k, pat in KINDS if re.search(pat, low)), None)
+    if kind is None and iso_dates and re.search(r"\b(after|on|following)\b", low):
         kind = "event_buy"
-    elif re.search(r"momentum|crossover|ma cross|moving average", low):
-        kind = "momentum"
-    elif re.search(r"mean[\s-]?rev|reversion|\bfade\b|z[\s-]?score|standard deviation|\bsigma\b", low):
-        kind = "meanrev"
-    elif re.search(r"\bdca\b|dollar[\s-]cost", low):
-        kind = "dca"
-    elif re.search(r"every\s+(" + "|".join(DAYS) + r")|weekday|buy\w*\s+(?:on\s+|every\s+)?(" + "|".join(DAYS) + ")", low):
-        kind = "weekday"
-    elif re.search(r"every\s+(?:other\s+)?(?:week|day|month|\d+\s*days?)|\b(weekly|daily|monthly)\b", low):
-        kind = "dca"
-    elif re.search(r"buy (?:and|&) hold|hodl|just bought|bought and held|held it|\bhold\b", low):
-        kind = "buy_hold"
-
     if kind is None and market is None:
-        return Clarify(question="Which idea should I test — buy and hold, a momentum crossover, mean reversion, DCA, a weekday pattern, or buying on hack events — and on which market (e.g. BTC)?")
+        return Clarify(question="Which idea should I test (buy and hold, a momentum crossover, mean reversion, DCA, a weekday pattern, or buying on hack events), and on which market, e.g. BTC?")
     if market is None:
-        return Clarify(question="Which market should I run that on — BTC, ETH, SOL, HYPE, XMR, or a HIP-3 name like xyz:NVDA?")
+        return Clarify(question="Which market should I run that on: BTC, ETH, SOL, HYPE, XMR, or a HIP-3 name like xyz:NVDA?")
     if kind is None:
-        return Clarify(question=f"What should I do with {market} — buy and hold, a momentum crossover, mean reversion, DCA, or buy it on hack events?")
+        return Clarify(question=f"What should I do with {market}: buy and hold, a momentum crossover, mean reversion, DCA, or buy it on hack events?")
 
     bar = "4h" if re.search(r"\b4\s*-?\s*h(?:our)?\b|four[- ]hour", low) else "1d" if re.search(r"\b1d\b|\bdaily (?:bars?|candles?)\b|day bars", low) else "1h"
+    extra: dict = {}
     if kind == "event_buy":
-        extra: dict = {"event_set": "custom", "custom_dates": iso_dates} if iso_dates else {}
-        hold = re.compile(r"(?:hold|held|holding)\b[^0-9]{0,24}?(\d+)\s*-?\s*(day|week)s?|\bfor\s+(\d+)\s*(day|week)s?\b|(\d+)\s*-?\s*(day|week)\s+hold")
-        if m := hold.search(low_nd):
+        if iso_dates:
+            extra = {"event_set": "custom", "custom_dates": iso_dates}
+        if m := HOLD_RE.search(low_nd):
             n, unit = next((g, u) for g, u in zip(m.groups()[::2], m.groups()[1::2]) if g)
             extra["hold_days"] = int(n) * (7 if unit == "week" else 1)
         if re.search(r"\bshort(?:ed|ing)?\b", low):
@@ -317,29 +298,24 @@ def plan_rules(message: str, starting_equity: float, days: int, known: set[str],
         f, s = (int(m.group(1)), int(m.group(2))) if m else (3, 10)
         return MomentumSpec(market=market, fast=min(f, s), slow=max(f, s), bar=bar, **common)
     if kind == "meanrev":
-        extra = {"bar": bar}
         if m := re.search(r"(\d+)\s*-?\s*(?:bar|period|hour|day)?s?\s*(?:lookback|window)|lookback\s*(?:of\s*)?(\d+)", low_nd):
             extra["lookback"] = int(m.group(1) or m.group(2))
         if m := re.search(r"z(?:-score)?\s*(?:=|of|>|above|over)?\s*(\d+(?:\.\d+)?)|(\d+(?:\.\d+)?)\s*(?:sigma|sd|std|standard deviation)", low_nd):
             extra["z"] = float(m.group(1) or m.group(2))
-        return MeanRevSpec(market=market, **extra, **common)
+        return MeanRevSpec(market=market, bar=bar, **extra, **common)
     if kind == "dca":
-        extra = {}
         if m := re.search(r"every\s+(\d+)\s*days?", low_nd):
             extra["every_days"] = int(m.group(1))
-        elif re.search(r"every other day", low):
-            extra["every_days"] = 2
-        elif re.search(r"\bdaily\b|every day", low):
-            extra["every_days"] = 1
-        elif re.search(r"every (?:two|2) weeks|biweekly|fortnight", low):
-            extra["every_days"] = 14
-        elif re.search(r"\bmonthly\b|every month", low):
-            extra["every_days"] = 30
+        else:
+            for pat, n in ((r"every other day", 2), (r"\bdaily\b|every day", 1), (r"every (?:two|2) weeks|biweekly|fortnight", 14), (r"\bmonthly\b|every month", 30)):
+                if re.search(pat, low):
+                    extra["every_days"] = n
+                    break
         if m := re.search(r"\$\s?(\d[\d,]*(?:\.\d+)?)\s*(k|m)?\b(?!\s*(?:starting|equity|account))", low_nd):
             extra["amount"] = _num(m.group(1), m.group(2))
         return DcaSpec(market=market, **extra, **common)
     if kind == "weekday":
-        wds = _weekdays(low)
+        wds = [next(i for i, d in enumerate(DAYS) if d.startswith(f)) for f in re.findall(rf"\b({DAY_RE})\b", low)]
         return WeekdaySpec(market=market, buy_weekday=wds[0] if wds else 0, sell_weekday=wds[1] if len(wds) > 1 else 4, **common)
     return BuyHoldSpec(market=market, **common)
 
@@ -366,10 +342,12 @@ def _out(kind: str, reply: str, spec=None, result=None, deployable=None) -> dict
 def _deployable(spec, res: BacktestResult) -> dict:
     markets = [spec.market] if hasattr(spec, "market") else [m for m in res.market.split(",") if m]
     slug = "-".join(m.lower().replace(":", "-") for m in markets)[:40] or "multi"
-    desc = {
-        "momentum": lambda: f"Lab: {spec.fast}/{spec.slow} {spec.bar} moving-average crossover on {spec.market}; long above, short below (agents/momentum.py semantics)",
-        "meanrev": lambda: f"Lab: fade {spec.z:g} sd moves vs the {spec.lookback}-bar mean on {spec.market} {spec.bar} bars, exit at the mean, stop at 3 sd (agents/meanrev.py semantics)",
-    }.get(spec.type, lambda: f"Lab: {res.label} (no agent runtime for {spec.type} yet)")()
+    if spec.type == "momentum":
+        desc = f"Lab: {spec.fast}/{spec.slow} {spec.bar} moving-average crossover on {spec.market}; long above, short below (agents/momentum.py semantics)"
+    elif spec.type == "meanrev":
+        desc = f"Lab: fade {spec.z:g} sd moves vs the {spec.lookback}-bar mean on {spec.market} {spec.bar} bars, exit at the mean, stop at 3 sd (agents/meanrev.py semantics)"
+    else:
+        desc = f"Lab: {res.label} (no agent runtime for {spec.type} yet)"
     return {
         "name": f"lab-{spec.type.replace('_', '-')}-{slug}",
         "strategy": desc[:280],
@@ -381,18 +359,19 @@ def _deployable(spec, res: BacktestResult) -> dict:
 def _reply(spec, res: BacktestResult, simulated: bool) -> str:
     bench = res.benchmark_curve[-1][1] / res.starting_equity * 100 - 100 if res.benchmark_curve else None
     s1 = f"Tested {res.label} from {res.start:%b %d, %Y} to {res.end:%b %d, %Y} starting with ${res.starting_equity:,.0f}."
-    s2 = f"Result: {res.return_pct:+.1f}%" + (f" vs {bench:+.1f}% for buy-and-hold" if bench is not None else "") + f", max drawdown {res.max_drawdown_pct:.1f}%, {res.trades} trade{'s' if res.trades != 1 else ''}"
+    s2 = f"Result: {res.return_pct:+.1f}%" + (f" vs {bench:+.1f}% for buy-and-hold" if bench is not None else "")
+    s2 += f", max drawdown {res.max_drawdown_pct:.1f}%, {res.trades} trade{'s' if res.trades != 1 else ''}"
     s2 += (f", {res.win_rate_pct:.0f}% winners" if res.win_rate_pct is not None else "") + (f", Sharpe {res.sharpe:.2f}." if res.sharpe is not None else ".")
-    caveats = []
-    if simulated:
-        caveats.append("Prices are simulated (seeded GBM), so this exercises the mechanics only and says nothing about the real market.")
-    else:
-        caveats.append("Past Hyperliquid candles with taker fees and 3 bp slippage; funding is not modelled.")
+    caveats = [
+        "Prices are simulated (seeded GBM), so this exercises the mechanics only and says nothing about the real market."
+        if simulated
+        else "Past Hyperliquid candles with taker fees and 3 bp slippage; funding is not modelled."
+    ]
     if spec.type == "event_buy" and spec.event_set == "major_hacks":
         caveats.append("The hack list is a curated, illustrative set, so verify the dates before relying on it.")
     if spec.type == "tail_wallet" and "synthesized" in res.label:
         caveats.append("Wallet fills were unavailable, so the fill series is synthesized from a 3/10 momentum strategy on BTC.")
-    return " ".join([s1, s2] + caveats[:3])
+    return " ".join([s1, s2] + caveats)
 
 
 @router.get("/examples")

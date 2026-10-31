@@ -23,8 +23,8 @@ from .ledger import max_drawdown_pct, sharpe
 UTC = dt.timezone.utc
 BAR_SECONDS = {"1h": 3600, "4h": 4 * 3600, "1d": 86400}
 SLIPPAGE_BPS = 3.0
-SIM_NOTE = "simulated prices (seeded GBM) — Hyperliquid unreachable / sim mode"
-HACKS_NOTE = "event dataset: illustrative, curated list — verify dates before relying on it"
+SIM_NOTE = "simulated prices (seeded GBM): Hyperliquid unreachable / sim mode"  # brain/voice.md: no em dashes in copy
+HACKS_NOTE = "event dataset: illustrative, curated list, verify dates before relying on it"
 HL_MAX_BARS = 5000
 CURVE_POINTS = 400
 HACKS_CSV = Path(__file__).resolve().parent / "data" / "hacks.csv"
@@ -142,15 +142,15 @@ class SimCandles:
         return out
 
 
-_source: tuple[tuple, PriceSource] | None = None
+_source: tuple[tuple, PriceSource, float] | None = None  # (settings key, source, when chosen)
 _candle_cache: dict[tuple, tuple[float, list[Candle]]] = {}
 
 
 def get_source(settings: Settings) -> PriceSource:
-    """SimCandles in sim mode; otherwise Hyperliquid, falling back to SimCandles when unreachable."""
+    """SimCandles in sim mode; otherwise Hyperliquid, falling back to SimCandles (retried every 5 min) when unreachable."""
     global _source
     key = (settings.arena_mode, settings.hl_api_url, tuple(settings.hl_perp_dexs))
-    if _source and _source[0] == key:
+    if _source and _source[0] == key and (_source[1].name == "hyperliquid" or key[0] == "sim" or time.monotonic() - _source[2] < 300):
         return _source[1]
     src: PriceSource = SimCandles(settings)
     if settings.arena_mode != "sim":
@@ -161,7 +161,7 @@ def get_source(settings: Settings) -> PriceSource:
             src = HyperliquidCandles(url, settings.hl_perp_dexs)
         except SourceUnavailable:
             pass
-    _source = (key, src)
+    _source = (key, src, time.monotonic())
     return src
 
 
@@ -173,10 +173,6 @@ def cached_candles(source: PriceSource, market: str, bar: str, start: dt.datetim
     candles = source.candles(market, bar, start, end)
     _candle_cache[key] = (time.monotonic(), candles)
     return candles
-
-
-def data_note(source: PriceSource, bar: str) -> str:
-    return f"Hyperliquid {bar} candles" if source.name == "hyperliquid" else SIM_NOTE
 
 
 def load_hacks() -> list[dict]:
@@ -402,18 +398,17 @@ def _simulate(candles: list[Candle], market: str, build: Callable[[list[Candle],
     return book, curve
 
 
-def _result(label: str, market: str, start: dt.datetime, end: dt.datetime, bar: str, book: Book, curve: list, bench: list | None, notes: list[str]) -> BacktestResult:
-    values, equity = [v for _, v in curve], book.fills and None
-    equity = curve[0][1] if not book.fills else None  # placeholder, replaced below
+def _result(label: str, market: str, start: dt.datetime, end: dt.datetime, bar: str, equity: float, book: Book, curve: list, bench: list | None, notes: list[str]) -> BacktestResult:
+    values = [v for _, v in curve]
     closes = [f.realized for f in book.fills if f.realized != 0]
     return BacktestResult(
         label=label, market=market, start=start, end=end, bars=len(curve),
         trades=len(closes),
-        return_pct=(values[-1] / book.start_equity - 1) * 100,
+        return_pct=(values[-1] / equity - 1) * 100,
         max_drawdown_pct=max_drawdown_pct(values),
         sharpe=sharpe(values, BAR_SECONDS[bar]),
         win_rate_pct=(sum(1 for p in closes if p > 0) / len(closes) * 100) if closes else None,
-        starting_equity=book.start_equity,
+        starting_equity=equity,
         final_equity=values[-1],
         equity_curve=downsample(curve),
         benchmark_curve=None if bench is None else downsample(bench),
@@ -426,7 +421,7 @@ def run_backtest(spec, source: PriceSource, now: dt.datetime | None = None) -> B
     """Run a validated Spec (see lab.py) against a price source. Raises SourceUnavailable / ValueError."""
     bar = getattr(spec, "bar", "1h")
     start, end = window(spec.days, bar, now)
-    notes = [data_note(source, bar), f"fees: {spec.fee_bps} bp taker per side plus {SLIPPAGE_BPS:g} bp slippage on every fill"]
+    notes = [f"Hyperliquid {bar} candles" if source.name == "hyperliquid" else SIM_NOTE, f"fees: {spec.fee_bps} bp taker per side plus {SLIPPAGE_BPS:g} bp slippage on every fill"]
     if spec.type == "tail_wallet":
         return _run_tail(spec, source, start, end, notes)
     candles = cached_candles(source, spec.market, bar, start, end)
@@ -445,7 +440,7 @@ def run_backtest(spec, source: PriceSource, now: dt.datetime | None = None) -> B
     if spec.type == "dca":
         buys = [f for f in book.fills if f.side == "buy"]
         notes.append(f"DCA: {len(buys)} buys deployed ${sum(f.size * f.px for f in buys):,.0f} of the ${spec.starting_equity:,.0f} starting equity; return is on the full starting equity")
-    return _result(spec.label(), spec.market, start, end, bar, book, curve, bench, notes)
+    return _result(spec.label(), spec.market, start, end, bar, spec.starting_equity, book, curve, bench, notes)
 
 
 def _run_tail(spec, source: PriceSource, start: dt.datetime, end: dt.datetime, notes: list[str]) -> BacktestResult:
@@ -483,7 +478,7 @@ def _run_tail(spec, source: PriceSource, start: dt.datetime, end: dt.datetime, n
         book.close(grid[-1], m, marks[m], "end of window")
     curve[-1] = (grid[-1], book.equity(marks))
     notes.append(f"replayed {len(fills)} Hyperliquid fills of {short} across {', '.join(markets)} scaled x{scale:.4g}; positions open before the window are ignored")
-    return _result(f"Tail {short}", ",".join(markets), start, end, "1h", book, curve, None, notes)
+    return _result(f"Tail {short}", ",".join(markets), start, end, "1h", spec.starting_equity, book, curve, None, notes)
 
 
 def _default_scale(fills: list[dict], equity: float) -> float:
