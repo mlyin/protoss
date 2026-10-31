@@ -382,8 +382,10 @@ def health(ex: ExchangeAdapter = Depends(exchange)):
 
 
 from .routes_orgs import router as orgs_router  # noqa: E402
+from .lab import router as lab_router  # noqa: E402
 
 app.include_router(orgs_router)
+app.include_router(lab_router)
 
 from .social import router as social_router  # noqa: E402
 

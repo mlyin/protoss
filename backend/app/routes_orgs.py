@@ -133,6 +133,15 @@ def _summary(db: Session, ex: ExchangeAdapter, org: Org) -> dict:
 
 # ------------------------------------------------------------------------------------------------ admin
 
+@router.post("/orgs", status_code=201)
+def open_org(body: OrgCreate, db: Session = DbDep, ex: ExchangeAdapter = Depends(exchange)):
+    """Anyone can open a phalanx in sim/paper mode (the social flow: a leader writes a mandate, friends join).
+    In testnet/live mode creation goes through /admin/orgs until wallet auth lands."""
+    if ex.name == "testnet":
+        raise HTTPException(501, "open phalanxes with the admin API in testnet mode (wallet auth coming)")
+    return create_org(body, db, ex)
+
+
 @router.post("/admin/orgs", status_code=201, dependencies=[Depends(require_admin)])
 def create_org(body: OrgCreate, db: Session = DbDep, ex: ExchangeAdapter = Depends(exchange)):
     slug = body.slug or _slugify(body.name)

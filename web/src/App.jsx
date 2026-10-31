@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import Approve from './Approve.jsx'
 import Lab from './Lab.jsx'
 import { Feed, Profile, Phalanx, useMe } from './Social.jsx'
+import NewPhalanx from './NewPhalanx.jsx'
 
 const fmtUsd = (v) => (v == null ? '—' : '$' + Number(v).toLocaleString(undefined, { maximumFractionDigits: v < 100 ? 2 : 0 }))
 const fmtPct = (v) => (v == null ? '—' : (v > 0 ? '+' : '') + Number(v).toFixed(2) + '%')
@@ -178,7 +179,7 @@ function Arena({ onAgent, onOrg, sel, selOrg }) {
       </section>
 
       <section>
-        <div className="orgs-head"><h2>Phalanxes</h2><span className="sub">pooled money under one mandate, traded by agents inside hard limits</span></div>
+        <div className="orgs-head"><h2>Phalanxes</h2><span className="sub">pooled money under one mandate, traded by agents inside hard limits</span><span className="spacer" /><a className="btnlink" href="#/new">Open a phalanx</a></div>
         {(!orgs || orgs.length === 0) ? (
           <div className="sub">No phalanxes yet. <code>POST /admin/orgs</code> creates one; <code>python scripts/demo.py</code> makes a sample.</div>
         ) : (
@@ -279,7 +280,7 @@ export default function App() {
   }, [hash])
 
   const route = hash.split('?')[0]
-  const page = route.startsWith('#/lab') ? 'lab' : route.startsWith('#/feed') ? 'feed' : route.startsWith('#/u/') ? 'user' : route.startsWith('#/p/') ? 'phalanx' : route.startsWith('#/approve') ? 'approve' : 'arena'
+  const page = route.startsWith('#/lab') ? 'lab' : route.startsWith('#/feed') ? 'feed' : route.startsWith('#/u/') ? 'user' : route.startsWith('#/p/') ? 'phalanx' : route.startsWith('#/approve') ? 'approve' : route.startsWith('#/new') ? 'new' : 'arena'
   const param = decodeURIComponent(route.split('/')[2] || '')
   const is = (p) => (page === p ? 'on' : '')
 
@@ -304,6 +305,7 @@ export default function App() {
         {page === 'feed' && <Feed me={me} setMe={setMe} />}
         {page === 'user' && <Profile handle={param} me={me} />}
         {page === 'phalanx' && <Phalanx slug={param} me={me} setMe={setMe} />}
+        {page === 'new' && <NewPhalanx me={me} setMe={setMe} />}
         {page === 'approve' && <div className="one"><Approve /><a className="back" href="#/">← back to the arena</a></div>}
       </main>
     </>

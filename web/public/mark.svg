@@ -1,9 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Coliseum mark: a crested Spartan helmet breaking out of the arena ring" fill="currentColor" color="#000">
   <!-- arena ring, broken where the crest flies out -->
   <path d="M42.3 9.05 A27 27 0 1 1 7.9 21.7" fill="none" stroke="currentColor" stroke-width="4"/>
-  <!-- helmet body: Corinthian, profile, facing right. Eye almond + cheek slit are part of the outer contour; the cheek seam is a paper-thin hole -->
-  <path fill-rule="evenodd" d="M44 21 C48.5 25 50.5 33 50 41 C49.8 45 49 47 47.5 47.2 L45.5 47 L45.5 32.5 C42 25.5 34 24.5 30 30 C34.5 35.5 38.5 36.2 41.5 35.3 L41.5 51.5 C41.5 54.5 40 56.5 37.5 56.5 C34 56.5 31 54 27 53.5 C22 53 19.5 53.8 17.5 54.5 C13.5 50 11.5 44 12 38 C12.6 26 20 17.6 30 17.5 C36 17.5 41.5 19 44 21 Z
-    M30.6 33.2 C28.6 39.5 27.8 46 28.2 52.6 L29.4 52.7 C29 46 29.9 40 31.8 33.9 Z"/>
+  <!-- helmet body: Corinthian, profile, facing right. Eye almond + cheek slit are part of the outer contour; brow ridge and cheek seam are paper-thin holes -->
+  <path fill-rule="evenodd" d="M44 20.5 C47.5 23.5 49.6 31 49.6 40 C49.6 44.5 48.9 47.5 47.4 48 L44.8 48 L44.8 33.5 C41.5 25 32.5 24.5 29.5 31 C33 36 38.5 36.5 41.5 35 L39.8 52 C39.6 54.5 38.8 56.3 37.6 57 C34.8 56.5 31.5 52.6 26.5 51.6 C21.5 50.8 18.5 52 17 55 C13.5 51 11.5 44.5 12 37.5 C12.5 26 20 17.4 30 17.3 C36 17.3 41.5 18.5 44 20.5 Z
+    M31 37.2 C28.8 42 29 47 31.4 51 L32.6 50.6 C30.4 46.8 30.3 42.6 32.2 37.7 Z
+    M33.5 21.4 C37 20.6 41 21 44.2 22.6 L43.7 23.5 C40.6 22.1 37 21.8 33.7 22.5 Z"/>
   <!-- crest holder -->
   <path d="M29 19.5 L29 15 L32 15 L32 19.5 Z"/>
   <!-- crest with split tail and motion-line slits -->

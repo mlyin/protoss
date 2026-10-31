@@ -196,3 +196,15 @@ details summary { cursor: pointer; }
 .block { overflow: hidden; }
 .two { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 @media (max-width: 800px) { .two { grid-template-columns: 1fr; } .header { gap: 12px; } .nav a { padding: 6px 8px; } }
+
+/* forms */
+.form { display: flex; flex-direction: column; gap: 16px; }
+.form label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--text-2); }
+.form input, .form textarea { color: var(--text); font: inherit; background: var(--surface-2); border: 1px solid var(--hair-2); border-radius: var(--r-ctl); padding: 8px 12px; }
+.form textarea { resize: vertical; line-height: 20px; }
+.grid4 { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+.chips.pick button { min-height: 28px; padding: 0 10px; font-family: var(--mono); font-size: 12px; background: var(--surface-2); }
+.chips.pick button.on { border-color: var(--text); background: var(--text); color: #121211; }
+.btnlink { font-size: 13px; padding: 6px 12px; border: 1px solid var(--hair-2); border-radius: var(--r-ctl); color: var(--text); }
+.btnlink:hover { background: var(--surface-2); text-decoration: none; }
+.orgs-head .spacer { flex: 1; }
