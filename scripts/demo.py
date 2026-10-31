@@ -130,12 +130,12 @@ def main() -> None:
     bot("meanrev.py", m2["agent_key"], MARKETS="BTC", RISK_FRACTION="0.5")
 
     # the social side: people with handles, following each other and the legion
-    for h, name, bio in (("lee", "Lee", "semis, memory, and whatever the fabs are shipping"), ("matthew", "Matthew", "ex-IMC, building Coliseum"), ("sam", "Sam", "here for the leaderboard"), ("priya", "Priya", "macro, rates, sleep")):
+    for h, name, bio in (("lee", "Lee", "semis, memory, and whatever the fabs are shipping"), ("matthew", "Matthew", "ex-IMC, building Protoss"), ("sam", "Sam", "here for the leaderboard"), ("priya", "Priya", "macro, rates, sleep")):
         c.post("/social/profiles", json={"handle": h, "display_name": name, "bio": bio})
     for h, t, i in (("matthew", "org", "lee-semis"), ("matthew", "user", "lee"), ("sam", "org", "lee-semis"), ("sam", "user", "matthew"), ("priya", "agent", m1["id"])):
         c.post("/social/follow", json={"handle": h, "target_type": t, "target_id": i})
 
-    print(f"\nColiseum demo is up: {API}   (API docs: {API}/docs)\nCtrl-C to stop.\n")
+    print(f"\nProtoss demo is up: {API}   (API docs: {API}/docs)\nCtrl-C to stop.\n")
     if not args.no_browser:
         webbrowser.open(API)
 

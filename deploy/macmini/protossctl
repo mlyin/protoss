@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# coliseumctl — manage the Coliseum launchd services on this Mac.
-#   coliseumctl status | start | stop | restart | logs [api|fleet] | mode <sim|paper|testnet> | funnel [off] | url
+# protossctl — manage the Protoss launchd services on this Mac.
+#   protossctl status | start | stop | restart | logs [api|fleet] | mode <sim|paper|testnet> | funnel [off] | url
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 LA="$HOME/Library/LaunchAgents"
 UID_="$(id -u)"
 PORT="$(grep -E '^PORT=' "$ROOT/backend/.env" 2>/dev/null | cut -d= -f2 || true)"; PORT="${PORT:-8000}"
-SVCS="com.coliseum.api com.coliseum.fleet"
+SVCS="com.protoss.api com.protoss.fleet"
 
 ts() { command -v tailscale >/dev/null 2>&1 && echo tailscale || { [ -x /Applications/Tailscale.app/Contents/MacOS/Tailscale ] && echo /Applications/Tailscale.app/Contents/MacOS/Tailscale; }; }
 
@@ -15,9 +15,9 @@ case "$cmd" in
   start)
     for s in $SVCS; do launchctl bootstrap "gui/$UID_" "$LA/$s.plist" 2>/dev/null || launchctl kickstart "gui/$UID_/$s"; done ;;
   stop)
-    for s in com.coliseum.fleet com.coliseum.api; do launchctl bootout "gui/$UID_/$s" 2>/dev/null || true; done ;;
+    for s in com.protoss.fleet com.protoss.api; do launchctl bootout "gui/$UID_/$s" 2>/dev/null || true; done ;;
   restart)
-    for s in com.coliseum.fleet com.coliseum.api; do launchctl bootout "gui/$UID_/$s" 2>/dev/null || true; done
+    for s in com.protoss.fleet com.protoss.api; do launchctl bootout "gui/$UID_/$s" 2>/dev/null || true; done
     for s in $SVCS; do launchctl bootstrap "gui/$UID_" "$LA/$s.plist"; done ;;
   status)
     for s in $SVCS; do
@@ -34,7 +34,7 @@ case "$cmd" in
       (cd "$ROOT" && ADMIN_TOKEN="$tok" ARENA_URL="http://127.0.0.1:$PORT" .venv/bin/python scripts/fleet.py --status 2>/dev/null) || true
     fi ;;
   logs)
-    which="${1:-api}"; exec tail -n 80 -f "$ROOT/logs/com.coliseum.$which.log" ;;
+    which="${1:-api}"; exec tail -n 80 -f "$ROOT/logs/com.protoss.$which.log" ;;
   mode)
     m="${1:?sim|paper|testnet}"
     sed -i '' -E "s/^ARENA_MODE=.*/ARENA_MODE=$m/" "$ROOT/backend/.env"

@@ -28,7 +28,7 @@ from sqlalchemy.orm import Session
 from .config import Settings, get_settings
 from .models import Agent, Position
 
-log = logging.getLogger("coliseum.hl")
+log = logging.getLogger("protoss.hl")
 
 
 @dataclass

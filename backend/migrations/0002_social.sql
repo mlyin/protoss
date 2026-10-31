@@ -1,4 +1,4 @@
--- Coliseum social layer: profiles and follows (the feed is derived from orders / events / deposits)
+-- Protoss social layer: profiles and follows (the feed is derived from orders / events / deposits)
 
 CREATE TABLE IF NOT EXISTS profiles (
 	handle VARCHAR(32) NOT NULL,

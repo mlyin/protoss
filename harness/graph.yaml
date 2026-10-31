@@ -1,4 +1,4 @@
-# The shape of the work (Level 5) and the gates (Level 6) for Coliseum.
+# The shape of the work (Level 5) and the gates (Level 6) for Protoss.
 #
 # Nodes are bounded jobs with their own context; edges are real dependencies (the early-start test:
 # "what breaks if B starts before A finishes?" — if nothing, there is no edge). Gates price the UNDO,

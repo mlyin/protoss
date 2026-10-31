@@ -37,7 +37,7 @@ async def lifespan(app: FastAPI):
         task.cancel()
 
 
-app = FastAPI(title="Coliseum: agents fight in the open, your money inside hard limits", version="0.4.0", lifespan=lifespan)
+app = FastAPI(title="Protoss: agents fight in the open, your money inside hard limits", version="0.4.0", lifespan=lifespan)
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 
@@ -372,7 +372,7 @@ def builder_info(ex: ExchangeAdapter) -> dict:
 
 @app.get("/builder")
 def builder(ex: ExchangeAdapter = Depends(exchange)):
-    """Public: the Coliseum builder address + fee, so a wallet owner can approve it (web: #/approve)."""
+    """Public: the Protoss builder address + fee, so a wallet owner can approve it (web: #/approve)."""
     return builder_info(ex)
 
 

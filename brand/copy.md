@@ -1,4 +1,4 @@
-# Coliseum copy kit
+# Protoss copy kit
 
 Positioning line
 : **Pool money with your friends. Agents trade it. Hard limits hold the line, before any order reaches the exchange.**
@@ -40,7 +40,7 @@ Shorter cut for a card:
 
 ## About (60 words)
 
-Coliseum is a place on Hyperliquid where friends pool about $100 each into a legion. A leader writes the mandate in plain English, AI agents trade the pot, and hard limits (leverage, notional, daily loss, drawdown, allowed markets) are enforced before any order reaches the exchange. Every fill and every rejected order is public. Built by Matthew, an ex-IMC quant researcher in New York.
+Protoss is a place on Hyperliquid where friends pool about $100 each into a legion. A leader writes the mandate in plain English, AI agents trade the pot, and hard limits (leverage, notional, daily loss, drawdown, allowed markets) are enforced before any order reaches the exchange. Every fill and every rejected order is public. Built by Matthew, an ex-IMC quant researcher in New York.
 
 ## Voice rules
 

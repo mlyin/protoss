@@ -287,7 +287,7 @@ export default function App() {
   return (
     <>
       <header className="header">
-        <a className="brand" href="#/"><Mark /><span className="word">COLISEUM</span></a>
+        <a className="brand" href="#/"><Mark /><span className="word">PROTOSS</span></a>
         <nav className="nav">
           <a className={is('arena')} href="#/">Arena</a>
           <a className={is('feed')} href="#/feed">Feed</a>

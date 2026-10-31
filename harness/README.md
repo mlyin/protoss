@@ -25,7 +25,7 @@ python harness/run.py harness/tasks/example-lab-dca-trades.yaml --manual  # you 
 
 A task is a YAML file: `goal`, `green` (the check, written before the code), `fence` (paths it may touch),
 `walls` (paths it cannot), `agent` (the command; `claude -p` by default, swap for `codex exec` or Hermes), budget.
-Rooms live in `../coliseum-rooms/<task>` on branch `harness/<task>`; a GREEN run leaves a commit there for a PR.
+Rooms live in `../protoss-rooms/<task>` on branch `harness/<task>`; a GREEN run leaves a commit there for a PR.
 
 ## The rules in one breath
 

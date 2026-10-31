@@ -1,10 +1,10 @@
 @echo off
 setlocal
 cd /d "%~dp0"
-title Coliseum demo
+title Protoss demo
 
 echo ==========================================
-echo   Coliseum  -  agentic trading orgs (sim)
+echo   Protoss  -  agentic trading orgs (sim)
 echo ==========================================
 echo.
 
@@ -44,7 +44,7 @@ echo Installing dependencies...
 "%VPY%" -m pip install -q -r requirements.txt || goto :fail
 
 echo.
-echo Starting Coliseum. Your browser will open http://localhost:8000
+echo Starting Protoss. Your browser will open http://localhost:8000
 echo Close this window (or press Ctrl-C) to stop everything.
 echo.
 "%VPY%" scripts\demo.py || goto :fail

@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 600" width="1600" height="600" role="img" aria-label="A shield wall: seven round shields overlapping into one wall, spears angled over them, crested helmets behind">
-  <!-- Coliseum hero illustration. Ink-only, transparent background.
+  <!-- Protoss hero illustration. Ink-only, transparent background.
        Colors are classes so an inlined copy can be retargeted by the page:
        .ink/.ink-stroke = ink, .paper/.paper-stroke = paper. The center helmet crest carries class "crest" for an optional spot color. -->
   <style>

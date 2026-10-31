@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Coliseum on a Mac mini, as always-on launchd services (API + bot fleet).
+# Protoss on a Mac mini, as always-on launchd services (API + bot fleet).
 #
-#   cd ~/coliseum && bash deploy/macmini/install.sh
+#   cd ~/protoss && bash deploy/macmini/install.sh
 #
-# Env overrides (first run only; afterwards edit backend/.env and `coliseumctl restart`):
+# Env overrides (first run only; afterwards edit backend/.env and `protossctl restart`):
 #   ARENA_MODE=paper|sim|testnet   default paper (real Hyperliquid prices, simulated fills)
-#   DATABASE_URL=postgresql+psycopg://...   default: local SQLite at backend/coliseum.db
+#   DATABASE_URL=postgresql+psycopg://...   default: local SQLite at backend/protoss.db
 #   PORT=8000
 #
 # Idempotent: re-running updates deps and reloads the services, keeps .env and bot keys.
@@ -51,10 +51,10 @@ say "Installing dependencies"
 if [ ! -f backend/.env ]; then
   TOKEN="$(.venv/bin/python -c 'import secrets; print(secrets.token_urlsafe(24))')"
   cat > backend/.env <<EOF
-# written by deploy/macmini/install.sh — edit and \`coliseumctl restart\`
+# written by deploy/macmini/install.sh — edit and \`protossctl restart\`
 ARENA_MODE=${ARENA_MODE:-paper}
 ADMIN_TOKEN=${TOKEN}
-DATABASE_URL=${DATABASE_URL:-sqlite:///./coliseum.db}
+DATABASE_URL=${DATABASE_URL:-sqlite:///./protoss.db}
 HL_BUILDER_FEE_TENTHS_BP=30
 HL_PERP_DEXS=["xyz"]
 TICK_SECONDS=5
@@ -69,7 +69,7 @@ else
 fi
 
 # ---- 4. launchd services ------------------------------------------------------------------------
-chmod +x deploy/macmini/*.sh deploy/macmini/coliseumctl
+chmod +x deploy/macmini/*.sh deploy/macmini/protossctl
 write_plist() {  # label, script
   cat > "$LA/$1.plist" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
@@ -90,11 +90,11 @@ write_plist() {  # label, script
 </dict></plist>
 EOF
 }
-write_plist com.coliseum.api run_api.sh
-write_plist com.coliseum.fleet run_fleet.sh
+write_plist com.protoss.api run_api.sh
+write_plist com.protoss.fleet run_fleet.sh
 
 say "Loading services"
-for svc in com.coliseum.api com.coliseum.fleet; do
+for svc in com.protoss.api com.protoss.fleet; do
   launchctl bootout "gui/$(id -u)/$svc" >/dev/null 2>&1 || true
   launchctl bootstrap "gui/$(id -u)" "$LA/$svc.plist"
 done
@@ -107,20 +107,20 @@ for _ in $(seq 1 60); do
 done
 HEALTH="$(curl -fsS "http://127.0.0.1:${PORT}/health" 2>/dev/null || true)"
 if [ -z "$HEALTH" ]; then
-  echo "API did not come up. Last log lines:" >&2; tail -n 20 logs/com.coliseum.api.log >&2; exit 1
+  echo "API did not come up. Last log lines:" >&2; tail -n 20 logs/com.protoss.api.log >&2; exit 1
 fi
 echo "    $HEALTH"
 case "$HEALTH" in *'"markets":0'*)
-  echo "    WARNING: no markets loaded — Hyperliquid unreachable? Switch to sim: deploy/macmini/coliseumctl mode sim" ;;
+  echo "    WARNING: no markets loaded — Hyperliquid unreachable? Switch to sim: deploy/macmini/protossctl mode sim" ;;
 esac
 
 LAN_IP="$(ipconfig getifaddr en0 2>/dev/null || ipconfig getifaddr en1 2>/dev/null || true)"
 TS_IP="$(command -v tailscale >/dev/null 2>&1 && tailscale ip -4 2>/dev/null | head -1 || true)"
 [ -z "$TS_IP" ] && [ -x /Applications/Tailscale.app/Contents/MacOS/Tailscale ] && TS_IP="$(/Applications/Tailscale.app/Contents/MacOS/Tailscale ip -4 2>/dev/null | head -1 || true)"
 echo
-say "Coliseum is running (and will restart on reboot)."
+say "Protoss is running (and will restart on reboot)."
 echo "    this Mac:   http://localhost:${PORT}"
 [ -n "$LAN_IP" ] && echo "    on your LAN: http://${LAN_IP}:${PORT}"
 [ -n "$TS_IP" ]  && echo "    Tailscale:   http://${TS_IP}:${PORT}"
-echo "    logs:        deploy/macmini/coliseumctl logs      status: deploy/macmini/coliseumctl status"
-echo "    public URL:  deploy/macmini/coliseumctl funnel    (Tailscale Funnel → https://<mini>.<tailnet>.ts.net)"
+echo "    logs:        deploy/macmini/protossctl logs      status: deploy/macmini/protossctl status"
+echo "    public URL:  deploy/macmini/protossctl funnel    (Tailscale Funnel → https://<mini>.<tailnet>.ts.net)"

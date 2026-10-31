@@ -1,7 +1,7 @@
 # Runbooks
 
 ## Run locally
-`pip install -r requirements.txt` then `python scripts/demo.py` (any OS; `run_coliseum.bat` on Windows).
+`pip install -r requirements.txt` then `python scripts/demo.py` (any OS; `run_protoss.bat` on Windows).
 Sim mode, SQLite, opens http://localhost:8000. `DATABASE_URL=postgresql+psycopg://... python scripts/demo.py` for Postgres (truncates tables).
 
 ## Tests
@@ -9,8 +9,8 @@ Sim mode, SQLite, opens http://localhost:8000. `DATABASE_URL=postgresql+psycopg:
 Local Postgres for that: `/usr/lib/postgresql/16/bin/initdb` + `pg_ctl` on port 5433 (see git history 2026-10-31).
 
 ## Mac mini (always-on)
-`cd ~/coliseum && DATABASE_URL='...' bash deploy/macmini/install.sh`. Then `deploy/macmini/coliseumctl status|logs|restart|mode|funnel|url`.
-Services `com.coliseum.api`, `com.coliseum.fleet`; logs in `logs/`. Public URL: `coliseumctl funnel` (Tailscale Funnel).
+`cd ~/protoss && DATABASE_URL='...' bash deploy/macmini/install.sh`. Then `deploy/macmini/protossctl status|logs|restart|mode|funnel|url`.
+Services `com.protoss.api`, `com.protoss.fleet`; logs in `logs/`. Public URL: `protossctl funnel` (Tailscale Funnel).
 
 ## Supabase
 Project `koinon` (ref hgegigtdjkkclexqnuoy, us-east-1; the project keeps the old name). Migrations in `backend/migrations/`,
@@ -23,7 +23,7 @@ Connection string: dashboard Connect > Transaction pooler, scheme `postgresql+ps
 Outside wallets approve on `#/approve`. Fills CSV: `builder.py fills --date YYYYMMDD`.
 
 ## Release a zip
-`git ls-files -z | xargs -0 cp --parents -t out/coliseum/` + `web/dist` > zip `coliseum-vX.Y.zip` > attach in chat / sync to the PC.
+`git ls-files -z | xargs -0 cp --parents -t out/protoss/` + `web/dist` > zip `protoss-vX.Y.zip` > attach in chat / sync to the PC.
 
 ## X thread
 Draft in `brand/x-thread.md` style, run the anti-slop audit in [[voice]] (or the `x-anti-slop` skill), 7 to 9 posts,

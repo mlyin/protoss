@@ -10,10 +10,10 @@ jobs:
     services:
       postgres:
         image: postgres:16
-        env: { POSTGRES_USER: coliseum, POSTGRES_PASSWORD: coliseum, POSTGRES_DB: coliseum }
+        env: { POSTGRES_USER: protoss, POSTGRES_PASSWORD: protoss, POSTGRES_DB: protoss }
         ports: ["5432:5432"]
         options: >-
-          --health-cmd "pg_isready -U coliseum" --health-interval 5s --health-timeout 5s --health-retries 10
+          --health-cmd "pg_isready -U protoss" --health-interval 5s --health-timeout 5s --health-retries 10
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
@@ -25,7 +25,7 @@ jobs:
       - run: cd web && npm ci && npm run build
       - name: harness/check.sh
         env:
-          TEST_DATABASE_URL: postgresql+psycopg://coliseum:coliseum@localhost:5432/coliseum
+          TEST_DATABASE_URL: postgresql+psycopg://protoss:protoss@localhost:5432/protoss
         run: bash harness/check.sh --base ${{ github.event.pull_request.base.sha || 'HEAD~1' }}
       - name: gate
         run: python harness/gate.py --base ${{ github.event.pull_request.base.sha || 'HEAD~1' }}

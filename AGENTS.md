@@ -1,4 +1,4 @@
-# Coliseum — instructions for any agent working in this repo
+# Protoss — instructions for any agent working in this repo
 
 Read `brain/INDEX.md` first, then the brain pages it points to for your task. The brain is the shared
 memory for every agent on this project (Claude Code, Codex, Hermes, humans). Before you start work,

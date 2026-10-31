@@ -8,8 +8,8 @@ const cls = (v) => (v > 0 ? 'pos' : v < 0 ? 'neg' : '')
 const when = (iso) => { const d = new Date(iso); const s = (Date.now() - d) / 1000; return s < 60 ? 'now' : s < 3600 ? `${Math.floor(s / 60)}m` : s < 86400 ? `${Math.floor(s / 3600)}h` : d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) }
 
 export function useMe() {
-  const [me, setMe] = useState(() => { try { return localStorage.getItem('coliseum.me') || '' } catch { return '' } })
-  const set = (h) => { setMe(h); try { localStorage.setItem('coliseum.me', h) } catch { /* private mode */ } }
+  const [me, setMe] = useState(() => { try { return localStorage.getItem('protoss.me') || '' } catch { return '' } })
+  const set = (h) => { setMe(h); try { localStorage.setItem('protoss.me', h) } catch { /* private mode */ } }
   return [me, set]
 }
 

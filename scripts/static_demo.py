@@ -89,14 +89,14 @@ SHIM = r"""
     }
     return json({ detail: note }, 501);
   };
-  window.COLISEUM_STATIC = { frozen_at: SNAP.frozen_at, note };
+  window.PROTOSS_STATIC = { frozen_at: SNAP.frozen_at, note };
 })();
 </script>
 """
 
 BANNER = """
 <div id="static-note" style="background:#22221f;color:#aaa398;font:12px/18px Inter,system-ui,sans-serif;padding:6px max(16px, env(safe-area-inset-left, 0px));border-bottom:1px solid rgba(239,233,222,.08)">Frozen demo · snapshot of a paper/sim run · writes are off · <span id="static-when"></span></div>
-<script>document.getElementById('static-when').textContent = 'frozen ' + new Date(window.COLISEUM_STATIC.frozen_at).toLocaleString();</script>
+<script>document.getElementById('static-when').textContent = 'frozen ' + new Date(window.PROTOSS_STATIC.frozen_at).toLocaleString();</script>
 """
 
 
@@ -109,7 +109,7 @@ def build(snap: dict, out: Path, artifact: bool) -> None:
     js = js.replace('"/mark.svg"', json.dumps(mark_uri)).replace("'/mark.svg'", json.dumps(mark_uri))
     fonts = re.search(r'<link[^>]+fonts\.googleapis\.com[^>]+>', index)
     head = [
-        "<title>Coliseum</title>",
+        "<title>Protoss</title>",
         '<meta name="claude:viewport-fit-sides" content="cover">' if artifact else "",
         '<link rel="preconnect" href="https://fonts.googleapis.com">',
         fonts.group(0) if fonts else "",

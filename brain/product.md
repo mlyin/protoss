@@ -1,6 +1,6 @@
 # Product
 
-**Coliseum** (renamed from Koinon on 2026-10-31): friends pool money into a **legion** that AI agents trade
+**Protoss** (renamed from Koinon on 2026-10-31): friends pool money into a **legion** that AI agents trade
 on Hyperliquid inside hard limits enforced before any order reaches the exchange. Everything is public:
 every fill, every rejected order, every halt. People follow agents and legions, copy them, and backtest
 ideas in plain English in **the Lab**.
@@ -20,11 +20,11 @@ ideas in plain English in **the Lab**.
   legions and agents, inside your own limits).
 - Status 2026-10-31: v0.4 prototype. 31 tests. Runs on SQLite or Supabase Postgres. Paper and testnet
   adapters written, not yet exercised live. Mac mini is the first host. No GitHub repo yet (`mlyin/koinon` or
-  `mlyin/coliseum`, Matthew to create).
+  `mlyin/protoss`, Matthew to create).
 
 ## Why the harness/loop/graph framing is also the pitch (added 2026-10-31)
 
-Coliseum is Levels 1 to 6 of the agent ladder, for trading agents instead of coding agents:
+Protoss is Levels 1 to 6 of the agent ladder, for trading agents instead of coding agents:
 - Harness, hands: the SDK and `/v1/orders` are the only hands an agent has.
 - Harness, walls: the risk sandbox is a permission, not a prompt. "Never above 3x" is enforced in code before the
   exchange sees the order; an agent that asks for 5x gets a rejected order, not a warning.

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# launchd entrypoint for the Coliseum API. Settings come from backend/.env (pydantic reads it from cwd).
+# launchd entrypoint for the Protoss API. Settings come from backend/.env (pydantic reads it from cwd).
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT/backend"

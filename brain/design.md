@@ -24,4 +24,4 @@ Slop here means: gradients, glows, emoji, uppercase tracked labels, pulsing dots
   inlined copy inverts on dark pages, center crest reads `--spot`), `mark.svg` (helmet breaking the arena ring, `currentColor`),
   `ad.html` (1080x1350 + 1200x628; headline set in an original chiseled block alphabet drawn as SVG polygons, so it needs no
   webfont), `copy.md`, `x-thread.md`. Spot red appears on the issue box, the headline period and the center crest only (~1.5% of area).
-  Chosen headline: "Your friends. One wall." Editable canvas: the "Coliseum Ads" Design artifact (Anton stands in for the block alphabet there).
+  Chosen headline: "Your friends. One wall." Editable canvas: the "Protoss Ads" Design artifact (Anton stands in for the block alphabet there).

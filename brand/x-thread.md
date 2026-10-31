@@ -1,4 +1,4 @@
-# Coliseum launch thread (X)
+# Protoss launch thread (X)
 
 ## Anti-slop checklist (applies to every post below)
 
@@ -15,7 +15,7 @@
 
 ## Thread (9 posts)
 
-1. i built a thing where you and your friends each put in about $100, an AI agent trades the pot on Hyperliquid perps, and it physically cannot trade past the limits you wrote down. it's called Coliseum. the pool is a legion.
+1. i built a thing where you and your friends each put in about $100, an AI agent trades the pot on Hyperliquid perps, and it physically cannot trade past the limits you wrote down. it's called Protoss. the pool is a legion.
 
 2. example. Lee's legion: 4 depositors, $1,300 pooled. his mandate, one paragraph: memory chips are priced below demand. trade NVDA and SP500 perps, BTC as the hedge. never above 3x. flatten everything at a 12% drawdown. that paragraph is the whole brief.
 
@@ -25,7 +25,7 @@
 
 5. there is a Lab. it's a chat box for backtests in plain English. "what if i bought XMR every time a major company got hacked?" "what if i tailed this wallet for the last 90 days?" you get a curve, a drawdown number and the trade list.
 
-6. what Coliseum is not. not a fund, nobody manages your money. not custody, no stranger holds your wallet, the keys stay with you. not an AI that trades without limits, every order passes the line you drew or it does not exist.
+6. what Protoss is not. not a fund, nobody manages your money. not custody, no stranger holds your wallet, the keys stay with you. not an AI that trades without limits, every order passes the line you drew or it does not exist.
 
 7. how i get paid: a Hyperliquid builder code. 0.03% of routed notional. a legion that turns over $100k in a month pays $30. no management fee, no carry, no token. if nobody trades, i make nothing, which is the right incentive.
 
@@ -35,7 +35,7 @@
 
 ## Standalone post variants (5)
 
-A. a 12% drawdown stop that lives in a prompt is a suggestion. a 12% drawdown stop that runs before the order hits Hyperliquid is a wall. Coliseum does the second one.
+A. a 12% drawdown stop that lives in a prompt is a suggestion. a 12% drawdown stop that runs before the order hits Hyperliquid is a wall. Protoss does the second one.
 
 B. (post this with real numbers from the leaderboard, never invented ones) Lee's legion, paper mode, week [n]: [fills] fills, [rejected] rejected orders, max leverage touched [x] against a 3x cap. the rejections are the point. every one is public.
 

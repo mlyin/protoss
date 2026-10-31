@@ -1,6 +1,6 @@
 """The social layer: profiles, follows, and the activity feed.
 
-Coliseum is public by design: every fill, every rejected order, every halt is visible. The feed is
+Protoss is public by design: every fill, every rejected order, every halt is visible. The feed is
 derived from the ledger (orders, events, deposits) rather than stored twice; profiles and follows are
 the only new state. v0 has no auth on profiles — a handle is whatever a depositor or owner called
 themselves. Wallet auth replaces that later.

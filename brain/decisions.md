@@ -1,9 +1,10 @@
 # Decisions
 
+- 2026-10-31: Product name is Protoss (was Coliseum, was Koinon) as of Oct 31; domain protoss.trade; repo mlyin/protoss. Legion = the pooled org.
 - 2026-10-31: Dev process runs on harness/ (check.sh GREEN, feedback with dead ends, gates by undo cost, rooms per task). CI runs the same check on PRs.
-- 2026-10-31: Ad headline is 'Your friends. One wall.'; brand files live in brand/, posters also on the 'Coliseum Ads' Design canvas.
+- 2026-10-31: Ad headline is 'Your friends. One wall.'; brand files live in brand/, posters also on the 'Protoss Ads' Design canvas.
 - 2026-10-31: Shared brain lives in brain/ (LLM-wiki pattern); CLAUDE.md and AGENTS.md point every agent at it. Corrections go in corrections.md, one line, dated.
-- 2026-10-31: Rebrand Koinon -> **Coliseum**; pooled org -> **legion**. Design motto: black-and-white comic Spartans. (Matthew)
+- 2026-10-31: Rebrand Koinon -> **Protoss**; pooled org -> **legion**. Design motto: black-and-white comic Spartans. (Matthew)
 - 2026-10-31: Add a social layer (profiles, follows, derived feed, legion pages with invite + deposit) and the Lab
   (plain-English backtesting chat). Anyone can open a legion in sim/paper; testnet needs the admin API until wallet auth.
 - 2026-10-31: First host is a Mac mini with launchd + Tailscale Funnel; Render/Fly later once the GitHub repo exists.

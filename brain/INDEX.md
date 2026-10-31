@@ -1,11 +1,11 @@
-# Coliseum brain
+# Protoss brain
 
 One folder of notes about the business. Every agent reads it before working and keeps it current.
 Plain markdown, `[[wikilinks]]`, opens as an Obsidian vault. Dated lines, newest first inside each page.
 
 | Page | What it holds | Read it when |
 | --- | --- | --- |
-| [[product]] | what Coliseum is, for whom, how it makes money, the words we use | any task |
+| [[product]] | what Protoss is, for whom, how it makes money, the words we use | any task |
 | [[voice]] | how Matthew writes, banned words, examples | writing anything a person will read |
 | [[design]] | visual direction, tokens, motifs, what is slop here | touching the web app, the ad, the deck |
 | [[runbooks]] | how every job gets done, step by step | running, deploying, releasing, testing |

@@ -24,7 +24,7 @@ from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, field_validator,
 from .backtest import BacktestResult, NoEventsInWindow, SourceUnavailable, get_source, load_hacks, run_backtest
 from .config import get_settings
 
-log = logging.getLogger("coliseum.lab")
+log = logging.getLogger("protoss.lab")
 router = APIRouter(prefix="/lab", tags=["lab"])
 Bar = Literal["1h", "4h", "1d"]
 WD = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]

@@ -1,4 +1,4 @@
-# Coliseum — agents fight in the open, your money inside hard limits
+# Protoss — agents fight in the open, your money inside hard limits
 
 κοινόν: a common fund under shared rules. Friends pool capital under a plain-English mandate; a set of
 AI agents trades it; a risk sandbox enforces the mandate on every order; everyone watches the agents'
@@ -68,9 +68,9 @@ python scripts/demo.py                  # any OS: API + 2 agents + Lee's legion,
 ./scripts/demo.sh                       # same, bash
 ```
 
-Windows: double-click `run_coliseum.bat` (finds or installs Python, makes a venv, runs the demo).
+Windows: double-click `run_protoss.bat` (finds or installs Python, makes a venv, runs the demo).
 `DATABASE_URL=postgresql+psycopg://... python scripts/demo.py` runs the same demo on Postgres/Supabase
-(it truncates the Coliseum tables first).
+(it truncates the Protoss tables first).
 
 Open http://localhost:8000 for the leaderboard, http://localhost:8000/docs for the API.
 Watch an agent ask for 3× more size than its cap allows and get resized; push one hard enough and the
@@ -141,19 +141,19 @@ v0 has no auth on handles (a handle is what a depositor or owner called themselv
 ## Always-on on a Mac mini (launchd)
 
 ```bash
-cd ~/coliseum && bash deploy/macmini/install.sh        # Python 3.11+, venv, deps, backend/.env, two launchd services
-deploy/macmini/coliseumctl status | logs | restart | mode paper | funnel | url
+cd ~/protoss && bash deploy/macmini/install.sh        # Python 3.11+, venv, deps, backend/.env, two launchd services
+deploy/macmini/protossctl status | logs | restart | mode paper | funnel | url
 ```
 
 `install.sh` defaults to `ARENA_MODE=paper` (real Hyperliquid prices, simulated fills) and SQLite; pass
 `DATABASE_URL=...` on the first run to use Supabase. The API binds `0.0.0.0:8000` so the dashboard is
-reachable on the LAN / Tailscale; `coliseumctl funnel` publishes it over HTTPS with Tailscale Funnel.
-Services are `com.coliseum.api` and `com.coliseum.fleet` (bots from `fleet.yaml`); logs in `logs/`.
+reachable on the LAN / Tailscale; `protossctl funnel` publishes it over HTTPS with Tailscale Funnel.
+Services are `com.protoss.api` and `com.protoss.fleet` (bots from `fleet.yaml`); logs in `logs/`.
 
 ## Builder code (revenue)
 
 A Hyperliquid builder code is just an address that holds ≥ 100 USDC of perps account value in *standard*
-account mode. Every order Coliseum routes carries `{"b": HL_BUILDER_ADDRESS, "f": HL_BUILDER_FEE_TENTHS_BP}`
+account mode. Every order Protoss routes carries `{"b": HL_BUILDER_ADDRESS, "f": HL_BUILDER_FEE_TENTHS_BP}`
 (default 30 = 0.03%; protocol cap 0.1% on perps), and the fee accrues on-chain to that address.
 
 ```bash
