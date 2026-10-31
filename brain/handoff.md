@@ -6,8 +6,8 @@ and follows him; this page is about the repo.
 
 ## Update 2026-10-31 (afternoon, Mac mini session)
 Blocked on Matthew, in order:
-1. `gh auth login -h github.com -p https -w -s repo,workflow` on the mini. The stored token is a fine-grained PAT scoped to
-   flock: 403 on push to protoss and on POST /pages. Work sits on local branch `claude/project-thread-495i0w` until then.
+1. Done 16:06: gh on the mini now has repo scope; branch `claude/project-thread-495i0w` is pushed; Pages is on (Actions)
+   with custom domain protoss.trade and the workflow is green. It serves nothing at protoss.trade until DNS exists.
 2. Cloudflare sign-in: DNS (`CNAME @` and `www` to mlyin.github.io, proxy off) and a Cloudflare Tunnel for
    `app.protoss.trade`. Funnel cannot carry a custom domain. `cloudflared` is installed.
 3. Master wallet: create the first legion's vault (runbooks, "pooling into a vault").
