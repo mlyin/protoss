@@ -167,3 +167,22 @@ def test_moonpay_webhook_marks_a_failed_payment(client, monkeypatch):
     r = _moonpay_post(client, "wk_test_x", {"type": "transaction_failed", "data": {"status": "failed", "externalTransactionId": sid}})
     assert r.json()["session_status"] == "failed"
     assert client.get(f"/onboard/session/{sid}").json()["status"] == "failed"
+
+
+def test_moonpay_webhook_rejects_signed_garbage_and_never_unstakes(client, monkeypatch):
+    import hashlib
+    import hmac
+    import time
+    monkeypatch.setenv("ONRAMP_MOONPAY_WEBHOOK_KEY", "wk_test_x")
+    get_settings.cache_clear()
+    t = str(int(time.time()))
+    for body in (b"not json", b"[1, 2]"):
+        sig = hmac.new(b"wk_test_x", t.encode() + b"." + body, hashlib.sha256).hexdigest()
+        r = client.post("/onboard/webhooks/moonpay", content=body, headers={"Moonpay-Signature-V2": f"t={t},s={sig}"})
+        assert r.status_code == 400, body
+    assert client.post("/onboard/webhooks/moonpay", content=b"{}", headers={"Moonpay-Signature-V2": "garbage"}).status_code == 401
+    seed_legion(client, vault=VAULT)
+    sid = client.post("/onboard/session", json={"legion": "lee-semis", "amount_usd": 100, "provider": "manual", "wallet": WALLET, "region": "DE"}).json()["session_id"]
+    client.post(f"/onboard/session/{sid}/staked", json={"tx": "0xfeed"})
+    done = {"type": "transaction_updated", "data": {"status": "completed", "externalTransactionId": sid, "quoteCurrencyAmount": 1}}
+    assert _moonpay_post(client, "wk_test_x", done).json()["session_status"] == "staked"

@@ -265,6 +265,7 @@ function Stake({ res, session, org, onStaked }) {
       if (!account || account.toLowerCase() !== (res.wallet || '').toLowerCase()) throw new Error(`Switch to ${short(res.wallet)}, the wallet the funds went to.`)
       const b = await getJson('/builder').catch(() => ({}))
       const usd = Math.floor((session.funded_usd || 0) * 100) / 100
+      if (!(usd >= 1)) throw new Error('Nothing to stake yet. Wait for the funds to show, then try again.')
       const j = await stakeInVault(provider, { account, vault: res.destination.address, usd, mainnet: b.network !== 'Testnet' })
       await fetch(`/onboard/session/${res.session_id}/staked`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ tx: JSON.stringify(j.response || '').slice(0, 200) }) })
       onStaked?.()
