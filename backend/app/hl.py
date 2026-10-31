@@ -288,6 +288,8 @@ class TestnetExchange:
         return self._ex_cache[vault]
 
     def on_agent_created(self, db: Session, agent: Agent) -> None:
+        if self._account_for(db, agent) != agent.hl_subaccount:
+            return  # a vault-backed legion: the agent trades the vault itself, no sub-account and no transfer
         ex = self._exchange(None)
         res = ex.create_sub_account(f"arena-{agent.name}"[:32])
         sub = (res.get("response", {}).get("data") if isinstance(res, dict) else None) or res
@@ -332,8 +334,35 @@ class TestnetExchange:
             return ex.market_open(market, is_buy, size, None, 0.01, builder=builder)
         return ex.order(market, is_buy, size, limit_px, {"limit": {"tif": "Ioc"}}, reduce_only, builder=builder)
 
+    # --- vaults (non-custodial pooling)
+    def _account_for(self, db, agent) -> str | None:
+        """The Hyperliquid account an agent trades: its legion's vault when one is set, else its sub-account."""
+        if agent.org_id:
+            from .models import Org
+
+            org = db.get(Org, agent.org_id)
+            if org and org.hl_vault:
+                return org.hl_vault
+        return agent.hl_subaccount
+
+    def vault_details(self, vault: str) -> dict | None:
+        """Hyperliquid's view of a vault: leader, TVL, followers and what each put in. None when unreachable."""
+        try:
+            return self.info.post("/info", {"type": "vaultDetails", "vaultAddress": vault})
+        except Exception:
+            return None
+
+    def account_equity(self, address: str) -> float:
+        total = 0.0
+        for dex in self._dexs:
+            try:
+                total += float(self.info.user_state(address, dex)["marginSummary"]["accountValue"])
+            except Exception:
+                continue
+        return total
+
     def place(self, db, agent, market, side, size, order_type, limit_px, reduce_only) -> Fill | None:
-        ex = self._exchange(agent.hl_subaccount)
+        ex = self._exchange(self._account_for(db, agent))
         is_buy = side == "buy"
         builder = self._builder()
         res = self._send(ex, market, is_buy, size, order_type, limit_px, reduce_only, builder)
@@ -367,9 +396,10 @@ class TestnetExchange:
 
     def positions(self, db, agent) -> dict[str, tuple[float, float]]:
         out: dict[str, tuple[float, float]] = {}
+        account = self._account_for(db, agent)
         for dex in self._dexs:
             try:
-                state = self.info.user_state(agent.hl_subaccount, dex)
+                state = self.info.user_state(account, dex)
             except Exception:
                 continue
             for ap in state.get("assetPositions", []):
@@ -380,14 +410,7 @@ class TestnetExchange:
         return out
 
     def equity(self, db, agent) -> float:
-        total = 0.0
-        for dex in self._dexs:
-            try:
-                state = self.info.user_state(agent.hl_subaccount, dex)
-                total += float(state["marginSummary"]["accountValue"])
-            except Exception:
-                continue
-        return total
+        return self.account_equity(self._account_for(db, agent))
 
 
 _adapter: ExchangeAdapter | None = None

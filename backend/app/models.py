@@ -53,7 +53,8 @@ class Org(Base):
     """A legion: friends' pooled capital under one mandate, traded by a set of agents.
 
     In sim/paper the pool is our own ledger (deposits -> pool_cash -> allocations to member agents).
-    On testnet this maps onto a Hyperliquid vault (next step)."""
+    With `hl_vault` set, the pool is a Hyperliquid vault: depositors put USDC in on Hyperliquid itself and
+    withdraw it themselves; the leader's key (our master) can trade the vault but never move their money."""
 
     __tablename__ = "orgs"
 
@@ -69,6 +70,7 @@ class Org(Base):
     halted_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     profit_share_pct: Mapped[float] = mapped_column(Float, default=10.0)  # the vault leader's cut, Hyperliquid convention
 
+    hl_vault: Mapped[str | None] = mapped_column(String(42), nullable=True)  # Hyperliquid vault address (non-custodial pool)
     pool_cash: Mapped[float] = mapped_column(Float, default=0.0)  # deposited but not yet allocated to an agent
     total_deposited: Mapped[float] = mapped_column(Float, default=0.0)
     peak_equity: Mapped[float] = mapped_column(Float, default=0.0)
