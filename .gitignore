@@ -12,3 +12,4 @@ web/dist/
 .fleet-keys.json
 .builder-wallet.json
 dist-release/
+dist-static/
