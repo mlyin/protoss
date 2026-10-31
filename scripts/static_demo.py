@@ -37,7 +37,7 @@ def snapshot(api: str) -> dict:
         get[path] = r.json() if r.headers.get("content-type", "").startswith("application/json") else r.text
         return get[path]
 
-    for p in ("/health", "/stats", "/builder", "/lab/examples", "/v1/markets", "/fills?limit=12", "/feed?limit=80"):
+    for p in ("/health", "/stats", "/builder", "/lab/examples", "/v1/markets", "/fills?limit=12", "/feed?limit=80", "/onboard/options"):
         g(p)
     for d in (1, 7, 30):
         g(f"/leaderboard?window_days={d}")

@@ -1,5 +1,6 @@
 import datetime as dt
 import os
+import shutil
 
 import pytest
 
@@ -9,6 +10,7 @@ os.environ["ADMIN_TOKEN"] = "test-admin"
 
 from fastapi.testclient import TestClient  # noqa: E402
 
+from app import backtest as B  # noqa: E402
 from app import db as dbmod  # noqa: E402
 from app import hl  # noqa: E402
 from app.backtest import load_hacks  # noqa: E402
@@ -21,6 +23,13 @@ HEX40 = "0x" + "ab" * 20
 def client(tmp_path, monkeypatch):
     monkeypatch.setenv("DATABASE_URL", f"sqlite:///{tmp_path}/t.db")
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)  # the rule-based planner must carry every test offline
+    # the Lab answers from cached candles where it has them; pin the cache to XMR so these tests do not move
+    # every time scripts/candles.py ships another market
+    cache = tmp_path / "candles"
+    cache.mkdir()
+    shutil.copy(B.FileCandles.DIR / "XMR_1d.csv", cache / "XMR_1d.csv")
+    monkeypatch.setattr(B.FileCandles, "DIR", cache)
+    B._source = None
     get_settings.cache_clear()
     dbmod.reset_engine_for_tests()
     hl.set_exchange_for_tests(hl.SimExchange(get_settings(), seed=3))
