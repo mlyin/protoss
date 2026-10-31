@@ -62,6 +62,7 @@ if [ -n "$FENCE" ]; then
   changed="$(git diff --name-only "$BASE" 2>/dev/null; git ls-files --others --exclude-standard)"
   outside=""
   for f in $changed; do
+    case "$f" in PROGRESS.md|web/node_modules|.venv|harness/runs/*) continue ;; esac   # the harness's own files
     inside=0
     for p in $FENCE; do case "$f" in $p|$p/*) inside=1 ;; esac; done
     [ $inside -eq 0 ] && outside="$outside $f"
