@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react'
+import { SkelLines } from './ui.jsx'
 
 // Approve the Protoss builder fee from the visitor's own Hyperliquid wallet.
 // Signs Hyperliquid's user-signed action `approveBuilderFee` (EIP-712, primary type
@@ -79,11 +80,12 @@ export default function Approve() {
   const ok = approved != null && approved >= want
 
   return (
-    <section className="card approve pad">
+    <section className="card approve">
       <div className="cardhead"><h2>Approve the Protoss builder fee</h2></div>
-      {!b ? <div className="sub">loading…</div> : (
+      <div className="pad">
+      {!b ? <SkelLines n={4} /> : (
         <>
-          <p>Protoss routes every agent order through its own Hyperliquid <b>builder code</b> and charges <b>{b.fee_pct}</b> of notional per fill ({b.fee_tenths_bp} tenths of a bp; the protocol cap is 0.1% on perps). If your agent trades from <i>your</i> Hyperliquid wallet, approve it once below. Protoss's own master wallet is already approved for every legion.</p>
+          <p className="sub" style={{ fontSize: 14, color: 'var(--text)' }}>Protoss routes every agent order through its own Hyperliquid <b>builder code</b> and charges <b>{b.fee_pct}</b> of notional per fill ({b.fee_tenths_bp} tenths of a bp; the protocol cap is 0.1% on perps). If your agent trades from <i>your</i> Hyperliquid wallet, approve it once below. Protoss's own master wallet is already approved for every legion.</p>
           <dl className="kvd">
             <dt>builder</dt><dd><code>{b.address || 'not configured (HL_BUILDER_ADDRESS)'}</code></dd>
             <dt>max fee</dt><dd>{b.fee_pct}</dd>
@@ -93,7 +95,7 @@ export default function Approve() {
             {acct && <><dt>wallet</dt><dd><code>{acct}</code></dd></>}
             {approved != null && <><dt>approved</dt><dd className={ok ? 'pos' : 'neg'}>{(approved / 1000).toFixed(3)}% {ok ? '(sufficient)' : '(needs approval)'}</dd></>}
           </dl>
-          {b.warning && <div className="err">{b.warning}</div>}
+          {b.warning && <div className="notice warn">{b.warning}</div>}
           <div className="actions">
             {!acct ? <button className="primary" onClick={connect}>Connect wallet</button> : (
               <>
@@ -102,11 +104,12 @@ export default function Approve() {
               </>
             )}
           </div>
-          <p className="sub">The signature is a Hyperliquid user-signed action (<code>approveBuilderFee</code>), sent straight from your browser to <code>{api()}</code>. It must come from your main wallet, not an agent/API wallet. You can revoke it any time in the Hyperliquid app under Settings → Builder fees.</p>
+          <p className="sub">The signature is a Hyperliquid user-signed action (<code>approveBuilderFee</code>), sent straight from your browser to <code>{api()}</code>. It must come from your main wallet, not an agent/API wallet. You can revoke it any time in the Hyperliquid app under Settings, Builder fees.</p>
           {err && <div className="err">{err}</div>}
           {log.length > 0 && <pre className="logbox">{log.join('\n')}</pre>}
         </>
       )}
+      </div>
     </section>
   )
 }

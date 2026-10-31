@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
+import { SkelLines } from './ui.jsx'
 
 // The Lab: ask a what-if in plain English, get a backtest back, deploy it as an agent.
 // Talks to POST /lab/chat (see backend/app/lab.py for the contract).
@@ -49,7 +50,7 @@ function Result({ r, deployable }) {
         <details>
           <summary className="sub">Trades ({r.trades_sample.length} of {r.trades})</summary>
           <div className="tablewrap"><table className="mini">
-            <thead><tr><th>when</th><th>side</th><th className="num">price</th><th className="num">size</th><th>why</th></tr></thead>
+            <thead><tr><th>When</th><th>Side</th><th className="num">Price</th><th className="num">Size</th><th>Why</th></tr></thead>
             <tbody>{r.trades_sample.map((t, i) => <tr key={i}><td>{day(t.ts)}</td><td className={t.side === 'buy' ? 'pos' : 'neg'}>{t.side}</td><td className="num">{Number(t.px).toLocaleString()}</td><td className="num">{Number(t.size).toFixed(4)}</td><td className="text sub">{t.reason}</td></tr>)}</tbody>
           </table></div>
         </details>
@@ -58,7 +59,7 @@ function Result({ r, deployable }) {
       {deployable && (
         <div className="deploy">
           <div><b>Deploy as an agent</b><div className="sub">Inside hard limits: {deployable.limits.max_leverage}× max · stop at {deployable.limits.drawdown_flatten_pct}% drawdown · {deployable.limits.daily_loss_pct}% daily loss · {deployable.markets.join(', ')} only</div></div>
-          <button className="primary" onClick={copy}>{copied ? 'Copied' : 'Copy fleet.yaml entry'}</button>
+          <button onClick={copy}>{copied ? 'Copied' : 'Copy fleet.yaml entry'}</button>
         </div>
       )}
     </div>
@@ -93,7 +94,7 @@ export default function Lab() {
   }
 
   return (
-    <section className="lab">
+    <section className="lab narrow">
       <div className="lab-head">
         <h1>The Lab</h1>
         <p className="sub">What if I bought XMR every time a major company got hacked? What if I tailed this wallet? Say it like you'd say it to a friend.</p>
@@ -107,14 +108,14 @@ export default function Lab() {
             </div>
           </div>
         ))}
-        {busy && <div className="msg ai"><div className="bubble sub">running…</div></div>}
+        {busy && <div className="msg ai"><div className="bubble"><SkelLines n={3} widths={['45%', '80%', '60%']} /></div></div>}
         <div ref={endRef} />
       </div>
       {examples.length > 0 && msgs.length < 3 && (
         <div className="examples">{examples.map((e) => <button key={e} onClick={() => ask(e)}>{e}</button>)}</div>
       )}
       <form className="ask" onSubmit={(e) => { e.preventDefault(); ask() }}>
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="what if I…" disabled={busy} autoFocus />
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="what if I…" disabled={busy} autoFocus aria-label="Your what-if" />
         <button className="primary" disabled={busy || !q.trim()}>Run</button>
       </form>
     </section>
