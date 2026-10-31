@@ -11,3 +11,4 @@ web/dist/
 .DS_Store
 .fleet-keys.json
 .builder-wallet.json
+dist-release/
