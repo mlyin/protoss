@@ -3,6 +3,7 @@ from __future__ import annotations
 from contextlib import contextmanager
 from typing import Iterator
 
+from fastapi import Depends
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
@@ -66,3 +67,8 @@ def session() -> Iterator[Session]:
 def get_db() -> Iterator[Session]:
     with session() as s:
         yield s
+
+
+# scope="function": commit/close BEFORE the response is sent. FastAPI >= 0.118 defaults yield-dependencies
+# to exit after the response, which let the next request race the commit and lose updates on SQLite.
+DbDep = Depends(get_db, scope="function")

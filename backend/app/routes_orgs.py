@@ -22,7 +22,7 @@ from sqlalchemy.orm import Session
 from . import orgs as O
 from .auth import hash_key, new_key, require_admin
 from .config import get_settings
-from .db import get_db
+from .db import get_db, DbDep
 from .hl import ExchangeAdapter, get_exchange
 from .ledger import metrics_for
 from .models import Agent, Event, Order, Org, OrgLimits
@@ -85,7 +85,7 @@ def _org(db: Session, slug: str) -> Org:
     return org
 
 
-def require_org_owner(slug: str, authorization: str | None = Header(default=None), db: Session = Depends(get_db)) -> Org:
+def require_org_owner(slug: str, authorization: str | None = Header(default=None), db: Session = DbDep) -> Org:
     org = _org(db, slug)
     if not authorization or not authorization.lower().startswith("bearer "):
         raise HTTPException(401, "org owner key required")
@@ -134,7 +134,7 @@ def _summary(db: Session, ex: ExchangeAdapter, org: Org) -> dict:
 # ------------------------------------------------------------------------------------------------ admin
 
 @router.post("/admin/orgs", status_code=201, dependencies=[Depends(require_admin)])
-def create_org(body: OrgCreate, db: Session = Depends(get_db), ex: ExchangeAdapter = Depends(exchange)):
+def create_org(body: OrgCreate, db: Session = DbDep, ex: ExchangeAdapter = Depends(exchange)):
     slug = body.slug or _slugify(body.name)
     if db.scalar(select(Org).where(Org.slug == slug)):
         raise HTTPException(409, "slug taken")
@@ -165,7 +165,7 @@ def create_org(body: OrgCreate, db: Session = Depends(get_db), ex: ExchangeAdapt
 # ------------------------------------------------------------------------------------------------ org owner
 
 @router.post("/orgs/{slug}/agents", status_code=201)
-def add_member(slug: str, body: MemberCreate, org: Org = Depends(require_org_owner), db: Session = Depends(get_db), ex: ExchangeAdapter = Depends(exchange)):
+def add_member(slug: str, body: MemberCreate, org: Org = Depends(require_org_owner), db: Session = DbDep, ex: ExchangeAdapter = Depends(exchange)):
     from .main import AgentCreate, LimitsIn, create_agent_record  # late import to avoid a cycle
 
     if org.status != "live":
@@ -201,7 +201,7 @@ def add_member(slug: str, body: MemberCreate, org: Org = Depends(require_org_own
 
 
 @router.post("/orgs/{slug}/allocate")
-def allocate(slug: str, body: AllocateIn, org: Org = Depends(require_org_owner), db: Session = Depends(get_db), ex: ExchangeAdapter = Depends(exchange)):
+def allocate(slug: str, body: AllocateIn, org: Org = Depends(require_org_owner), db: Session = DbDep, ex: ExchangeAdapter = Depends(exchange)):
     agent = db.scalar(select(Agent).where(Agent.name == body.agent, Agent.org_id == org.id)) or db.get(Agent, body.agent)
     if not agent or agent.org_id != org.id:
         raise HTTPException(404, "no such member")
@@ -213,7 +213,7 @@ def allocate(slug: str, body: AllocateIn, org: Org = Depends(require_org_owner),
 
 
 @router.put("/orgs/{slug}/mandate")
-def set_mandate(slug: str, body: MandateIn, org: Org = Depends(require_org_owner), db: Session = Depends(get_db), ex: ExchangeAdapter = Depends(exchange)):
+def set_mandate(slug: str, body: MandateIn, org: Org = Depends(require_org_owner), db: Session = DbDep, ex: ExchangeAdapter = Depends(exchange)):
     if body.allowed_markets is not None:
         known = set(ex.markets())
         unknown = [m for m in body.allowed_markets if m not in known]
@@ -226,7 +226,7 @@ def set_mandate(slug: str, body: MandateIn, org: Org = Depends(require_org_owner
 
 
 @router.post("/orgs/{slug}/halt")
-def halt_org(slug: str, org: Org = Depends(require_org_owner), db: Session = Depends(get_db), ex: ExchangeAdapter = Depends(exchange)):
+def halt_org(slug: str, org: Org = Depends(require_org_owner), db: Session = DbDep, ex: ExchangeAdapter = Depends(exchange)):
     reason = "org kill switch pressed by leader"
     for a in O.members(db, org):
         if a.status == "live":
@@ -237,7 +237,7 @@ def halt_org(slug: str, org: Org = Depends(require_org_owner), db: Session = Dep
 
 
 @router.post("/orgs/{slug}/resume")
-def resume_org(slug: str, org: Org = Depends(require_org_owner), db: Session = Depends(get_db), ex: ExchangeAdapter = Depends(exchange)):
+def resume_org(slug: str, org: Org = Depends(require_org_owner), db: Session = DbDep, ex: ExchangeAdapter = Depends(exchange)):
     org.status, org.halted_reason = "live", None
     org.peak_equity = O.org_equity(db, ex, org)
     for a in O.members(db, org):
@@ -250,7 +250,7 @@ def resume_org(slug: str, org: Org = Depends(require_org_owner), db: Session = D
 # ------------------------------------------------------------------------------------------------ depositors (sim/paper: open; testnet: the vault handles it)
 
 @router.post("/orgs/{slug}/deposit", status_code=201)
-def deposit(slug: str, body: DepositIn, db: Session = Depends(get_db), ex: ExchangeAdapter = Depends(exchange)):
+def deposit(slug: str, body: DepositIn, db: Session = DbDep, ex: ExchangeAdapter = Depends(exchange)):
     org = _org(db, slug)
     if ex.name == "testnet":
         raise HTTPException(501, "on testnet deposits go through the Hyperliquid vault, not this endpoint")
@@ -264,14 +264,14 @@ def deposit(slug: str, body: DepositIn, db: Session = Depends(get_db), ex: Excha
 # ------------------------------------------------------------------------------------------------ public
 
 @router.get("/orgs")
-def list_orgs(db: Session = Depends(get_db), ex: ExchangeAdapter = Depends(exchange)):
+def list_orgs(db: Session = DbDep, ex: ExchangeAdapter = Depends(exchange)):
     rows = [_summary(db, ex, o) for o in db.scalars(select(Org)).all()]
     rows.sort(key=lambda r: (r["status"] != "live", -r["pnl_pct"]))
     return rows
 
 
 @router.get("/orgs/{slug}")
-def org_detail(slug: str, db: Session = Depends(get_db), ex: ExchangeAdapter = Depends(exchange)):
+def org_detail(slug: str, db: Session = DbDep, ex: ExchangeAdapter = Depends(exchange)):
     org = _org(db, slug)
     s = get_settings()
     mem = O.members(db, org)

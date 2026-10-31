@@ -16,7 +16,7 @@ from sqlalchemy.orm import Session
 from . import worker
 from .auth import AGENT_PREFIX, OWNER_PREFIX, Principal, current_principal, hash_key, new_key, require_admin, require_owner
 from .config import get_settings
-from .db import get_db, init_db
+from .db import get_db, DbDep, init_db
 from .hl import ExchangeAdapter, get_exchange
 from .ledger import leaderboard, metrics_for
 from .models import Agent, Event, Limits, Order
@@ -169,7 +169,7 @@ def create_agent_record(db: Session, ex: ExchangeAdapter, body: AgentCreate, org
 
 
 @app.post("/admin/agents", status_code=201, dependencies=[Depends(require_admin)])
-def create_agent(body: AgentCreate, db: Session = Depends(get_db), ex: ExchangeAdapter = Depends(exchange)):
+def create_agent(body: AgentCreate, db: Session = DbDep, ex: ExchangeAdapter = Depends(exchange)):
     return create_agent_record(db, ex, body)
 
 
@@ -182,7 +182,7 @@ def admin_tick(snapshot: bool = True, ex: ExchangeAdapter = Depends(exchange)):
 # ------------------------------------------------------------------------------------------------ agent API (v1)
 
 @app.get("/v1/me")
-def me(p: Principal = Depends(current_principal), db: Session = Depends(get_db), ex: ExchangeAdapter = Depends(exchange)):
+def me(p: Principal = Depends(current_principal), db: Session = DbDep, ex: ExchangeAdapter = Depends(exchange)):
     a = db.get(Agent, p.agent.id)
     st = account_state(db, a, ex)
     return {
@@ -208,12 +208,12 @@ def me(p: Principal = Depends(current_principal), db: Session = Depends(get_db),
 
 
 @app.get("/v1/limits", response_model=LimitsOut)
-def get_limits(p: Principal = Depends(current_principal), db: Session = Depends(get_db)):
+def get_limits(p: Principal = Depends(current_principal), db: Session = DbDep):
     return _limits_out(db.get(Agent, p.agent.id).limits)
 
 
 @app.put("/v1/limits", response_model=LimitsOut)
-def set_limits(body: LimitsIn, p: Principal = Depends(require_owner), db: Session = Depends(get_db), ex: ExchangeAdapter = Depends(exchange)):
+def set_limits(body: LimitsIn, p: Principal = Depends(require_owner), db: Session = DbDep, ex: ExchangeAdapter = Depends(exchange)):
     a = db.get(Agent, p.agent.id)
     lim = a.limits
     if body.allowed_markets is not None:
@@ -243,7 +243,7 @@ def book(market: str, ex: ExchangeAdapter = Depends(exchange)):
 
 
 @app.post("/v1/orders", status_code=201)
-def place_order(body: OrderIn, p: Principal = Depends(current_principal), db: Session = Depends(get_db), ex: ExchangeAdapter = Depends(exchange)):
+def place_order(body: OrderIn, p: Principal = Depends(current_principal), db: Session = DbDep, ex: ExchangeAdapter = Depends(exchange)):
     a = db.get(Agent, p.agent.id)
     if body.type == "limit" and body.px is None:
         raise HTTPException(422, "limit orders need px")
@@ -255,13 +255,13 @@ def place_order(body: OrderIn, p: Principal = Depends(current_principal), db: Se
 
 
 @app.get("/v1/orders")
-def list_orders(limit: int = Query(default=50, le=500), p: Principal = Depends(current_principal), db: Session = Depends(get_db)):
+def list_orders(limit: int = Query(default=50, le=500), p: Principal = Depends(current_principal), db: Session = DbDep):
     rows = db.scalars(select(Order).where(Order.agent_id == p.agent.id).order_by(Order.created_at.desc()).limit(limit)).all()
     return [_order_out(o) for o in rows]
 
 
 @app.get("/v1/positions")
-def positions(p: Principal = Depends(current_principal), db: Session = Depends(get_db), ex: ExchangeAdapter = Depends(exchange)):
+def positions(p: Principal = Depends(current_principal), db: Session = DbDep, ex: ExchangeAdapter = Depends(exchange)):
     a = db.get(Agent, p.agent.id)
     marks = ex.marks()
     out = []
@@ -272,14 +272,14 @@ def positions(p: Principal = Depends(current_principal), db: Session = Depends(g
 
 
 @app.post("/v1/flatten")
-def flatten(p: Principal = Depends(require_owner), db: Session = Depends(get_db), ex: ExchangeAdapter = Depends(exchange)):
+def flatten(p: Principal = Depends(require_owner), db: Session = DbDep, ex: ExchangeAdapter = Depends(exchange)):
     a = db.get(Agent, p.agent.id)
     flatten_and_halt(db, ex, a, "kill switch pressed by owner")
     return {"status": a.status, "halted_reason": a.halted_reason}
 
 
 @app.post("/v1/resume")
-def resume(p: Principal = Depends(require_owner), db: Session = Depends(get_db), ex: ExchangeAdapter = Depends(exchange)):
+def resume(p: Principal = Depends(require_owner), db: Session = DbDep, ex: ExchangeAdapter = Depends(exchange)):
     a = db.get(Agent, p.agent.id)
     a.status = "live"
     a.halted_reason = None
@@ -291,13 +291,13 @@ def resume(p: Principal = Depends(require_owner), db: Session = Depends(get_db),
 # ------------------------------------------------------------------------------------------------ public arena API
 
 @app.get("/leaderboard")
-def get_leaderboard(window_days: int = Query(default=7, ge=1, le=365), db: Session = Depends(get_db), ex: ExchangeAdapter = Depends(exchange)):
+def get_leaderboard(window_days: int = Query(default=7, ge=1, le=365), db: Session = DbDep, ex: ExchangeAdapter = Depends(exchange)):
     s = get_settings()
     return {"mode": ex.name, "window_days": window_days, "agents": leaderboard(db, ex, window_days, s.snapshot_seconds)}
 
 
 @app.get("/agents/{agent_id}")
-def agent_detail(agent_id: str, db: Session = Depends(get_db), ex: ExchangeAdapter = Depends(exchange)):
+def agent_detail(agent_id: str, db: Session = DbDep, ex: ExchangeAdapter = Depends(exchange)):
     a = db.get(Agent, agent_id) or db.scalar(select(Agent).where(Agent.name == agent_id))
     if not a:
         raise HTTPException(404, "no such agent")
@@ -319,7 +319,7 @@ def agent_detail(agent_id: str, db: Session = Depends(get_db), ex: ExchangeAdapt
 
 
 @app.get("/agents/{agent_id}/equity")
-def agent_equity(agent_id: str, db: Session = Depends(get_db)):
+def agent_equity(agent_id: str, db: Session = DbDep):
     from .models import EquitySnapshot
 
     rows = db.execute(select(EquitySnapshot.ts, EquitySnapshot.equity).where(EquitySnapshot.agent_id == agent_id).order_by(EquitySnapshot.ts)).all()
@@ -327,7 +327,7 @@ def agent_equity(agent_id: str, db: Session = Depends(get_db)):
 
 
 @app.get("/fills")
-def recent_fills(limit: int = Query(default=30, le=200), db: Session = Depends(get_db)):
+def recent_fills(limit: int = Query(default=30, le=200), db: Session = DbDep):
     rows = db.execute(
         select(Order, Agent.name).join(Agent, Agent.id == Order.agent_id).order_by(Order.created_at.desc()).limit(limit)
     ).all()
@@ -335,7 +335,7 @@ def recent_fills(limit: int = Query(default=30, le=200), db: Session = Depends(g
 
 
 @app.get("/stats")
-def stats(db: Session = Depends(get_db), ex: ExchangeAdapter = Depends(exchange)):
+def stats(db: Session = DbDep, ex: ExchangeAdapter = Depends(exchange)):
     from sqlalchemy import func
 
     since = dt.datetime.now(dt.timezone.utc) - dt.timedelta(hours=24)
