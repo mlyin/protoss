@@ -65,3 +65,18 @@ Pool money from another Hyperliquid account without custody:
 2. Deposit from the other account: Vaults -> that vault -> Deposit (any Hyperliquid account can; withdrawals are self-serve after the lock-up).
 3. Point the legion at it: `PUT /orgs/<slug>/vault {"address": "0x<vault>"}` with the owner key; the API checks the vault's leader is our master.
 4. `ARENA_MODE=testnet` (or live later) so agents in that legion route orders with `vault_address`; the legion page then shows TVL and each depositor from Hyperliquid, not from our ledger. API deposits for that legion return 409 on purpose.
+
+## iMessage group chat (huddle) on the Mac mini (added 2026-10-31)
+Engine: `backend/app/huddle.py` (thesis -> Lab card -> tapback/"in" approvals -> "$50 each" -> paper agent -> fires on
+`protoss hack: ...` or a feed headline -> closes after the hold -> result + score). Web demo: https://app.protoss.trade/#/huddle/demo
+(or `/#/huddle/<legion-slug>` to pool into that legion). Link previews: `/l/<slug>`, `/t/<thesis id>`, `/h/<name>`.
+Bridge (stdlib, runs on the mini):
+1. Messages.app signed into iMessage (best: a separate Apple ID for the bot, added to the group like a friend).
+2. System Settings, Privacy & Security, Full Disk Access: add the Python that runs the bridge (`~/protoss/.venv/bin/python3`
+   resolves to a real binary; add that, or Terminal for a manual run). Without it chat.db will not open.
+3. `cd ~/protoss && .venv/bin/python scripts/imessage_bridge.py chats` and copy the group's guid (`iMessage;+;chat...`).
+4. Names: `~/.protoss/names.json` like `{"+15551234567": "Lee"}`.
+5. Dry run: `ADMIN_TOKEN=<from backend/.env> BRIDGE_ME=Matthew .venv/bin/python scripts/imessage_bridge.py run --chat '<guid>' --title 'the boys' --legion <slug> --dry-run`
+6. Drop `--dry-run`; the first send pops one Automation prompt (allow control of Messages). Then run it under launchd.
+Env: `PROTOSS_API` (default http://127.0.0.1:8000), `ADMIN_TOKEN`, `BRIDGE_ME`. Optional backend env: `HUDDLE_HACK_FEEDS`
+(JSON list of RSS URLs read for hack headlines), `HUDDLE_QUORUM` (default 2), `APP_URL` (links in chat).

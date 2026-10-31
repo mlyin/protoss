@@ -57,3 +57,10 @@ Matthew's first strategy question. Daily XMR candles pulled from the public Hype
 - Binance $6.3B theft (2026-10-29) added to the list; XMR -2.9% day one.
 Lesson for the product: the Lab must always print the any-day baseline next to an event study, or people will read time-in-market as edge. Done the same day: every event_buy result carries a `baseline:` note (mean move after the events vs from any bar).
 - 2026-10-31: The Privy embedded wallet is called the **Protoss wallet** in copy (Matthew). Code keeps `privy`/`protossWallet`.
+
+## The group chat (added 2026-10-31)
+The legion lives where friends already talk. Someone says "let's buy XMR every time a major company gets hacked"; Protoss
+replies with a card (tested on 25 hacks since Oct 2024: XMR +1.3% in the 7 days after a hack vs +1.7% after any day, 10 of
+25 up), two thumbs up back it, "$50 each" stakes it, the next hack fires it, and the close posts the result and the running
+score by whose idea it was. Ideas with no Hyperliquid market (sports, injuries) are logged as calls and scored by the group.
+The hack thesis has no edge on the real data so far; the card says so, which is the point.

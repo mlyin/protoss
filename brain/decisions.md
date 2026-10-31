@@ -18,3 +18,13 @@
   builder-code revenue) rather than cross-venue portfolio margin, which overlaps an existing company Matthew spoke with.
 - 2026-10-30: FastAPI >= 0.118 runs yield-dependency teardown after the response; DB sessions use a function-scoped
   dependency (`DbDep`) so commits land before the next request. Lost-update bug found in pool accounting.
+- 2026-10-31: iMessage route. Matthew wants the legion to feel like friends in a group chat: someone says a thesis, a friend
+  thumbs it up, "$50 each", the rule trades and the result comes back to the chat. Options weighed: (1) iMessage app extension
+  (Xcode, Apple Developer account, App Review for anyone outside our devices; shows cards in the thread; Simulator demo works
+  without review), (2) Messages for Business (needs an approved provider, not for friend groups), (3) paid relay APIs
+  (Sendblue, LoopMessage: work, cost per message, third party sees every message), (4) a Mac-side bridge on the mini reading
+  chat.db and sending with AppleScript, (5) Shortcuts automations (run on one person's phone only). Chosen: the bridge (4) plus
+  link previews, because it works in any existing group chat with no app install, the mini is already always-on, and the
+  engine is transport-agnostic (`backend/app/huddle.py`), so an iMessage extension later reuses it. The web group chat at
+  `#/huddle/<name>` is the same engine for demos without a phone. Pledges are paper only; with real money each person stakes
+  into the vault themselves.

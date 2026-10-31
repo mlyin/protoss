@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import Approve from './Approve.jsx'
 import Lab from './Lab.jsx'
 import Join from './Join.jsx'
+import Huddle from './Huddle.jsx'
 import { Feed, Profile, Legion, useMe } from './Social.jsx'
 import NewLegion from './NewLegion.jsx'
 import heroRaw from '../../brand/hero.svg?raw'
@@ -163,6 +164,7 @@ function OrgDrawer({ slug, onClose }) {
       <div className="actions" style={{ margin: 0 }}>
         <a className="btn sm" href={`#/p/${d.slug}`}>Open legion page</a>
         <a className="btn sm ghost" href={`#/join?legion=${encodeURIComponent(d.slug)}`}>Join with card</a>
+        <a className="btn sm ghost" href={`#/huddle/${encodeURIComponent(d.slug)}`}>Group chat</a>
       </div>
     </div>
   )
@@ -370,7 +372,7 @@ export default function App() {
 
   const [route, qs] = hash.split('?')
   const query = new URLSearchParams(qs || '')
-  const page = route.startsWith('#/lab') ? 'lab' : route.startsWith('#/feed') ? 'feed' : route.startsWith('#/u/') ? 'user' : route.startsWith('#/p/') ? 'legion' : route.startsWith('#/approve') ? 'approve' : route.startsWith('#/new') ? 'new' : route.startsWith('#/join') ? 'join' : 'arena'
+  const page = route.startsWith('#/lab') ? 'lab' : route.startsWith('#/feed') ? 'feed' : route.startsWith('#/u/') ? 'user' : route.startsWith('#/p/') ? 'legion' : route.startsWith('#/approve') ? 'approve' : route.startsWith('#/new') ? 'new' : route.startsWith('#/join') ? 'join' : route.startsWith('#/huddle') ? 'huddle' : 'arena'
   const param = decodeURIComponent(route.split('/')[2] || '')
   const is = (p) => (page === p ? 'on' : '')
 
@@ -383,6 +385,7 @@ export default function App() {
             <a className={is('arena')} href="#/">Arena</a>
             <a className={is('feed')} href="#/feed">Feed</a>
             <a className={is('lab')} href="#/lab">Lab</a>
+            <a className={is('huddle')} href="#/huddle/demo">Group chat</a>
             <a className={is('approve')} href="#/approve">Builder fee</a>
           </nav>
           <span className="spacer" />
@@ -402,6 +405,7 @@ export default function App() {
         {page === 'legion' && <Legion slug={param} me={me} setMe={setMe} />}
         {page === 'new' && <NewLegion me={me} setMe={setMe} />}
         {page === 'join' && <Join legion={query.get('legion')} me={me} />}
+        {page === 'huddle' && <Huddle key={param || 'demo'} name={param || 'demo'} me={me} />}
         {page === 'approve' && <div className="one"><Approve /><a className="back" href="#/">Back to the arena</a></div>}
       </main>
     </>

@@ -52,6 +52,7 @@ class Settings(BaseSettings):
             "ETH": 3_850.0,
             "SOL": 190.0,
             "HYPE": 89.0,
+            "XMR": 330.0,
             "xyz:NVDA": 214.0,
             "xyz:TSLA": 420.0,
             "xyz:SP500": 6_900.0,
@@ -69,6 +70,11 @@ class Settings(BaseSettings):
     onramp_moonpay_currency: str = "usdc_arbitrum"  # usdc_hypercore once MoonPay Gateway is enabled on the account
     onramp_coinbase_app_id: str | None = None  # Coinbase Onramp project id; URLs also need a session token (see onboard.py)
     onboard_min_usd: float = 20.0
+    # Huddle (huddle.py): the group chat that turns a thesis into a backed, staked rule
+    app_url: str = "https://app.protoss.trade"  # where links in chat messages and link previews point
+    huddle_quorum: int = 2  # people backing a thesis, author included, before it arms
+    huddle_max_pledge_usd: float = 1_000.0  # per person per thesis, paper money
+    huddle_hack_feeds: list[str] = Field(default_factory=list)  # RSS/Atom URLs read for hack headlines; empty = off
     onboard_blocked_regions: list[str] = Field(default_factory=lambda: ["US"])  # ISO 3166-1 alpha-2; perps are not offered here
 
 

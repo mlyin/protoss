@@ -436,6 +436,7 @@ class BacktestResult:
     benchmark_curve: list[tuple[dt.datetime, float]] | None
     trades_sample: list[Fill]
     notes: list[str]
+    stats: dict | None = None  # event strategies: the event-day vs any-day comparison (event_stats)
 
     def as_dict(self) -> dict:
         d = asdict(self)
@@ -490,16 +491,16 @@ def _result(label: str, market: str, start: dt.datetime, end: dt.datetime, bar: 
     )
 
 
-def _event_baseline(candles: list[Candle], dates: list[dt.date], hold_days: int, bar: str, side: str) -> str:
-    """Time in market is not edge. Compare the mean forward move after the event days with the mean from any bar."""
+def event_stats(candles: list[Candle], dates: list[dt.date], hold_days: int, side: str) -> dict | None:
+    """Mean forward move after the event days vs after any bar, same holding period. None when it cannot compare."""
     if len(candles) < 3:
-        return "baseline: window too short to compare"
+        return None
     step = max(1.0, (candles[1].ts - candles[0].ts).total_seconds())  # the bars we really got, not the bars asked for
     n = max(1, int(round(hold_days * 86400 / step)))
     sign = 1.0 if side == "long" else -1.0
     fwd = [sign * (candles[i + n].c / candles[i].c - 1) * 100 for i in range(len(candles) - n)]
     if not fwd:
-        return "baseline: window too short to compare"
+        return None
     ev = []
     for d in sorted(set(dates)):
         t0 = dt.datetime.combine(d, dt.time(), UTC)
@@ -507,11 +508,24 @@ def _event_baseline(candles: list[Candle], dates: list[dt.date], hold_days: int,
         if i is not None and i < len(fwd):
             ev.append(fwd[i])
     if not ev:
-        return "baseline: no event fell on a bar with a full holding period after it"
+        return {"events": 0}
     mean = lambda xs: sum(xs) / len(xs)  # noqa: E731
-    win = lambda xs: 100 * sum(x > 0 for x in xs) / len(xs)  # noqa: E731
-    return (f"baseline: mean {hold_days}d move after the {len(ev)} events {mean(ev):+.2f}% (win {win(ev):.0f}%) vs "
-            f"{mean(fwd):+.2f}% (win {win(fwd):.0f}%) from any bar; the gap is the edge, the rest is time in market")
+    return {
+        "events": len(ev), "event_mean_pct": round(mean(ev), 2), "event_up": sum(x > 0 for x in ev),
+        "any_mean_pct": round(mean(fwd), 2), "any_win_pct": round(100 * sum(x > 0 for x in fwd) / len(fwd), 1),
+    }
+
+
+def _event_baseline(candles: list[Candle], dates: list[dt.date], hold_days: int, bar: str, side: str) -> str:
+    """Time in market is not edge. Compare the mean forward move after the event days with the mean from any bar."""
+    st = event_stats(candles, dates, hold_days, side)
+    if st is None:
+        return "baseline: window too short to compare"
+    if not st["events"]:
+        return "baseline: no event fell on a bar with a full holding period after it"
+    win = 100 * st["event_up"] / st["events"]
+    return (f"baseline: mean {hold_days}d move after the {st['events']} events {st['event_mean_pct']:+.2f}% (win {win:.0f}%) vs "
+            f"{st['any_mean_pct']:+.2f}% (win {st['any_win_pct']:.0f}%) from any bar; the gap is the edge, the rest is time in market")
 
 
 def _source_note(source: PriceSource, market: str | None, bar: str) -> str:
@@ -543,15 +557,19 @@ def run_backtest(spec, source: PriceSource, now: dt.datetime | None = None) -> B
         notes.append(HACKS_NOTE if spec.event_set == "major_hacks" else f"custom event dates: {len(dates)} supplied")
         notes.append(f"{len(in_window)} of {len(dates)} event dates fall inside the window")
         notes.append(_event_baseline(candles, in_window, spec.hold_days, bar, spec.side))
+        stats = event_stats(candles, in_window, spec.hold_days, spec.side)
         build: Callable = lambda cs, bk: _event_buy(spec, cs, bk, in_window)  # noqa: E731
     else:
+        stats = None
         build = lambda cs, bk: _STRATEGIES[spec.type](spec, cs, bk)  # noqa: E731
     book, curve = _simulate(candles, spec.market, build, spec.starting_equity, spec.fee_bps)
     _, bench = _simulate(candles, spec.market, lambda cs, bk: _buy_hold(spec, cs, bk), spec.starting_equity, spec.fee_bps)
     if spec.type == "dca":
         buys = [f for f in book.fills if f.side == "buy"]
         notes.append(f"DCA: {len(buys)} buys deployed ${sum(f.size * f.px for f in buys):,.0f} of the ${spec.starting_equity:,.0f} starting equity; return is on the full starting equity")
-    return _result(spec.label(), spec.market, start, end, bar, spec.starting_equity, book, curve, bench, notes)
+    res = _result(spec.label(), spec.market, start, end, bar, spec.starting_equity, book, curve, bench, notes)
+    res.stats = stats
+    return res
 
 
 def _run_tail(spec, source: PriceSource, start: dt.datetime, end: dt.datetime, notes: list[str]) -> BacktestResult:

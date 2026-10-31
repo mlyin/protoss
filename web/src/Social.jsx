@@ -146,7 +146,9 @@ export function Legion({ slug, me, setMe }) {
     const j = await r.json()
     setMsg(r.ok ? `In. ${fmtUsd(j.pool_cash)} unallocated in the pool now.` : (j.detail || 'The deposit did not go through.'))
   }
-  const link = `${location.origin}/#/p/${slug}`
+  // /l/<slug> serves link-preview tags (iMessage, WhatsApp, X) and forwards to this page
+  const link = `${location.origin}/l/${slug}${me ? `?from=${encodeURIComponent(me)}` : ''}`
+  const sms = `sms:&body=${encodeURIComponent(`${d.name}: ${fmtUsd(d.equity)} pooled, stop at ${d.limits.drawdown_flatten_pct}%. Want in? ${link}`)}`
   const copy = () => { navigator.clipboard?.writeText(link).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1500) }) }
   return (
     <section className="social">
@@ -154,6 +156,8 @@ export function Legion({ slug, me, setMe }) {
         <div><h1>{d.name}</h1><div className="sub">led by <a href={`#/u/${d.leader}`}>{d.leader}</a> · {d.depositors} depositors · {d.members_live}/{d.members} agents live · <St live={live} /></div></div>
         <span className="spacer" />
         <FollowButton me={me} type="org" id={slug} following={meP?.following} onChange={reload} />
+        <a className="btn" href={`#/huddle/${encodeURIComponent(slug)}`}>Group chat</a>
+        <a className="btn" href={sms}>Text an invite</a>
         <button onClick={copy}>{copied ? 'Copied' : 'Copy invite link'}</button>
       </div>
       <blockquote className="mandate big">“{d.mandate}”</blockquote>

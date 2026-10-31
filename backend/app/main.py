@@ -393,6 +393,12 @@ from .onboard import router as onboard_router  # noqa: E402
 app.include_router(social_router)
 app.include_router(onboard_router)
 
+from .huddle import router as huddle_router  # noqa: E402
+from .share import router as share_router  # noqa: E402
+
+app.include_router(huddle_router)
+app.include_router(share_router)
+
 # serve the built web app if present (web/dist)
 _dist = Path(__file__).resolve().parents[2] / "web" / "dist"
 if _dist.exists():
