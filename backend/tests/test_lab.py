@@ -43,9 +43,10 @@ def test_examples(client):
 
 
 def test_hack_events_backtest(client):
-    j = chat(client, "what if I bought XMR every time a major company got hacked and held 7 days", days=730)
+    j = chat(client, "what if I bought XMR every time a major company got hacked and held 7 days")  # no window stated
     assert j["kind"] == "backtest", j["reply"]
     assert j["spec"]["type"] == "event_buy" and j["spec"]["event_set"] == "major_hacks" and j["spec"]["hold_days"] == 7
+    assert j["spec"]["days"] == 730  # the hack list reaches back years, so the window widens to the cap
     res = j["result"]
     start, end = dt.datetime.fromisoformat(res["start"]).date(), dt.datetime.fromisoformat(res["end"]).date()
     dates = sorted(r["date"] for r in load_hacks() if start <= r["date"] <= end)
@@ -58,6 +59,13 @@ def test_hack_events_backtest(client):
     assert res["trades_sample"][0]["side"] == "buy" and res["trades_sample"][-1]["side"] == "sell"
     assert j["deployable"]["markets"] == ["XMR"]
     assert "#" not in j["reply"] and 2 <= j["reply"].count(". ") + 1 <= 5
+    # an explicit window keeps the user's choice, and one with no events asks instead of printing a flat 0%
+    short = chat(client, "buy XMR on hacks, hold 7 days, over the last 90 days")
+    assert short["kind"] == "clarify" and short["spec"] is None and "window" in short["reply"].lower()
+    far = chat(client, "short BTC for 3 days after 2024-01-15 over the last 30 days")
+    assert far["kind"] == "clarify" and far["result"] is None
+    recent = chat(client, "short BTC for 3 days after 2025-03-15")  # no window stated: reach back to the event
+    assert recent["kind"] == "backtest" and 180 < recent["spec"]["days"] <= 730 and recent["result"]["trades"] == 1
 
 
 def test_momentum_spec_and_window(client):

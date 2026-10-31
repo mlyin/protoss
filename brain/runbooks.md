@@ -30,7 +30,7 @@ Draft in `brand/x-thread.md` style, run the anti-slop audit in [[voice]] (or the
 one ask at the end, screenshots from the running app, status honesty. Save the shipped version under `brain/content/`.
 
 ## Adding a strategy to the Lab
-Spec type in `backend/app/backtest.py` (pydantic, discriminated on `type`), parser rule in `backend/app/lab.py`, a test in
+Spec type + parser rule in `backend/app/lab.py` (pydantic, discriminated on `type`), engine logic in `backend/app/backtest.py`, a test in
 `backend/tests/test_lab.py`, an example in `/lab/examples`. Deployable maps to `fleet.yaml` semantics.
 
 ## Agents on the Mac minis (to do)

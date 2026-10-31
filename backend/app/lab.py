@@ -21,7 +21,7 @@ import httpx
 from fastapi import APIRouter
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, field_validator, model_validator
 
-from .backtest import BacktestResult, SourceUnavailable, get_source, run_backtest
+from .backtest import BacktestResult, NoEventsInWindow, SourceUnavailable, get_source, load_hacks, run_backtest
 from .config import get_settings
 
 log = logging.getLogger("coliseum.lab")
@@ -177,10 +177,20 @@ def _plan_llm(message: str, defaults: dict) -> Union[Spec, Clarify, None]:
         data = json.loads(re.sub(r"^```(?:json)?|```$", "", text.strip(), flags=re.M).strip())
         if data.get("type") != "clarify":
             data = {**defaults, **{k: v for k, v in data.items() if v is not None}}
-        return PlanAdapter.validate_python(data)
+        planned = PlanAdapter.validate_python(data)
+        if isinstance(planned, EventBuySpec) and "days" not in data:
+            planned.days = _event_window(planned.custom_dates, defaults["days"])
+        return planned
     except Exception as e:  # any failure falls through to the rule-based parser
         log.warning("lab llm planner failed: %s", e)
         return None
+
+
+def _event_window(dates: list[dt.date] | None, body_days: int, today: dt.date | None = None) -> int:
+    """Window for an event strategy with no window stated: reach back to the earliest event, capped at 730 days."""
+    today = today or dt.datetime.now(dt.timezone.utc).date()
+    dates = dates or [r["date"] for r in load_hacks()]
+    return max(body_days, min(730, (today - min(dates)).days + 30)) if dates else body_days
 
 
 # ------------------------------------------------------------------------------------------- rule-based planner
@@ -257,8 +267,6 @@ def plan_rules(message: str, starting_equity: float, days: int, known: set[str],
     low_nd = re.sub(r"\b20\d\d-\d\d-\d\d\b", " ", low)  # numbers inside dates must not look like parameters
     market = _market(raw, low, known)
     explicit_days = _days(low, today)
-    if iso_dates and not explicit_days:  # a custom event list should fit in the window
-        days = max(days, (today - min(iso_dates)).days + 30)
     common: dict = {"days": min(730, max(2, explicit_days or days)), "starting_equity": starting_equity}
     if m := re.search(r"(?:with|starting(?: with| at)?|start(?:ing)? at|using)\s+\$?\s?(\d[\d,]*(?:\.\d+)?)\s*(k|m|thousand|million)?\b", low_nd):
         common["starting_equity"] = _num(m.group(1), m.group(2))
@@ -285,6 +293,8 @@ def plan_rules(message: str, starting_equity: float, days: int, known: set[str],
     if kind == "event_buy":
         if iso_dates:
             extra = {"event_set": "custom", "custom_dates": iso_dates}
+        if not explicit_days:
+            common["days"] = _event_window(iso_dates, days, today)
         if m := HOLD_RE.search(low_nd):
             n, unit = next((g, u) for g, u in zip(m.groups()[::2], m.groups()[1::2]) if g)
             extra["hold_days"] = int(n) * (7 if unit == "week" else 1)
@@ -396,6 +406,8 @@ def chat(body: ChatIn) -> dict:
             return _out("error", f"{m} is not a listed market here.{hint}")
     try:
         res = run_backtest(planned, source)
+    except NoEventsInWindow as e:
+        return _out("clarify", f"{str(e).capitalize()}. Which window should I use (for example 'over the last 730 days'), or which event dates?")
     except (SourceUnavailable, ValueError) as e:
         return _out("error", f"Could not run that backtest: {e}", spec=planned.model_dump(mode="json"))
     if planned.type not in ("momentum", "meanrev"):

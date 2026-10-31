@@ -33,8 +33,18 @@ date,company,description,source_hint
 2024-07-18,WazirX,About $230M drained from a multisig wallet (attributed to Lazarus),WazirX announcements
 2024-10-09,Internet Archive,31M user records breached alongside DDoS and defacement,Internet Archive / HIBP
 2024-12-30,US Treasury,Disclosed BeyondTrust remote-support key compromise by a Chinese state actor,Treasury letter to Senate
+2025-01-07,PowerSchool,Student information system breach exposing data across thousands of US school districts,PowerSchool customer notice
 2025-02-21,Bybit,About $1.5B of ETH stolen from a cold wallet; largest crypto theft to date,Bybit statement
 2025-04-22,Marks & Spencer,Cyber incident halted online orders for weeks,M&S LSE statement
 2025-05-15,Coinbase,8-K: bribed support contractors leaked customer data; $20M bounty offered,SEC 8-K
+2025-05-22,Cetus Protocol,About $223M drained from the Sui DEX via a pricing bug,Cetus announcements
+2025-06-18,Nobitex,About $90M taken from Iran's largest exchange by Predatory Sparrow,Nobitex statement / on-chain
 2025-07-02,Qantas,About 6M customer records accessed via a third-party call-centre platform,Qantas media release
+2025-07-19,Microsoft SharePoint (ToolShell),On-prem SharePoint zero-day chain exploited against governments and companies,MSRC advisory
+2025-08-26,Salesloft Drift,Stolen OAuth tokens used to pull data from hundreds of Salesforce tenants,Google Threat Intelligence blog
+2025-09-02,Jaguar Land Rover,Cyberattack halted global vehicle production for weeks,JLR statement
+2025-09-20,Collins Aerospace,Ransomware on check-in software disrupted Heathrow Brussels and Berlin airports,Collins / airport statements
+2025-09-29,Asahi Group,Ransomware halted ordering and shipping at Japan's largest brewer,Asahi statement
 2025-10-15,F5,Disclosed nation-state theft of BIG-IP source code and vulnerability data,F5 8-K / CISA ED 26-01
+2025-11-03,Balancer,About $120M drained from v2 composable stable pools,Balancer announcements
+2025-11-27,Upbit,About $30M of Solana-based assets drained from a hot wallet,Upbit (Dunamu) notice

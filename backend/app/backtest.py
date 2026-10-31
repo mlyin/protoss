@@ -34,6 +34,10 @@ class SourceUnavailable(Exception):
     """A live source could not be reached or returned something unusable."""
 
 
+class NoEventsInWindow(ValueError):
+    """An event strategy whose window contains none of its dates; the caller should ask for a window."""
+
+
 @dataclass(frozen=True)
 class Candle:
     ts: dt.datetime
@@ -430,6 +434,8 @@ def run_backtest(spec, source: PriceSource, now: dt.datetime | None = None) -> B
     if spec.type == "event_buy":
         dates = list(spec.custom_dates or []) if spec.event_set == "custom" else [r["date"] for r in load_hacks()]
         in_window = [d for d in dates if start.date() <= d <= end.date()]
+        if not in_window:
+            raise NoEventsInWindow(f"none of the {len(dates)} event dates fall in the last {spec.days} days")
         notes.append(HACKS_NOTE if spec.event_set == "major_hacks" else f"custom event dates: {len(dates)} supplied")
         notes.append(f"{len(in_window)} of {len(dates)} event dates fall inside the window")
         build: Callable = lambda cs, bk: _event_buy(spec, cs, bk, in_window)  # noqa: E731
