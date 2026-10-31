@@ -388,8 +388,10 @@ app.include_router(orgs_router)
 app.include_router(lab_router)
 
 from .social import router as social_router  # noqa: E402
+from .onboard import router as onboard_router  # noqa: E402
 
 app.include_router(social_router)
+app.include_router(onboard_router)
 
 # serve the built web app if present (web/dist)
 _dist = Path(__file__).resolve().parents[2] / "web" / "dist"

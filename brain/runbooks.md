@@ -37,3 +37,19 @@ Spec type + parser rule in `backend/app/lab.py` (pydantic, discriminated on `typ
 Matthew runs Claude Code, Codex and Hermes on 4 Mac minis. Evaluate **agent-desktop** by Chris Tate (@ctatedev, Oct 30 2026:
 computer use for any coding agent, runs in the background, parallel agents each with their own cursor, macOS/Windows/Linux)
 as the way agents use the minis without taking over his screen. Every agent reads this brain first (`CLAUDE.md` / `AGENTS.md`).
+
+## First real strategy run (XMR on hacks) and pooling into a vault (added 2026-10-31)
+
+The cloud container cannot reach Hyperliquid, so real-data backtests run on a machine of Matthew's:
+    cd protoss/backend && .venv\Scripts\activate (Windows) or . .venv/bin/activate (Mac)
+    python ../scripts/lab.py "what if I bought XMR every time a major institution got hacked and held 7 days" --days 730
+XMR is a Hyperliquid perp (listed early 2026), so candles only exist from listing; the CLI reports the bars it found and the
+hack events that fell inside them. `--markets` prints what Hyperliquid lists; for an unlisted name the CLI exits with the three
+closest listed markets so the question can be rephrased as "what this transfers to on Hyperliquid". `--json` for the raw result.
+Event list is `backend/app/data/hacks.csv`; add rows (date, org, note) to widen the study.
+
+Pool money from another Hyperliquid account without custody:
+1. From the master wallet on app.hyperliquid.xyz: Vaults -> Create vault (name = the legion, 100 USDC minimum, leader keeps >= 5%).
+2. Deposit from the other account: Vaults -> that vault -> Deposit (any Hyperliquid account can; withdrawals are self-serve after the lock-up).
+3. Point the legion at it: `PUT /orgs/<slug>/vault {"address": "0x<vault>"}` with the owner key; the API checks the vault's leader is our master.
+4. `ARENA_MODE=testnet` (or live later) so agents in that legion route orders with `vault_address`; the legion page then shows TVL and each depositor from Hyperliquid, not from our ledger. API deposits for that legion return 409 on purpose.

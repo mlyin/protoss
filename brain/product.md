@@ -36,3 +36,14 @@ Protoss is Levels 1 to 6 of the agent ladder, for trading agents instead of codi
   changes need the org key, i.e. a person. No score to argue with.
 - Learning: the Lab turns a hunch into a check before any money moves.
 Say it this way to Imran: "every other agent product is Level 1. We sell the walls and the gates."
+
+## Join with card (added 2026-10-31)
+
+Matthew: "ideally we would not have the person have to go through hyperliquid etc like for legend.trade you can just deposit with fiat etc."
+Shape, non-custodial end to end (`backend/app/onboard.py`, `web/src/Join.jsx`):
+1. Email login creates an embedded wallet in the browser (Privy; Hyperliquid's own email login is the same pattern). The key never touches our servers.
+2. Card / Apple Pay / bank through an onramp partner that pays USDC to the user's own address. MoonPay Gateway lists USDC on HyperCore (May 2026), so funds can land on the Hyperliquid account directly; Coinbase Onramp and the manual path deliver USDC on Arbitrum and the bridge credits the same address.
+3. The browser signs `vaultTransfer` into the legion's Hyperliquid vault. Leaving is the same action reversed, signed by the user. Protoss holds nothing and cannot block an exit.
+Server: `GET /onboard/options`, `POST /onboard/session` (returns the hosted checkout URL and the plain-English steps), `GET /onboard/session/{id}` (polls the wallet's equity on a live exchange; sim fakes funding at 20 s), `POST .../staked`. Region gate via Cloudflare's `CF-IPCountry`; `ONBOARD_BLOCKED_REGIONS` defaults to US.
+Not done: Privy wiring in the browser (needs `PRIVY_APP_ID`), MoonPay keys (`ONRAMP_MOONPAY_KEY/SECRET`, currency `usdc_hypercore` once Gateway is enabled on the account), Coinbase session tokens, partner webhooks (polling stands in).
+Compliance, stated plainly: Hyperliquid's own app blocks US users, Legend and the other builder fronts geofence the US, and offering perps to US persons is a CFTC matter. Matthew is in NYC. Ship with the US block on and have counsel look before any US opening. Not legal advice; the point is to make the default the safe one.

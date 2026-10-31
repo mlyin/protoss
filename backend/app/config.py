@@ -60,6 +60,16 @@ class Settings(BaseSettings):
     )
     sim_vol_per_tick: float = 0.0015  # 0.15% per tick, roughly crypto-like at 5 s ticks
 
+    # Join with card (onboard.py). Keys are publishable/secret pairs from the partner dashboards; never commit them.
+    public_url: str = "https://protoss.trade"
+    privy_app_id: str | None = None  # embedded wallets in the browser; the key never leaves the user's device
+    onramp_moonpay_key: str | None = None  # publishable key (pk_live_...)
+    onramp_moonpay_secret: str | None = None  # signs hosted-checkout URLs that carry a wallet address
+    onramp_moonpay_currency: str = "usdc_arbitrum"  # usdc_hypercore once MoonPay Gateway is enabled on the account
+    onramp_coinbase_app_id: str | None = None  # Coinbase Onramp project id; URLs also need a session token (see onboard.py)
+    onboard_min_usd: float = 20.0
+    onboard_blocked_regions: list[str] = Field(default_factory=lambda: ["US"])  # ISO 3166-1 alpha-2; perps are not offered here
+
 
 @lru_cache
 def get_settings() -> Settings:
