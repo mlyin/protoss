@@ -1,0 +1,50 @@
+# XcodeGen spec: `brew install xcodegen && cd ios && xcodegen` writes Protoss.xcodeproj (not committed).
+name: Protoss
+options:
+  bundleIdPrefix: trade.protoss
+  deploymentTarget:
+    iOS: "17.0"
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    MARKETING_VERSION: "0.1"
+    CURRENT_PROJECT_VERSION: "1"
+    DEVELOPMENT_TEAM: ""
+    CODE_SIGN_STYLE: Automatic
+targets:
+  Protoss:
+    type: application
+    platform: iOS
+    sources: [App]
+    info:
+      path: App/Info.plist
+      properties:
+        CFBundleDisplayName: Protoss
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: trade.protoss.app
+    dependencies:
+      - target: ProtossMessages
+        embed: true
+  ProtossMessages:
+    type: app-extension.messages
+    platform: iOS
+    sources: [MessagesExtension]
+    info:
+      path: MessagesExtension/Info.plist
+      properties:
+        CFBundleDisplayName: Protoss
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.message-payload-provider
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).MessagesViewController
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: trade.protoss.app.messages
+schemes:
+  Protoss:
+    build:
+      targets:
+        Protoss: all
+        ProtossMessages: all

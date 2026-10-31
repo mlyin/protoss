@@ -80,3 +80,5 @@ Bridge (stdlib, runs on the mini):
 6. Drop `--dry-run`; the first send pops one Automation prompt (allow control of Messages). Then run it under launchd.
 Env: `PROTOSS_API` (default http://127.0.0.1:8000), `ADMIN_TOKEN`, `BRIDGE_ME`. Optional backend env: `HUDDLE_HACK_FEEDS`
 (JSON list of RSS URLs read for hack headlines), `HUDDLE_QUORUM` (default 2), `APP_URL` (links in chat).
+- 2026-10-31: iMessage extension (in-thread cards) scaffolded in `ios/` (XcodeGen spec, SwiftUI). Build and Simulator steps in
+  `ios/README.md`. Written without a Mac in the loop: the first `xcodebuild` on the mini is its first compile.
