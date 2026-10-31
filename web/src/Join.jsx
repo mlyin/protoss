@@ -271,7 +271,7 @@ function Stake({ res, session, org, onStaked }) {
       onStaked?.()
     } catch (e) {
       const m = e?.message || String(e)
-      setErr(/chain ?id|chainId/i.test(m) ? 'This wallet will not sign for Hyperliquid directly. Use the Protoss wallet, or stake from app.hyperliquid.xyz.' : m)
+      setErr(/chain ?id|chainId/i.test(m) ? 'This wallet will not sign Hyperliquid actions. Sign in with email above for one that does, or stake from app.hyperliquid.xyz.' : m)
     } finally {
       setBusy(false)
     }
