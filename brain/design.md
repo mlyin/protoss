@@ -19,3 +19,9 @@ JetBrains Mono for figures. 4px grid, radius 8 controls / 12 cards, one easing c
 Slop here means: gradients, glows, emoji, uppercase tracked labels, pulsing dots, sparkline-stuffed stat cards,
 "300"-movie trade dress, stock Spartan clip art. Original vector art only. Brand files live in `brand/`
 (mark, hero, ad.html, copy.md); the mark is `web/public/mark.svg`.
+
+- 2026-10-31: Brand kit shipped in `brand/`: `hero.svg` (7-shield phalanx, procedural halftone; `.ink`/`.paper` classes so an
+  inlined copy inverts on dark pages, center crest reads `--spot`), `mark.svg` (helmet breaking the arena ring, `currentColor`),
+  `ad.html` (1080x1350 + 1200x628; headline set in an original chiseled block alphabet drawn as SVG polygons, so it needs no
+  webfont), `copy.md`, `x-thread.md`. Spot red appears on the issue box, the headline period and the center crest only (~1.5% of area).
+  Chosen headline: "Your friends. One wall." Editable canvas: the "Coliseum Ads" Design artifact (Anton stands in for the block alphabet there).
