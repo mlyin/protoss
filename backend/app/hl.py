@@ -240,9 +240,9 @@ class TestnetExchange:
         from hyperliquid.utils import constants
 
         if not settings.hl_master_private_key:
-            raise RuntimeError("ARENA_MODE=testnet needs HL_MASTER_PRIVATE_KEY (run `python -m app.keygen`)")
+            raise RuntimeError(f"ARENA_MODE={self.name} needs a locally configured HL_MASTER_PRIVATE_KEY")
         self.settings = settings
-        self.url = settings.hl_api_url or constants.TESTNET_API_URL
+        self.url = settings.hl_api_url or (constants.MAINNET_API_URL if self.name == "mainnet" else constants.TESTNET_API_URL)
         self.master = Account.from_key(settings.hl_master_private_key)
         self.builder = settings.hl_builder_address or self.master.address
         self.info = Info(self.url, skip_ws=True)
@@ -253,7 +253,12 @@ class TestnetExchange:
         self._cache_ts = 0.0
         self.builder_warning: str | None = None
         self.tick()
-        self.ensure_builder_approved()
+        if self.name != "mainnet":
+            self.ensure_builder_approved()
+        else:
+            # Startup reads only. Builder approval must be signed by the owner separately.
+            have = self.approved_builder_fee()
+            self.builder_warning = None if settings.hl_builder_address and have is not None and have >= settings.hl_builder_fee_tenths_bp else "Builder not approved; orders will omit the builder fee."
 
     # --- prices
     def marks(self) -> dict[str, float]:
@@ -413,6 +418,76 @@ class TestnetExchange:
         return self.account_equity(self._account_for(db, agent))
 
 
+class MainnetExchange(TestnetExchange):
+    """Mainnet vault execution. Never creates or funds accounts on startup/registration."""
+
+    name = "mainnet"
+
+    def tick(self):
+        out = {}
+        for dex in self._dexs:
+            for market, raw in self.info.all_mids(dex).items():
+                if market.startswith("@"):
+                    continue
+                price = float(raw)
+                if not math.isfinite(price) or price <= 0:
+                    raise ValueError("invalid mainnet market price")
+                out[market] = price
+        if not out:
+            raise RuntimeError("mainnet prices unavailable")
+        self._cache, self._cache_ts = out, time.time()
+
+    def account_equity(self, address):
+        # An unavailable dex must not silently reduce the risk model's view of the account.
+        total = 0.0
+        for dex in self._dexs:
+            value = float(self.info.user_state(address, dex)["marginSummary"]["accountValue"])
+            if not math.isfinite(value):
+                raise ValueError("non-finite mainnet equity")
+            total += value
+        return total
+
+    def positions(self, db, agent):
+        out = {}
+        account = self._account_for(db, agent)
+        for dex in self._dexs:
+            state = self.info.user_state(account, dex)
+            for item in state["assetPositions"]:
+                position = item["position"]
+                size, entry = float(position["szi"]), float(position.get("entryPx") or 0)
+                if not math.isfinite(size) or not math.isfinite(entry):
+                    raise ValueError("non-finite mainnet position")
+                if size:
+                    out[position["coin"]] = (size, entry)
+        return out
+
+    def _account_for(self, db, agent):
+        from .models import Org
+
+        org = db.get(Org, agent.org_id) if db is not None and agent.org_id else None
+        if not org or not org.hl_vault:
+            raise ValueError("mainnet agents require a legion with an existing Hyperliquid vault")
+        return org.hl_vault
+
+    def on_agent_created(self, db, agent):
+        vault = self._account_for(db, agent)
+        details = self.vault_details(vault)
+        if not details or details.get("leader", "").lower() != self.master.address.lower():
+            raise ValueError("mainnet vault leader must match the configured signer")
+        # Shared vault positions cannot be attributed to several independent risk ledgers yet.
+        from .models import Org
+
+        org_ids = select(Org.id).where(Org.hl_vault == vault)
+        other = db.scalar(select(Agent.id).where(Agent.org_id.in_(org_ids), Agent.id != agent.id))
+        if other:
+            raise ValueError("mainnet currently allows one agent per vault")
+
+    def place(self, db, agent, market, side, size, order_type, limit_px, reduce_only):
+        if not self.settings.mainnet_trading_enabled:
+            raise RuntimeError("mainnet execution disabled; owner must set MAINNET_TRADING_ENABLED=true locally")
+        return super().place(db, agent, market, side, size, order_type, limit_px, reduce_only)
+
+
 _adapter: ExchangeAdapter | None = None
 
 
@@ -424,6 +499,8 @@ def get_exchange() -> ExchangeAdapter:
             _adapter = SimExchange(s)
         elif s.arena_mode == "paper":
             _adapter = PaperExchange(s)
+        elif s.arena_mode == "mainnet":
+            _adapter = MainnetExchange(s)
         else:
             _adapter = TestnetExchange(s)
     return _adapter

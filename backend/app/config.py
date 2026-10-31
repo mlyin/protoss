@@ -5,20 +5,31 @@ ARENA_MODE
   paper    real Hyperliquid prices (Info API), simulated fills and ledger. Needs network, no funds.
   testnet  real orders on Hyperliquid testnet via the official SDK. Needs HL_MASTER_PRIVATE_KEY
            funded with testnet USDC; each agent gets its own sub-account.
+  mainnet  mainnet vault accounts; execution is off unless MAINNET_TRADING_ENABLED=true.
 """
 from __future__ import annotations
 
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import Field
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_prefix="", extra="ignore")
 
-    arena_mode: Literal["sim", "paper", "testnet"] = "sim"
+    arena_mode: Literal["sim", "paper", "testnet", "mainnet"] = "sim"
+    mainnet_trading_enabled: bool = False
+
+    @model_validator(mode="after")
+    def check_network(self):
+        expected = {"testnet": "https://api.hyperliquid-testnet.xyz", "mainnet": "https://api.hyperliquid.xyz"}
+        if self.arena_mode in expected and self.hl_api_url and self.hl_api_url.rstrip("/") != expected[self.arena_mode]:
+            raise ValueError(f"{self.arena_mode} requires {expected[self.arena_mode]}")
+        if self.arena_mode == "mainnet" and self.admin_token == "change-me":
+            raise ValueError("mainnet requires a configured ADMIN_TOKEN")
+        return self
     database_url: str = "sqlite:///./arena.db"
     admin_token: str = "change-me"
 
@@ -54,6 +65,7 @@ class Settings(BaseSettings):
             "HYPE": 89.0,
             "XMR": 330.0,
             "xyz:NVDA": 214.0,
+            "xyz:ANT": 111.0,  # synthetic demo seed; never presented as a live quote
             "xyz:TSLA": 420.0,
             "xyz:SP500": 6_900.0,
             "xyz:SOXL": 41.0,

@@ -1,5 +1,7 @@
 # Decisions
 
+- 2026-10-31: Matthew chose Telegram for the working two-account demo, with a playable browser version. iMessage stays a visual demo for now. Each person copies the same idea into a separate account; no shared stake or payout split. Use simple product language: idea, group, practice money, trade copy. Implementation names can stay unchanged.
+
 - 2026-10-31: Staking signs vaultTransfer in the browser with web/src/hlsign.js (L1 phantom-agent EIP-712, hash and r/s/v verified against hyperliquid-python-sdk). Provider is window.protossWallet (Privy embedded, still to wire, needs PRIVY_APP_ID) or an injected wallet; injected wallets may refuse chain-1337 typed data and the UI says so.
 - 2026-10-31: Product name is Protoss (was Coliseum, was Koinon) as of Oct 31; domain protoss.trade; repo mlyin/protoss. Legion = the pooled org.
 - 2026-10-31: Dev process runs on harness/ (check.sh GREEN, feedback with dead ends, gates by undo cost, rooms per task). CI runs the same check on PRs.

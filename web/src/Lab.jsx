@@ -96,7 +96,7 @@ export default function Lab() {
   return (
     <section className="lab narrow">
       <div className="lab-head">
-        <h1>The Lab</h1>
+        <h1>Test an idea</h1>
         <p className="sub">What if I bought XMR every time a major company got hacked? What if I tailed this wallet? Say it like you'd say it to a friend. Or say it in the <a href="#/huddle/demo">group chat</a>, where friends back it and stake it.</p>
       </div>
       <div className="thread">

@@ -1,5 +1,13 @@
 # Runbooks
 
+- 2026-10-31: Two-account Telegram and browser demo: `docs/telegram-demo.md`. `scripts/telegram_demo.py`
+  starts an isolated sim API and optional Telegram bridge. It forces mainnet execution off. Browser entry: `/#/demo`.
+  Each participant gets a separate practice trade. Wallet signatures prove ownership only.
+
+- 2026-10-31: Anthropic / Messages acceptance steps are in `docs/live-imessage-test.md`. `scripts/live_check.py`
+  reads mainnet market metadata, public-account positions and fills for `xyz:ANT`, without keys or signing.
+  Explicit mainnet vault mode now exists with execution off by default. Live verification and chat reconciliation of real fills remain outstanding.
+
 ## Run locally
 `pip install -r requirements.txt` then `python scripts/demo.py` (any OS; `run_protoss.bat` on Windows).
 Sim mode, SQLite, opens http://localhost:8000. `DATABASE_URL=postgresql+psycopg://... python scripts/demo.py` for Postgres (truncates tables).

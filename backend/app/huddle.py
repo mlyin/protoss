@@ -260,6 +260,10 @@ def _link(path: str) -> str:
     return f"{get_settings().app_url.rstrip('/')}{path}"
 
 
+def is_copy_chat(h: Huddle) -> bool:
+    return h.chat_id.startswith(("telegram:", "web:copies-"))
+
+
 def _can_trade(ex: ExchangeAdapter) -> bool:
     return ex.name in ("sim", "paper")
 
@@ -392,6 +396,10 @@ def _maybe_arm(db: Session, ex: ExchangeAdapter, h: Huddle, t: Thesis, announce_
         if announce_backing and len(approved) >= h.quorum and t.kind == "rule":
             say(db, h, f"Thesis {t.n} is backed by {', '.join(b.who for b in approved)}. How much each? Say \"$50 each\".", thesis_id=t.id)
         return False
+    if is_copy_chat(h) and t.kind == "rule" and sum((b.pledge_usd or 0) > 0 for b in approved) < h.quorum:
+        if announce_backing:
+            say(db, h, f"Thesis {t.n} needs a separate pledge from each participant. Use /pledge 20 to record your own paper pledge.", thesis_id=t.id)
+        return False
     arm(db, ex, h, t)
     return True
 
@@ -408,12 +416,40 @@ def arm(db: Session, ex: ExchangeAdapter, h: Huddle, t: Thesis) -> None:
     spec = t.spec or {}
     market = spec.get("market")
     if not _can_trade(ex):
+        if is_copy_chat(h):
+            say(db, h, f"Thesis {t.n} is backed for separate accounts. No real order was sent. Each participant must authorize their own trade in their own wallet; this Telegram demo cannot execute mainnet copies.", thesis_id=t.id)
+            return
         say(db, h, f"Thesis {t.n} is armed: {_usd(total)} pledged by {_who_line(bs)}. This server trades real money, so nothing moves "
                    f"from here: each of you stakes your own share into the legion yourself. {_link('/#/join' + (f'?legion={h.org_slug}' if h.org_slug else ''))}", thesis_id=t.id)
         return
+    if is_copy_chat(h) and not spec.get("_telegram_copy_owner"):
+        # Each copy gets its own thesis, agent, positions and risk ledger. Nothing is pooled.
+        original_spec = dict(spec)
+        copies = []
+        next_n = max(row.n for row in _theses(db, h)) + 1
+        for backer in bs:
+            if (backer.pledge_usd or 0) <= 0:
+                continue
+            child = Thesis(huddle_id=h.id, n=next_n, author=backer.who, text=t.text,
+                           kind="rule", label=f"{t.label} ({backer.who} copy)"[:160], test=t.test,
+                           spec={**original_spec, "_telegram_copy_owner": backer.who})
+            next_n += 1
+            db.add(child)
+            db.flush()
+            db.add(Backer(thesis_id=child.id, who=backer.who, approved=True, pledge_usd=backer.pledge_usd))
+            db.flush()
+            arm(db, ex, h, child)
+            copies.append(child.id)
+            tr = db.scalar(select(Trigger).where(Trigger.thesis_id == child.id))
+            if tr:
+                say(db, h, f"{backer.who}'s separate paper copy filled: {tr.size:.6g} {tr.market} at {_px(tr.entry_px)}. "
+                           f"Paper allocation {_usd(backer.pledge_usd)}. Agent {child.agent_id}. No real funds moved.", "result", child.id)
+        t.spec = {"type": "telegram_copies", "market": market, "copy_ids": copies}
+        say(db, h, f"Thesis {t.n} created {len(copies)} separate paper accounts. Each participant owns their own copy and its result. No shared pot.", thesis_id=t.id)
+        return
     name = f"huddle{h.id}-t{t.n}-{secrets.token_hex(2)}"
     org = db.scalar(select(Org).where(Org.slug == h.org_slug)) if h.org_slug else None
-    in_org = bool(org and org.status == "live" and market in (org.limits.allowed_markets or []))
+    in_org = bool(org and not spec.get("_telegram_copy_owner") and org.status == "live" and market in (org.limits.allowed_markets or []))
     lim = LimitsIn(max_leverage=2.0, drawdown_flatten_pct=25.0, daily_loss_pct=20.0, allowed_markets=[market] if market else None)
     body = AgentCreate(name=name, owner=t.author, runtime="huddle rule", strategy=f"{t.label} (thesis {t.n}, {h.title})"[:280], starting_equity=total, limits=lim)
     if in_org:
@@ -624,6 +660,13 @@ def command(db: Session, ex: ExchangeAdapter, h: Huddle, sender: str, body: str)
     if low in ("score", "scoreboard", "leaderboard", "who's right", "whos right"):
         say(db, h, _score_board(db, h))
         return True
+    if m := re.fullmatch(r"back\s+#?(\d+)", low):
+        t = _by_n(db, h, int(m.group(1)))
+        if not t or t.status != "proposed":
+            say(db, h, f"Thesis {m.group(1)} is not open for backing.")
+        else:
+            approve(db, ex, h, t, sender, True)
+        return True
     if m := re.match(r"^(?:hack|breach|event)\s*[:\-]?\s*(.+)$", body.strip(), re.I):
         rest = m.group(1).strip()
         url = re.search(r"https?://\S+", rest)
@@ -716,6 +759,9 @@ def ingest(db: Session, ex: ExchangeAdapter, h: Huddle, sender: str, text: str =
         return row
     live = _latest_live_rule(db, h) if not t else None
     if live and (YES.match(body) or IN_FOR.search(body)):
+        if is_copy_chat(h):
+            say(db, h, "These separate demo copies are already live. Start a new /idea to change the allocation. No additional funds moved.")
+            return row
         m = IN_FOR.search(body)
         row.thesis_id = live.id
         join_live(db, ex, h, live, sender, _money(m.group(1) or m.group(2)) if m else None)
@@ -809,7 +855,7 @@ def _require_admin(token: str | None) -> None:
 
 def _guard(h: Huddle, token: str | None) -> None:
     """Web huddles are open in sim/paper (a demo of the flow). Real chats only through the bridge's admin token."""
-    if h.is_web and get_settings().arena_mode != "testnet":
+    if h.is_web and get_settings().arena_mode in ("sim", "paper"):
         return
     _require_admin(token)
 
@@ -836,7 +882,8 @@ def thesis_out(db: Session, t: Thesis) -> dict:
 def huddle_out(db: Session, h: Huddle, limit: int = 200) -> dict:
     msgs = db.scalars(select(HuddleMessage).where(HuddleMessage.huddle_id == h.id).order_by(HuddleMessage.id.desc()).limit(limit)).all()
     people = sorted({m.sender for m in db.scalars(select(HuddleMessage).where(HuddleMessage.huddle_id == h.id, HuddleMessage.from_bot.is_(False))).all()})
-    return {"id": h.id, "chat_id": h.chat_id if h.is_web else "imessage", "title": h.title, "org_slug": h.org_slug, "quorum": h.quorum,
+    return {"id": h.id, "chat_id": h.chat_id if h.is_web else ("telegram" if h.chat_id.startswith("telegram:") else "imessage"), "title": h.title, "org_slug": h.org_slug, "quorum": h.quorum,
+            "mode": get_settings().arena_mode,
             "people": people, "messages": [_msg_out(m) for m in reversed(msgs)], "theses": [thesis_out(db, t) for t in _theses(db, h)]}
 
 
@@ -864,7 +911,7 @@ class EventIn(BaseModel):
 
 @router.post("/huddle", status_code=201)
 def create_huddle(body: HuddleIn, x_admin_token: str | None = Header(default=None), db: Session = DbDep):
-    if not body.chat_id.startswith("web:") or get_settings().arena_mode == "testnet":
+    if not body.chat_id.startswith("web:") or get_settings().arena_mode in ("testnet", "mainnet"):
         _require_admin(x_admin_token)
     h = get_or_create(db, body.chat_id, body.title, body.org_slug)
     if body.quorum:

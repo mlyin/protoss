@@ -196,11 +196,12 @@ def _event_window(dates: list[dt.date] | None, body_days: int, today: dt.date | 
 # ------------------------------------------------------------------------------------------- rule-based planner
 
 WORDS = {
+    "anthropic": "xyz:ANT",
     "bitcoin": "BTC", "btc": "BTC", "ether": "ETH", "ethereum": "ETH", "eth": "ETH", "monero": "XMR", "xmr": "XMR",
     "solana": "SOL", "sol": "SOL", "hype": "HYPE", "doge": "DOGE", "dogecoin": "DOGE",
     "nvidia": "xyz:NVDA", "nvda": "xyz:NVDA", "tesla": "xyz:TSLA", "tsla": "xyz:TSLA", "s&p 500": "xyz:SP500", "s&p": "xyz:SP500", "spx": "xyz:SP500", "sp500": "xyz:SP500",
 }
-ALIASES = {"NVDA": "xyz:NVDA", "TSLA": "xyz:TSLA", "SPX": "xyz:SP500", "SP500": "xyz:SP500", "SOXL": "xyz:SOXL"}
+ALIASES = {"ANT": "xyz:ANT", "NVDA": "xyz:NVDA", "TSLA": "xyz:TSLA", "SPX": "xyz:SP500", "SP500": "xyz:SP500", "SOXL": "xyz:SOXL"}
 STOP = {"DCA", "YTD", "MA", "SMA", "EMA", "USD", "USDC", "BUY", "SELL", "HOLD", "AND", "THE", "PNL", "API", "ETF", "OK", "AI", "HL", "PERP", "PERPS", "LONG", "SHORT", "VS", "WHAT", "IF", "SD", "HODL"}
 DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
 DAY_RE = "|".join(d[:3] + "(?:" + d[3:] + ")?" for d in DAYS)

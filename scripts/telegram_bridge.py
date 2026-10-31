@@ -1,0 +1,258 @@
+#!/usr/bin/env python3
+"""Two-account Telegram demo. Long polling; no public webhook or signing keys needed.
+
+Set TELEGRAM_BOT_TOKEN and ADMIN_TOKEN locally. `inspect` prints chat/user IDs only.
+`run --chat -100123 --users 123,456 [--legion demo]` enables replies in that group.
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import re
+import tempfile
+import time
+import urllib.error
+import urllib.parse
+import urllib.request
+from pathlib import Path
+
+
+class APIError(RuntimeError):
+    pass
+
+
+def request(url, body=None, headers=None, timeout=35):
+    req = urllib.request.Request(url, data=json.dumps(body).encode() if body is not None else None,
+                                 headers={"Content-Type": "application/json", **(headers or {})})
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as response:
+            return json.load(response)
+    except urllib.error.HTTPError as exc:
+        # Telegram URLs contain the token. Never print the URL or raw exception.
+        raise APIError(f"HTTP {exc.code}; check local credentials, permissions and service status") from None
+    except (urllib.error.URLError, TimeoutError, ValueError):
+        raise APIError("service unreachable or invalid response") from None
+
+
+class Telegram:
+    def __init__(self, token):
+        self.base = "https://api.telegram.org/bot" + token + "/"
+
+    def call(self, method, **body):
+        result = request(self.base + method, body, timeout=35)
+        if not result.get("ok"):
+            raise APIError(f"Telegram {method} failed; inspect the bot configuration locally")
+        return result["result"]
+
+
+class Protoss:
+    def __init__(self, base, token):
+        self.base = base.rstrip("/")
+        self.headers = {"x-admin-token": token}
+
+    def call(self, method, path, body=None):
+        if method not in ("GET", "POST"):
+            raise ValueError("unsupported method")
+        return request(self.base + path, body, self.headers)
+
+
+class State:
+    def __init__(self, path):
+        self.path = Path(path)
+        self.data = json.loads(self.path.read_text()) if self.path.exists() else {"offset": None, "sent": {}}
+
+    def save(self):
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        with tempfile.NamedTemporaryFile("w", dir=self.path.parent, delete=False) as output:
+            json.dump(self.data, output)
+            temp = Path(output.name)
+        temp.replace(self.path)
+
+
+HELP = ("Protoss demo\n/idea buy and hold Anthropic\n/back 1 (or tap Back this idea)\n"
+        "/pledge 20 (your own paper pledge)\n/status\n/join (private wallet connection)\n"
+        "Wallet ownership is checked with a signature. Chat backing never authorizes spending.")
+
+
+def friendly(text):
+    # Leave URLs intact, including the existing ?legion= parameter.
+    replacements = {"thesis": "idea", "theses": "ideas", "legion": "group", "sandbox": "risk checks", "pledged": "confirmed", "paper money": "practice money"}
+    parts = re.split(r"(https?://\S+)", text)
+    for index in range(0, len(parts), 2):
+        for word, replacement in replacements.items():
+            parts[index] = re.sub(r"\b" + re.escape(word) + r"\b", replacement, parts[index], flags=re.I)
+    return "".join(parts)
+
+
+class Bridge:
+    def __init__(self, telegram, protoss, state, chat, users, username, hid):
+        self.telegram, self.protoss, self.state = telegram, protoss, state
+        self.chat, self.users, self.username, self.hid = chat, set(users), username, hid
+
+    def send(self, chat, text, key, keyboard=None):
+        """Checkpoint every successful chunk. Telegram delivery is at least once across a crash."""
+        for index, start in enumerate(range(0, len(text), 3800)):
+            part_key = f"{key}:{index}"
+            if part_key in self.state.data["sent"]:
+                continue
+            body = {"chat_id": chat, "text": text[start:start + 3800], "link_preview_options": {"is_disabled": True}}
+            if keyboard and index == 0:
+                body["reply_markup"] = {"inline_keyboard": keyboard}
+            result = self.telegram.call("sendMessage", **body)
+            self.state.data["sent"][part_key] = result["message_id"]
+            self.state.save()
+
+    def drain(self):
+        rows = self.protoss.call("GET", f"/huddle/{self.hid}/outbox")
+        if not rows:
+            return
+        huddle = self.protoss.call("GET", f"/huddle/{self.hid}")
+        theses = {t["id"]: t for t in huddle["theses"]}
+        for row in rows:
+            thesis = theses.get(row.get("thesis_id"))
+            keyboard = None
+            if row["kind"] == "card" and thesis and thesis["status"] == "proposed":
+                keyboard = [[{"text": "Back this idea", "callback_data": f"back:{thesis['n']}"}]]
+            text = friendly(row["text"])
+            if huddle.get("mode") in ("sim", "paper"):
+                text = "Paper demo. No real funds.\n" + text
+            self.send(self.chat, text, f"outbox:{row['id']}", keyboard)
+            self.protoss.call("POST", f"/huddle/{self.hid}/delivered", {"ids": [row["id"]]})
+
+    def handle(self, update):
+        uid = update["update_id"]
+        callback = update.get("callback_query")
+        message = callback.get("message", {}) if callback else update.get("message", {})
+        user = callback.get("from", {}) if callback else message.get("from", {})
+        chat = message.get("chat", {})
+        user_id = user.get("id")
+        private = chat.get("type") == "private" and chat.get("id") == user_id
+        if user.get("is_bot") or user_id not in self.users:
+            return
+        if not private and (chat.get("id") != self.chat or chat.get("type") not in ("group", "supergroup")):
+            return
+        key = f"update:{uid}"
+        if callback:
+            match = re.fullmatch(r"back:([1-9][0-9]*)", callback.get("data", ""))
+            if not match or private:
+                return
+            text = f"protoss back {match[1]}"
+        else:
+            raw = message.get("text", "").strip()
+            match = re.fullmatch(r"/([a-z]+)(?:@([A-Za-z0-9_]+))?(?:\s+([\s\S]*))?", raw)
+            if not match or (match[2] and match[2].lower() != self.username.lower()):
+                return  # privacy mode works with explicit slash commands; ignore casual chat
+            command, argument = match[1], (match[3] or "").strip()
+            if private:
+                if command != "start" or argument != f"join_{self.chat}":
+                    self.send(user_id, "Use /join in the demo group to connect your own wallet.", key)
+                    return
+                if f"{key}:0" in self.state.data["sent"]:
+                    return  # do not rotate an already-delivered connection link after a restart
+                link = self.protoss.call("POST", "/telegram/links", {"huddle_id": self.hid,
+                    "telegram_user_id": str(user_id), "display_name": str(user.get("first_name") or "Participant")[:80]})
+                self.send(user_id, "Your private Protoss wallet link expires in 15 minutes. Open it in your wallet browser or a browser with your wallet extension. Sign the ownership message only. No deposit or trade is authorized.", key,
+                          [[{"text": "Connect my wallet", "url": link["url"]}]])
+                return
+            if command in ("start", "help"):
+                self.send(self.chat, HELP, key)
+                return
+            if command == "join":
+                url = f"https://t.me/{self.username}?start=join_{self.chat}"
+                self.send(self.chat, "Open the bot privately to connect your own wallet. Each participant uses their own Telegram account. A verified wallet is not a verified deposit.", key,
+                          [[{"text": "Connect my wallet privately", "url": url}]])
+                return
+            if command == "status":
+                connections = self.protoss.call("GET", f"/telegram/huddles/{self.hid}/connections")
+                lines = [f"tg:{r['telegram_user_id']}: wallet ownership verified ({r['wallet'][:8]}…{r['wallet'][-4:]}). Deposit not checked." for r in connections]
+                self.send(self.chat, "Wallet connections\n" + ("\n".join(lines) or "No verified wallets yet. Each participant can use /join."), key)
+                text = "protoss status"
+            elif command == "idea" and argument:
+                text = "protoss " + argument
+            elif command == "back" and re.fullmatch(r"[1-9][0-9]*", argument):
+                text = "protoss back " + argument
+            elif command == "pledge" and re.fullmatch(r"\d+(?:\.\d{1,2})?", argument) and 0 < float(argument) <= 1000:
+                text = "in for " + argument
+            else:
+                self.send(self.chat, HELP, key)
+                return
+        self.protoss.call("POST", f"/huddle/{self.hid}/messages", {"sender": f"tg:{user_id}", "text": text[:2000],
+                          "guid": f"tg-update:{uid}"})
+        self.drain()
+        if callback:
+            self.telegram.call("answerCallbackQuery", callback_query_id=callback["id"], text="Backing recorded. No funds moved.")
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    sub = parser.add_subparsers(dest="command", required=True)
+    sub.add_parser("inspect", help="read bot/webhook status and pending chat/user IDs, without sending")
+    run = sub.add_parser("run", help="enable the demo bot in one allowlisted group")
+    run.add_argument("--chat", required=True, type=int)
+    run.add_argument("--users", required=True, help="exactly two numeric Telegram user IDs, comma separated")
+    run.add_argument("--legion")
+    run.add_argument("--state", help="local restart checkpoint; never store this in git")
+    args = parser.parse_args()
+    token = os.environ.get("TELEGRAM_BOT_TOKEN", "")
+    if not token:
+        parser.error("set TELEGRAM_BOT_TOKEN locally; never paste it into chat")
+    telegram = Telegram(token)
+    try:
+        me = telegram.call("getMe")
+        webhook = telegram.call("getWebhookInfo")
+        if args.command == "inspect":
+            updates = telegram.call("getUpdates", timeout=0, allowed_updates=["message", "callback_query"]) if not webhook.get("url") else []
+            print(json.dumps({"bot": me["username"], "webhook_configured": bool(webhook.get("url")),
+                "pending": [{"chat_id": u["message"]["chat"]["id"], "user_id": u["message"].get("from", {}).get("id"),
+                             "chat_type": u["message"]["chat"]["type"]} for u in updates if "message" in u]}, indent=2))
+            return
+        if webhook.get("url"):
+            parser.error("this bot has a webhook; use a dedicated demo bot or remove its webhook locally first")
+        if not re.fullmatch(r"[1-9][0-9]*,[1-9][0-9]*", args.users):
+            parser.error("--users needs exactly two positive user IDs separated by a comma")
+        users = [int(value) for value in args.users.split(",")]
+        if args.chat >= 0 or len(set(users)) != 2:
+            parser.error("use a negative group chat ID and two distinct participant IDs")
+        admin = os.environ.get("ADMIN_TOKEN", "")
+        if not admin:
+            parser.error("set ADMIN_TOKEN locally to match the Protoss API")
+        protoss = Protoss(os.environ.get("PROTOSS_API", "http://127.0.0.1:8000"), admin)
+        health = protoss.call("GET", "/health")
+        group = telegram.call("getChat", chat_id=args.chat)
+        if group.get("type") not in ("group", "supergroup"):
+            parser.error("the selected Telegram chat must be a group")
+        huddle = protoss.call("POST", "/huddle", {"chat_id": f"telegram:{args.chat}", "title": group.get("title", "Protoss demo"), "org_slug": args.legion, "quorum": 2})
+        if args.legion and huddle.get("org_slug") != args.legion:
+            parser.error("selected legion was not found; create it in Protoss before running")
+        path = args.state or str(Path.home() / ".protoss" / f"telegram-{me['id']}-{args.chat}.json")
+        state = State(path)
+        identity = {"bot": me["id"], "chat": args.chat, "users": sorted(users)}
+        if "identity" in state.data and state.data["identity"] != identity:
+            parser.error("checkpoint belongs to another bot/group/participant pair; use a different --state")
+        state.data["identity"] = identity
+        if state.data["offset"] is None:
+            latest = telegram.call("getUpdates", offset=-1, timeout=0, allowed_updates=["message", "callback_query"])
+            state.data["offset"] = latest[-1]["update_id"] + 1 if latest else 0
+            state.save()  # first start ignores old commands; send fresh commands after this point
+        bridge = Bridge(telegram, protoss, state, args.chat, users, me["username"], huddle["id"])
+        print(f"Protoss Telegram bridge running in {health['mode']} mode. Send fresh commands in the selected group. Ctrl-C stops it.")
+        while True:
+            try:
+                bridge.drain()
+                updates = telegram.call("getUpdates", offset=state.data["offset"], timeout=20, allowed_updates=["message", "callback_query"])
+                for update in updates:
+                    bridge.handle(update)
+                    state.data["offset"] = update["update_id"] + 1
+                    state.save()
+            except APIError as exc:
+                print(f"{exc}; retrying in 3 seconds", flush=True)
+                time.sleep(3)
+    except APIError as exc:
+        parser.exit(1, str(exc) + "\n")
+    except KeyboardInterrupt:
+        pass
+
+
+if __name__ == "__main__":
+    main()
