@@ -490,6 +490,30 @@ def _result(label: str, market: str, start: dt.datetime, end: dt.datetime, bar: 
     )
 
 
+def _event_baseline(candles: list[Candle], dates: list[dt.date], hold_days: int, bar: str, side: str) -> str:
+    """Time in market is not edge. Compare the mean forward move after the event days with the mean from any bar."""
+    if len(candles) < 3:
+        return "baseline: window too short to compare"
+    step = max(1.0, (candles[1].ts - candles[0].ts).total_seconds())  # the bars we really got, not the bars asked for
+    n = max(1, int(round(hold_days * 86400 / step)))
+    sign = 1.0 if side == "long" else -1.0
+    fwd = [sign * (candles[i + n].c / candles[i].c - 1) * 100 for i in range(len(candles) - n)]
+    if not fwd:
+        return "baseline: window too short to compare"
+    ev = []
+    for d in sorted(set(dates)):
+        t0 = dt.datetime.combine(d, dt.time(), UTC)
+        i = next((k for k, c in enumerate(candles) if c.ts >= t0), None)
+        if i is not None and i < len(fwd):
+            ev.append(fwd[i])
+    if not ev:
+        return "baseline: no event fell on a bar with a full holding period after it"
+    mean = lambda xs: sum(xs) / len(xs)  # noqa: E731
+    win = lambda xs: 100 * sum(x > 0 for x in xs) / len(xs)  # noqa: E731
+    return (f"baseline: mean {hold_days}d move after the {len(ev)} events {mean(ev):+.2f}% (win {win(ev):.0f}%) vs "
+            f"{mean(fwd):+.2f}% (win {win(fwd):.0f}%) from any bar; the gap is the edge, the rest is time in market")
+
+
 def _source_note(source: PriceSource, market: str | None, bar: str) -> str:
     if source.name == "hyperliquid":
         return f"Hyperliquid {bar} candles"
@@ -518,6 +542,7 @@ def run_backtest(spec, source: PriceSource, now: dt.datetime | None = None) -> B
             raise NoEventsInWindow(f"none of the {len(dates)} event dates fall in the last {spec.days} days")
         notes.append(HACKS_NOTE if spec.event_set == "major_hacks" else f"custom event dates: {len(dates)} supplied")
         notes.append(f"{len(in_window)} of {len(dates)} event dates fall inside the window")
+        notes.append(_event_baseline(candles, in_window, spec.hold_days, bar, spec.side))
         build: Callable = lambda cs, bk: _event_buy(spec, cs, bk, in_window)  # noqa: E731
     else:
         build = lambda cs, bk: _STRATEGIES[spec.type](spec, cs, bk)  # noqa: E731
