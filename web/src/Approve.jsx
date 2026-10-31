@@ -79,7 +79,7 @@ export default function Approve() {
   const ok = approved != null && approved >= want
 
   return (
-    <section className="card approve">
+    <section className="card approve pad">
       <div className="cardhead"><h2>Approve the Coliseum builder fee</h2></div>
       {!b ? <div className="sub">loading…</div> : (
         <>
@@ -104,7 +104,7 @@ export default function Approve() {
           </div>
           <p className="sub">The signature is a Hyperliquid user-signed action (<code>approveBuilderFee</code>), sent straight from your browser to <code>{api()}</code>. It must come from your main wallet, not an agent/API wallet. You can revoke it any time in the Hyperliquid app under Settings → Builder fees.</p>
           {err && <div className="err">{err}</div>}
-          {log.length > 0 && <pre className="log">{log.join('\n')}</pre>}
+          {log.length > 0 && <pre className="logbox">{log.join('\n')}</pre>}
         </>
       )}
     </section>

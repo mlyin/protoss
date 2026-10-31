@@ -385,6 +385,10 @@ from .routes_orgs import router as orgs_router  # noqa: E402
 
 app.include_router(orgs_router)
 
+from .social import router as social_router  # noqa: E402
+
+app.include_router(social_router)
+
 # serve the built web app if present (web/dist)
 _dist = Path(__file__).resolve().parents[2] / "web" / "dist"
 if _dist.exists():
