@@ -20,3 +20,5 @@ web/node_modules
 logs/
 ios/build/
 ios/*.xcodeproj/
+ios/App/Info.plist
+ios/MessagesExtension/Info.plist

@@ -7,7 +7,7 @@ chat and the Mac bridge (`backend/app/huddle.py`, web huddles, paper mode), at `
 ## Build (Mac mini, headless)
 ```
 brew install xcodegen                    # once
-cd ~/protoss/ios && xcodegen             # writes Protoss.xcodeproj from project.yml
+cd ~/protoss/ios && xcodegen             # writes Protoss.xcodeproj and both Info.plists from project.yml (all gitignored)
 xcodebuild -project Protoss.xcodeproj -scheme Protoss -sdk iphonesimulator \
   -destination 'generic/platform=iOS Simulator' -derivedDataPath build CODE_SIGNING_ALLOWED=NO build
 ```
