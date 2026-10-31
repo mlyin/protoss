@@ -337,11 +337,11 @@ class TestnetExchange:
     # --- vaults (non-custodial pooling)
     def _account_for(self, db, agent) -> str | None:
         """The Hyperliquid account an agent trades: its legion's vault when one is set, else its sub-account."""
-        if agent.org_id:
+        if getattr(agent, "org_id", None) and db is not None:
             from .models import Org
 
             org = db.get(Org, agent.org_id)
-            if org and org.hl_vault:
+            if org and getattr(org, "hl_vault", None):
                 return org.hl_vault
         return agent.hl_subaccount
 
