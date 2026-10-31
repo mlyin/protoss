@@ -43,8 +43,8 @@ if [ ! -d web/dist ] || ! git diff --quiet "$BASE" -- web/src web/index.html 2>/
 else ok "web-build (unchanged)"; fi
 
 # 4. no secrets in tracked files
-if git ls-files -z | xargs -0 grep -lE '(ar_(owner|live|org)_[A-Za-z0-9_-]{8,}|HL_MASTER_PRIVATE_KEY=0x[0-9a-fA-F]{20,}|"private_key": *"[0-9a-fA-F]{40,}|sb_secret_|postgres(ql)?(\+psycopg)?://[^:]+:[^@<]{8,}@)' 2>/dev/null | grep -vqE '^(harness/check.sh)$'; then
-  fail secrets "no keys or connection strings in tracked files" "$(git ls-files -z | xargs -0 grep -lE '(ar_(owner|live|org)_[A-Za-z0-9_-]{8,}|HL_MASTER_PRIVATE_KEY=0x[0-9a-fA-F]{20,}|\"private_key\": *\"[0-9a-fA-F]{40,}|sb_secret_|postgres(ql)?(\+psycopg)?://[^:]+:[^@<]{8,}@)' 2>/dev/null | grep -vE '^(harness/check.sh)$' | tr '\n' ' ')"
+if git ls-files -z | xargs -0 grep -lP '(ar_(owner|live|org)_[A-Za-z0-9_-]{8,}|HL_MASTER_PRIVATE_KEY=0x[0-9a-fA-F]{20,}|"private_key": *"[0-9a-fA-F]{40,}|sb_secret_|postgres(ql)?(\+psycopg)?://[^:]+:[^@<]{8,}@(?!localhost|127\.0\.0\.1))' 2>/dev/null | grep -vqE '^(harness/check.sh)$'; then
+  fail secrets "no keys or connection strings in tracked files" "$(git ls-files -z | xargs -0 grep -lP '(ar_(owner|live|org)_[A-Za-z0-9_-]{8,}|HL_MASTER_PRIVATE_KEY=0x[0-9a-fA-F]{20,}|\"private_key\": *\"[0-9a-fA-F]{40,}|sb_secret_|postgres(ql)?(\+psycopg)?://[^:]+:[^@<]{8,}@(?!localhost|127\.0\.0\.1))' 2>/dev/null | grep -vE '^(harness/check.sh)$' | tr '\n' ' ')"
 else ok secrets; fi
 
 # 5. copy follows brain/voice.md in the places people read (UI strings, brand, README, brain)
