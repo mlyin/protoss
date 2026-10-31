@@ -146,6 +146,74 @@ class SimCandles:
         return out
 
 
+class FileCandles:
+    """Hyperliquid candles cached in the repo: data/candles/<MARKET>_<bar>.csv (t,o,h,l,c,v; t in seconds).
+
+    Pulled from the public API on a machine that can reach it, so the Lab gives real answers where the cloud
+    cannot. `refresh` is the operator's job; the first/last timestamps are reported in the result notes."""
+
+    name = "file"
+    DIR = Path(__file__).resolve().parent / "data" / "candles"
+
+    def __init__(self, directory: Path | None = None):
+        self.dir = directory or self.DIR
+
+    def _path(self, market: str, bar: str) -> Path:
+        return self.dir / f"{market.replace(':', '_')}_{bar}.csv"
+
+    def has(self, market: str, bar: str = "1d") -> bool:
+        return self._path(market, bar).exists()
+
+    def markets(self) -> list[str]:
+        return sorted({p.name.rsplit("_", 1)[0].replace("_", ":", 1) if p.name.count("_") > 1 else p.name.rsplit("_", 1)[0] for p in self.dir.glob("*_*.csv")}) if self.dir.exists() else []
+
+    def span(self, market: str, bar: str = "1d") -> tuple[dt.datetime, dt.datetime] | None:
+        rows = self._rows(market, bar)
+        return (rows[0].ts, rows[-1].ts) if rows else None
+
+    def _rows(self, market: str, bar: str) -> list[Candle]:
+        path = self._path(market, bar)
+        if not path.exists():
+            return []
+        out = []
+        with path.open(newline="", encoding="utf-8") as f:
+            for r in csv.DictReader(f):
+                out.append(Candle(dt.datetime.fromtimestamp(int(r["t"]), UTC), float(r["o"]), float(r["h"]), float(r["l"]), float(r["c"]), float(r["v"])))
+        return out
+
+    def candles(self, market: str, bar: str, start: dt.datetime, end: dt.datetime) -> list[Candle]:
+        rows = [c for c in self._rows(market, bar) if start <= c.ts < end]
+        if bar != "1d" and not rows:
+            # only daily files are shipped; serve a daily series for hourly asks rather than nothing
+            rows = [c for c in self._rows(market, "1d") if start <= c.ts < end]
+        if not rows:
+            raise SourceUnavailable(f"no cached candles for {market}")
+        return rows
+
+
+class LayeredCandles:
+    """Cached Hyperliquid files where we have them, simulated prices where we do not. Used when the API is unreachable."""
+
+    name = "file"
+
+    def __init__(self, files: FileCandles, sim: SimCandles):
+        self.files, self.sim = files, sim
+
+    def has(self, market: str) -> bool:
+        return self.files.has(market) or self.sim.has(market)
+
+    def markets(self) -> list[str]:
+        return sorted(set(self.files.markets()) | set(self.sim.markets()))
+
+    def real(self, market: str) -> bool:
+        return self.files.has(market)
+
+    def candles(self, market: str, bar: str, start: dt.datetime, end: dt.datetime) -> list[Candle]:
+        if self.files.has(market):
+            return self.files.candles(market, bar, start, end)
+        return self.sim.candles(market, bar, start, end)
+
+
 _source: tuple[tuple, PriceSource, float] | None = None  # (settings key, source, when chosen)
 _candle_cache: dict[tuple, tuple[float, list[Candle]]] = {}
 
@@ -156,7 +224,8 @@ def get_source(settings: Settings) -> PriceSource:
     key = (settings.arena_mode, settings.hl_api_url, tuple(settings.hl_perp_dexs))
     if _source and _source[0] == key and (_source[1].name == "hyperliquid" or key[0] == "sim" or time.monotonic() - _source[2] < 300):
         return _source[1]
-    src: PriceSource = SimCandles(settings)
+    files = FileCandles()
+    src: PriceSource = LayeredCandles(files, SimCandles(settings)) if files.markets() else SimCandles(settings)
     if settings.arena_mode != "sim":
         from hyperliquid.utils import constants
 
@@ -421,11 +490,22 @@ def _result(label: str, market: str, start: dt.datetime, end: dt.datetime, bar: 
     )
 
 
+def _source_note(source: PriceSource, market: str | None, bar: str) -> str:
+    if source.name == "hyperliquid":
+        return f"Hyperliquid {bar} candles"
+    if isinstance(source, LayeredCandles) and market and source.real(market):
+        span = source.files.span(market)
+        b = "1d" if not source.files.has(market, bar) else bar
+        tail = f" ({span[0]:%Y-%m-%d} to {span[1]:%Y-%m-%d})" if span else ""
+        return f"Hyperliquid {b} candles for {market}, cached in the repo{tail}; Hyperliquid itself was unreachable"
+    return SIM_NOTE
+
+
 def run_backtest(spec, source: PriceSource, now: dt.datetime | None = None) -> BacktestResult:
     """Run a validated Spec (see lab.py) against a price source. Raises SourceUnavailable / ValueError."""
     bar = getattr(spec, "bar", "1h")
     start, end = window(spec.days, bar, now)
-    notes = [f"Hyperliquid {bar} candles" if source.name == "hyperliquid" else SIM_NOTE, f"fees: {spec.fee_bps} bp taker per side plus {SLIPPAGE_BPS:g} bp slippage on every fill"]
+    notes = [_source_note(source, getattr(spec, "market", None), bar), f"fees: {spec.fee_bps} bp taker per side plus {SLIPPAGE_BPS:g} bp slippage on every fill"]
     if spec.type == "tail_wallet":
         return _run_tail(spec, source, start, end, notes)
     candles = cached_candles(source, spec.market, bar, start, end)

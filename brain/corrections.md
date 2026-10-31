@@ -2,6 +2,7 @@
 
 Things Matthew corrected once. Do not make him say them twice.
 
+- 2026-10-31: The Lab can run on real Hyperliquid history offline: `FileCandles` reads `backend/app/data/candles/<MARKET>_1d.csv`, layered over SimCandles when the API is unreachable, and the result notes say which it used. Refresh the files from a machine that can reach api.hyperliquid.xyz (candleSnapshot, 1d).
 - 2026-10-31: Name is Protoss now. Blizzard owns the StarCraft Protoss trademark; flagged once, Matthew chose it for now.
 - 2026-10-31: Do not call the pooled org a phalanx (too hard to pronounce). It is a legion in copy; code stays org.
 - 2026-10-31: Do not control his computer (no screen control, no clicking around). Shell and files only, and only on

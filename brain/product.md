@@ -47,3 +47,12 @@ Shape, non-custodial end to end (`backend/app/onboard.py`, `web/src/Join.jsx`):
 Server: `GET /onboard/options`, `POST /onboard/session` (returns the hosted checkout URL and the plain-English steps), `GET /onboard/session/{id}` (polls the wallet's equity on a live exchange; sim fakes funding at 20 s), `POST .../staked`. Region gate via Cloudflare's `CF-IPCountry`; `ONBOARD_BLOCKED_REGIONS` defaults to US.
 Not done: Privy wiring in the browser (needs `PRIVY_APP_ID`), MoonPay keys (`ONRAMP_MOONPAY_KEY/SECRET`, currency `usdc_hypercore` once Gateway is enabled on the account), Coinbase session tokens, partner webhooks (polling stands in).
 Compliance, stated plainly: Hyperliquid's own app blocks US users, Legend and the other builder fronts geofence the US, and offering perps to US persons is a CFTC matter. Matthew is in NYC. Ship with the US block on and have counsel look before any US opening. Not legal advice; the point is to make the default the safe one.
+
+## Study: XMR on hacks, real Hyperliquid data (2026-10-31)
+
+Matthew's first strategy question. Daily XMR candles pulled from the public Hyperliquid API (via his browser; the cloud container cannot reach it), cached in `backend/app/data/candles/XMR_1d.csv` (2024-08-22 to 2026-10-30). 26 events from `hacks.csv` in the 730-day window, $10k, 4.5 bp + 3 bp slippage.
+- hold 3d +34%, 7d +24%, 14d +43%, 30d +85%; buy and hold +282%. Max drawdown 13% to 45%.
+- No edge: mean 7d move after a hack +1.3% (median -0.9%) vs +1.7% from any day; 30d +6.3% vs +7.5%. Crypto-native hacks were the worst entries (Bybit -6.5%, Cetus -12.3% at 7d).
+- On Hyperliquid: XMR-PERP since 2026-01-15, 5x max, funding positive 97% of hours, longs paying ~29% annualized (0.3 to 1.4% per 7-day hold). That alone eats the mean move.
+- Binance $6.3B theft (2026-10-29) added to the list; XMR -2.9% day one.
+Lesson for the product: the Lab must always print the any-day baseline next to an event study, or people will read time-in-market as edge. To do: `baseline` field in BacktestResult for event_buy.

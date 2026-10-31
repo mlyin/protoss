@@ -60,7 +60,15 @@ def test_hack_events_backtest(client):
     assert j["deployable"]["markets"] == ["XMR"]
     assert "#" not in j["reply"] and 2 <= j["reply"].count(". ") + 1 <= 5
     # an explicit window keeps the user's choice, and one with no events asks instead of printing a flat 0%
-    short = chat(client, "buy XMR on hacks, hold 7 days, over the last 90 days")
+    # (the list is live and now has events in the last 90 days, so pin the list for this check)
+    import app.backtest as B
+
+    real = B.load_hacks
+    B.load_hacks = lambda: [r for r in real() if r["date"] < dt.date(2025, 6, 1)]
+    try:
+        short = chat(client, "buy XMR on hacks, hold 7 days, over the last 90 days")
+    finally:
+        B.load_hacks = real
     assert short["kind"] == "clarify" and short["spec"] is None and "window" in short["reply"].lower()
     far = chat(client, "short BTC for 3 days after 2024-01-15 over the last 30 days")
     assert far["kind"] == "clarify" and far["result"] is None

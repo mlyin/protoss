@@ -48,3 +48,13 @@ date,company,description,source_hint
 2025-10-15,F5,Disclosed nation-state theft of BIG-IP source code and vulnerability data,F5 8-K / CISA ED 26-01
 2025-11-03,Balancer,About $120M drained from v2 composable stable pools,Balancer announcements
 2025-11-27,Upbit,About $30M of Solana-based assets drained from a hot wallet,Upbit (Dunamu) notice
+2026-01-20,US Social Security Administration (DOGE),Reported that a live copy of the SSA database was moved to an unsecured third-party server,TechCrunch 2026-09-15 roundup
+2026-03-11,Stryker,Iranian group Handala remotely wiped tens of thousands of employee devices; operations disrupted for days,TechCrunch 2026-09-15 roundup
+2026-04-01,FBI surveillance system,Suspected Chinese breach of an unclassified network exposed phone numbers of surveillance targets,Politico 2026-04-01
+2026-04-23,Vercel,Customer data stolen in the Trivy / Bitwarden CLI supply-chain campaign,TechCrunch 2026-09-15 roundup
+2026-05-07,Instructure (Canvas),ShinyHunters stole data on over 30M students and staff and defaced login pages during finals,TechCrunch 2026-09-15 roundup
+2026-05-14,OpenAI,Data stolen after a compromised development tool,TechCrunch 2026-09-15 roundup
+2026-06-23,Klue,Attackers used a 2022 credential to reach customers' cloud data; close to 200 companies affected,TechCrunch 2026-09-15 roundup
+2026-08-19,CareCloud,3.7M patients' medical records stolen,TechCrunch 2026-09-15 roundup
+2026-08-26,Boston Scientific,Cyberattack caused global disruption with about two weeks to recover,TechCrunch 2026-09-15 roundup
+2026-10-29,Binance,About $6.3B moved out of Binance wallets across 10 chains; largest crypto theft ever; TRM and Chainalysis attribute it to North Korea's TraderTraitor,Al Jazeera 2026-10-30 / TRM Labs
