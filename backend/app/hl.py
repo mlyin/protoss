@@ -14,6 +14,7 @@ exchange is the source of truth and we read it back through Info.user_state.
 """
 from __future__ import annotations
 
+import logging
 import math
 import random
 import threading
@@ -26,6 +27,8 @@ from sqlalchemy.orm import Session
 
 from .config import Settings, get_settings
 from .models import Agent, Position
+
+log = logging.getLogger("koinon.hl")
 
 
 @dataclass
@@ -248,7 +251,9 @@ class TestnetExchange:
         self._ex_cache: dict[str | None, Exchange] = {}
         self._cache: dict[str, float] = {}
         self._cache_ts = 0.0
+        self.builder_warning: str | None = None
         self.tick()
+        self.ensure_builder_approved()
 
     # --- prices
     def marks(self) -> dict[str, float]:
@@ -290,26 +295,64 @@ class TestnetExchange:
             raise RuntimeError(f"create_sub_account failed: {res}")
         agent.hl_subaccount = sub
         ex.sub_account_transfer(sub, True, int(agent.starting_equity * 1_000_000))  # USDC has 6 decimals
-        # the master approves our own builder fee once; sub-accounts inherit the master's approval
-        ex.approve_builder_fee(self.builder, f"{self.settings.hl_builder_fee_tenths_bp / 1000:.3f}%")
+
+    # --- builder code
+    def approved_builder_fee(self, user: str | None = None) -> int | None:
+        """Max fee (tenths of a bp) `user` has approved for our builder, or None if the query fails."""
+        try:
+            res = self.info.post("/info", {"type": "maxBuilderFee", "user": user or self.master.address, "builder": self.builder})
+            return int(res)
+        except Exception:
+            return None
+
+    def ensure_builder_approved(self) -> None:
+        """The master wallet (which signs for every sub-account) approves our own builder fee once.
+        Approval must come from a main wallet, which the master is. Never fatal: trading continues
+        without the builder code and the UI shows a warning instead."""
+        want = int(self.settings.hl_builder_fee_tenths_bp)
+        have = self.approved_builder_fee()
+        if have is not None and have >= want:
+            return
+        try:
+            res = self._exchange(None).approve_builder_fee(self.builder, f"{want / 1000:.3f}%")
+            if isinstance(res, dict) and res.get("status") != "ok":
+                raise RuntimeError(str(res))
+            self.builder_warning = None
+        except Exception as e:  # e.g. builder below 100 USDC account value
+            self.builder_warning = f"builder fee not approved for {self.builder}: {e}"
+            log.warning(self.builder_warning)
 
     def _builder(self):
-        return {"b": self.builder, "f": int(self.settings.hl_builder_fee_tenths_bp)}
+        return {"b": self.builder, "f": int(self.settings.hl_builder_fee_tenths_bp)} if not self.builder_warning else None
+
+    def _send(self, ex, market, is_buy, size, order_type, limit_px, reduce_only, builder):
+        if order_type == "market" or limit_px is None:
+            if reduce_only:
+                return ex.market_close(market, size, None, 0.01, builder=builder)
+            return ex.market_open(market, is_buy, size, None, 0.01, builder=builder)
+        return ex.order(market, is_buy, size, limit_px, {"limit": {"tif": "Ioc"}}, reduce_only, builder=builder)
 
     def place(self, db, agent, market, side, size, order_type, limit_px, reduce_only) -> Fill | None:
         ex = self._exchange(agent.hl_subaccount)
         is_buy = side == "buy"
-        if order_type == "market" or limit_px is None:
-            res = ex.market_open(market, is_buy, size, None, 0.01, builder=self._builder()) if not reduce_only else ex.market_close(market, size, None, 0.01, builder=self._builder())
-        else:
-            res = ex.order(market, is_buy, size, limit_px, {"limit": {"tif": "Ioc"}}, reduce_only, builder=self._builder())
+        builder = self._builder()
+        res = self._send(ex, market, is_buy, size, order_type, limit_px, reduce_only, builder)
         statuses = (res.get("response", {}).get("data", {}).get("statuses", []) if isinstance(res, dict) else [])
+        errors = [st["error"] for st in statuses if "error" in st]
+        if builder and errors and "builder" in " ".join(errors).lower():
+            # the exchange rejected the builder code (not approved / not eligible): trade without it, flag it
+            self.builder_warning = f"exchange rejected builder code: {errors[0]}"
+            log.warning(self.builder_warning)
+            res = self._send(ex, market, is_buy, size, order_type, limit_px, reduce_only, None)
+            statuses = (res.get("response", {}).get("data", {}).get("statuses", []) if isinstance(res, dict) else [])
+            builder = None
         for st in statuses:
             if "filled" in st:
                 f = st["filled"]
                 px, sz = float(f["avgPx"]), float(f["totalSz"])
                 notional = px * sz
-                return Fill(market, side, sz, px, notional * self.settings.taker_fee_bps / 10_000, notional * self.settings.hl_builder_fee_tenths_bp / 1_000_000, 0.0, str(f.get("oid")))
+                bfee = notional * self.settings.hl_builder_fee_tenths_bp / 1_000_000 if builder else 0.0
+                return Fill(market, side, sz, px, notional * self.settings.taker_fee_bps / 10_000, bfee, 0.0, str(f.get("oid")))
             if "error" in st:
                 raise RuntimeError(st["error"])
         return None

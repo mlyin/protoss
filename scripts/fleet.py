@@ -30,7 +30,7 @@ RESET = "\033[0m"
 
 def load_cfg(path: Path) -> dict:
     cfg = yaml.safe_load(path.read_text())
-    cfg.setdefault("api", "http://localhost:8000")
+    cfg["api"] = os.environ.get("ARENA_URL") or cfg.get("api") or "http://localhost:8000"
     cfg.setdefault("owner", "fleet")
     cfg.setdefault("starting_equity", 10_000)
     return cfg
@@ -70,6 +70,56 @@ def ensure_agent(client: httpx.Client, cfg: dict, bot: dict, keys: dict, admin: 
     return keys[bot["name"]]
 
 
+def ensure_org(client: httpx.Client, org: dict, keys: dict, admin: str) -> dict:
+    """Create a koinon (org) once and remember its owner key; on later runs just return the cached record."""
+    orgs = keys.setdefault("orgs", {})
+    if org["slug"] in orgs:
+        return orgs[org["slug"]]
+    body = {
+        "name": org["name"],
+        "slug": org["slug"],
+        "leader": org["leader"],
+        "mandate": org["mandate"],
+        "limits": org.get("limits", {}),
+        "profit_share_pct": org.get("profit_share_pct", 10),
+        "initial_deposit": org.get("initial_deposit", 0),
+    }
+    r = client.post("/admin/orgs", json=body, headers={"x-admin-token": admin})
+    if r.status_code == 409:
+        sys.exit(f"org {org['slug']} exists on the server but its key is not in {KEYS.name}; delete it or restore the keys file")
+    r.raise_for_status()
+    j = r.json()
+    orgs[org["slug"]] = {"id": j["id"], "org_key": j["org_key"], "members": {}}
+    save_keys(keys)
+    for who, amt in (org.get("deposits") or {}).items():
+        d = client.post(f"/orgs/{org['slug']}/deposit", json={"depositor": who, "amount_usd": float(amt)})
+        if d.status_code >= 400:
+            print(f"  deposit {who} -> {org['slug']}: {d.status_code} {d.text}")
+    print(f"created koinon {org['slug']} ({j['id'][:8]})")
+    return orgs[org["slug"]]
+
+
+def ensure_member(client: httpx.Client, org: dict, rec: dict, m: dict, keys: dict) -> dict:
+    if m["name"] in rec["members"]:
+        return rec["members"][m["name"]]
+    body = {
+        "name": m["name"],
+        "runtime": m.get("runtime", "Python SDK"),
+        "strategy": m.get("strategy"),
+        "allocation_usd": m["allocation_usd"],
+        "limits": dict(m.get("limits", {}), **({"allowed_markets": m["markets"]} if m.get("markets") else {})),
+    }
+    r = client.post(f"/orgs/{org['slug']}/agents", json=body, headers={"authorization": f"Bearer {rec['org_key']}"})
+    if r.status_code == 409:
+        sys.exit(f"{m['name']} exists on the server but its keys are not in {KEYS.name}")
+    r.raise_for_status()
+    j = r.json()
+    rec["members"][m["name"]] = {"id": j["id"], "owner_key": j["owner_key"], "agent_key": j["agent_key"]}
+    save_keys(keys)
+    print(f"registered {m['name']} in {org['slug']} ({j['id'][:8]}, ${m['allocation_usd']:,.0f})")
+    return rec["members"][m["name"]]
+
+
 def apply_limits(client: httpx.Client, bot: dict, k: dict) -> None:
     lim = dict(bot.get("limits", {}))
     if bot.get("markets"):
@@ -80,15 +130,16 @@ def apply_limits(client: httpx.Client, bot: dict, k: dict) -> None:
             print(f"  limits for {bot['name']}: {r.status_code} {r.text}")
 
 
-def status(client: httpx.Client, bots: list[dict], keys: dict) -> None:
-    for b in bots:
-        k = keys.get(b["name"])
+def status(client: httpx.Client, runnables: list[tuple[dict, dict | None]]) -> None:
+    for b, k in runnables:
         if not k:
             print(f"{b['name']:<20} not registered")
             continue
         me = client.get("/v1/me", headers={"authorization": f"Bearer {k['agent_key']}"}).json()
         flag = "live  " if me["status"] == "live" else "HALTED"
-        print(f"{b['name']:<20} {flag} equity {me['equity']:>10,.2f}  lev {me['leverage'] or 0:>5.2f}  {me.get('halted_reason') or ''}")
+        org = me.get("org")
+        org = f"[{org['slug'] if isinstance(org, dict) else org}] " if org else ""
+        print(f"{b['name']:<20} {flag} equity {me['equity']:>10,.2f}  lev {me['leverage'] or 0:>5.2f}  {org}{me.get('halted_reason') or ''}")
 
 
 def stream(name: str, proc: subprocess.Popen, color: str) -> None:
@@ -115,18 +166,26 @@ def main() -> None:
         sys.exit(f"API not reachable at {cfg['api']}: {e}\nStart it: cd backend && uvicorn app.main:app --port 8000")
 
     keys = load_keys()
+    runnables: list[tuple[dict, dict]] = []  # (bot config, key record) for standalone bots and koinon members alike
     for b in bots:
         k = ensure_agent(client, cfg, b, keys, admin)
         apply_limits(client, b, k)
+        runnables.append((b, k))
+    for org in cfg.get("orgs") or []:
+        rec = ensure_org(client, org, keys, admin)
+        for m in org.get("members") or []:
+            if args.only and m["name"] not in args.only:
+                continue
+            runnables.append((m, ensure_member(client, org, rec, m, keys)))
 
     if args.status:
-        status(client, bots, keys)
+        status(client, runnables)
         return
 
     procs: list[tuple[str, subprocess.Popen]] = []
     env_base = dict(os.environ, ARENA_URL=cfg["api"], PYTHONPATH=str(ROOT / "sdk") + os.pathsep + os.environ.get("PYTHONPATH", ""))
-    for i, b in enumerate(bots):
-        env = dict(env_base, ARENA_API_KEY=keys[b["name"]]["agent_key"])
+    for i, (b, k) in enumerate(runnables):
+        env = dict(env_base, ARENA_API_KEY=k["agent_key"])
         env.update({k: str(v) for k, v in (b.get("env") or {}).items()})
         if b.get("markets") and "MARKETS" not in env:
             env["MARKETS"] = ",".join(b["markets"])
@@ -139,14 +198,14 @@ def main() -> None:
         for _, p in procs:
             p.terminate()
         time.sleep(1)
-        status(client, bots, keys)
+        status(client, runnables)
         sys.exit(0)
 
     signal.signal(signal.SIGINT, stop)
     signal.signal(signal.SIGTERM, stop)
     while True:
         time.sleep(30)
-        status(client, bots, keys)
+        status(client, runnables)
 
 
 if __name__ == "__main__":

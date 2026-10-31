@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react'
+import Approve from './Approve.jsx'
 
 const fmtUsd = (v) => (v == null ? '—' : '$' + Number(v).toLocaleString(undefined, { maximumFractionDigits: v < 100 ? 2 : 0 }))
 const fmtPct = (v) => (v == null ? '—' : (v > 0 ? '+' : '') + Number(v).toFixed(2) + '%')
@@ -141,7 +142,18 @@ function OrgDrawer({ slug, onClose }) {
   )
 }
 
+function useHash() {
+  const [h, setH] = useState(() => globalThis.location.hash)
+  useEffect(() => {
+    const on = () => setH(globalThis.location.hash)
+    globalThis.addEventListener('hashchange', on)
+    return () => globalThis.removeEventListener('hashchange', on)
+  }, [])
+  return h
+}
+
 export default function App() {
+  const hash = useHash()
   const [window, setWindow] = useState(7)
   const [lb, lbErr] = usePoll(`/leaderboard?window_days=${window}`, 3000)
   const [stats] = usePoll('/stats', 5000)
@@ -161,8 +173,12 @@ export default function App() {
         </div>
         <span className="spacer" />
         {lb && <span className={`chip ${lb.mode === 'testnet' ? 'green' : 'amber'}`}>{lb.mode} mode</span>}
+        <a href="#/approve">Approve builder fee</a>
         <a href="/docs">API docs</a>
       </header>
+
+      {hash === '#/approve' && <div className="layout one"><Approve /><a className="back" href="#/">← back to the leaderboard</a></div>}
+      {hash !== '#/approve' && <>
 
       {lbErr && <div className="err">API unreachable ({lbErr}). Start the backend: cd backend && uvicorn app.main:app</div>}
 
@@ -258,6 +274,7 @@ export default function App() {
           </div>
         </aside>
       </div>
+      </>}
     </>
   )
 }

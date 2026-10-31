@@ -21,6 +21,28 @@ API = "http://localhost:8000"
 ADMIN = os.environ.get("ADMIN_TOKEN", "demo-admin")
 
 
+def reset_db(url: str) -> None:
+    """The demo always starts from an empty ledger. SQLite: delete the file. Postgres: truncate every table
+    (keeps the schema and its RLS settings, so it is safe on Supabase)."""
+    if url.startswith("sqlite"):
+        path = url.split("sqlite:///", 1)[1]
+        for suffix in ("", "-wal", "-shm"):
+            try:
+                os.unlink(path + suffix)
+            except FileNotFoundError:
+                pass
+        return
+    from sqlalchemy import create_engine, inspect, text
+
+    eng = create_engine(url)
+    with eng.begin() as conn:
+        tables = [t for t in inspect(conn).get_table_names() if t in {
+            "orgs", "agents", "deposits", "org_limits", "limits", "positions", "orders", "equity_snapshots", "events"}]
+        if tables:
+            conn.execute(text("TRUNCATE TABLE " + ", ".join(tables) + " RESTART IDENTITY CASCADE"))
+    eng.dispose()
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--duration", type=float, default=None)
@@ -32,17 +54,15 @@ def main() -> None:
     except ImportError:
         sys.exit("pip install -r requirements.txt first")
 
-    for f in ("demo.db", "demo.db-wal", "demo.db-shm"):
-        try:
-            (ROOT / f).unlink()
-        except FileNotFoundError:
-            pass
+    # DATABASE_URL in the environment (e.g. Supabase Postgres) wins; otherwise a throwaway SQLite file.
+    db_url = os.environ.get("DATABASE_URL") or f"sqlite:///{(ROOT / 'demo.db').as_posix()}"
+    reset_db(db_url)
 
     env = dict(
         os.environ,
         ARENA_MODE=os.environ.get("ARENA_MODE", "sim"),
         ADMIN_TOKEN=ADMIN,
-        DATABASE_URL=f"sqlite:///{(ROOT / 'demo.db').as_posix()}",
+        DATABASE_URL=db_url,
         TICK_SECONDS=os.environ.get("TICK_SECONDS", "2"),
         SNAPSHOT_SECONDS=os.environ.get("SNAPSHOT_SECONDS", "10"),
         ARENA_URL=API,

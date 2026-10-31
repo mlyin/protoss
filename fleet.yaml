@@ -49,3 +49,28 @@ bots:
     markets: [BTC]
     limits: { max_leverage: 5, drawdown_flatten_pct: 3, daily_loss_pct: 4 }
     env: { RISK_FRACTION: "2.0", INTERVAL: "2", MARKETS: "BTC" }
+
+# Koinons: a leader's plain-English mandate, pooled deposits, and the member agents trading inside it.
+# Created once (keys cached), members are started alongside the bots above.
+orgs:
+  - slug: lee-semis
+    name: "Lee's Semis Koinon"
+    leader: lee
+    mandate: "Memory and AI chips are mispriced vs demand. Trade xyz:NVDA and xyz:SP500 perps plus BTC as a hedge. Never above 3x. Stop everything at 12% drawdown."
+    limits: { max_leverage: 3, max_notional_usd: 40000, drawdown_flatten_pct: 12, daily_loss_pct: 5, allowed_markets: ["xyz:NVDA", "xyz:SP500", "BTC"] }
+    profit_share_pct: 10
+    initial_deposit: 1000          # lee's own first deposit
+    deposits: { matthew: 100, sam: 100, priya: 100 }
+    members:
+      - name: lee-momentum
+        strategy: "Crossover on NVDA + SP500 inside Lee's mandate"
+        script: agents/momentum.py
+        allocation_usd: 800
+        limits: { max_leverage: 3 }
+        env: { MARKETS: "xyz:NVDA,xyz:SP500", RISK_FRACTION: "0.8", INTERVAL: "3" }
+      - name: lee-hedge
+        strategy: "Mean-reversion BTC hedge leg"
+        script: agents/meanrev.py
+        allocation_usd: 400
+        limits: { max_leverage: 2 }
+        env: { MARKETS: "BTC", RISK_FRACTION: "0.5", INTERVAL: "3" }

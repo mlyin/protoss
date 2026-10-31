@@ -17,9 +17,15 @@ ADMIN = {"x-admin-token": "test-admin"}
 
 @pytest.fixture()
 def client(tmp_path, monkeypatch):
-    monkeypatch.setenv("DATABASE_URL", f"sqlite:///{tmp_path}/t.db")
+    # TEST_DATABASE_URL=postgresql+psycopg://... runs the same suite against Postgres (fresh schema per test)
+    pg = os.environ.get("TEST_DATABASE_URL")
+    monkeypatch.setenv("DATABASE_URL", pg or f"sqlite:///{tmp_path}/t.db")
     get_settings.cache_clear()
     dbmod.reset_engine_for_tests()
+    if pg:
+        from sqlalchemy import text
+        with dbmod.engine().begin() as conn:
+            conn.execute(text("DROP SCHEMA public CASCADE; CREATE SCHEMA public"))
     hl.set_exchange_for_tests(hl.SimExchange(get_settings(), seed=7))
     from app.main import app
 

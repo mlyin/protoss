@@ -85,3 +85,16 @@ td.text { font-family: Inter, sans-serif; }
 .mandate { color: var(--muted); font-size: 13px; line-height: 18px; font-style: italic; }
 .org-stats { display: flex; flex-wrap: wrap; gap: 12px; font-family: var(--mono); font-size: 12px; }
 .orgtag { display: inline-block; margin-right: 6px; padding: 1px 6px; border-radius: 5px; border: 1px solid rgba(61,220,151,0.4); color: var(--green); font-size: 11px; font-style: normal; }
+
+/* approve page */
+.layout.one { display: block; max-width: 760px; }
+.approve p { line-height: 1.5; }
+.kvd { display: grid; grid-template-columns: 90px 1fr; gap: 8px 14px; margin: 14px 0; align-items: center; }
+.kvd dt { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+.kvd dd { margin: 0; word-break: break-all; font-family: var(--mono); font-size: 13px; }
+.actions { display: flex; gap: 10px; margin: 12px 0; }
+.actions button { padding: 9px 14px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-2); color: var(--text); cursor: pointer; font: inherit; }
+.actions button.primary { background: var(--green); color: #0e1117; border-color: transparent; font-weight: 600; }
+.actions button:disabled { opacity: .55; cursor: default; }
+.log { font-size: 12px; white-space: pre-wrap; background: rgba(0,0,0,.25); padding: 10px; border-radius: 8px; max-height: 200px; overflow: auto; }
+.back { display: inline-block; margin-top: 12px; color: var(--muted); }

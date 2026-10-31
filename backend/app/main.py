@@ -343,7 +343,37 @@ def stats(db: Session = DbDep, ex: ExchangeAdapter = Depends(exchange)):
     fees = db.scalar(select(func.coalesce(func.sum(Order.builder_fee_usd), 0.0)).where(Order.created_at >= since)) or 0.0
     live = db.scalar(select(func.count(Agent.id)).where(Agent.status == "live")) or 0
     total = db.scalar(select(func.count(Agent.id))) or 0
-    return {"mode": ex.name, "agents_live": live, "agents_total": total, "volume_24h_usd": round(float(vol), 2), "builder_fees_24h_usd": round(float(fees), 4), "builder_fee_tenths_bp": get_settings().hl_builder_fee_tenths_bp}
+    b = builder_info(ex)
+    return {
+        "mode": ex.name,
+        "agents_live": live,
+        "agents_total": total,
+        "volume_24h_usd": round(float(vol), 2),
+        "builder_fees_24h_usd": round(float(fees), 4),
+        "builder_fee_tenths_bp": b["fee_tenths_bp"],
+        "builder_address": b["address"],
+        "builder_warning": b["warning"],
+    }
+
+
+def builder_info(ex: ExchangeAdapter) -> dict:
+    """Our builder code, as the web app and the /approve page need it."""
+    s = get_settings()
+    testnet = ex.name == "testnet"
+    return {
+        "address": getattr(ex, "builder", None) or s.hl_builder_address,
+        "fee_tenths_bp": s.hl_builder_fee_tenths_bp,
+        "fee_pct": f"{s.hl_builder_fee_tenths_bp / 1000:.3f}%",
+        "network": "Testnet" if testnet else "Mainnet",
+        "api_url": "https://api.hyperliquid-testnet.xyz" if testnet else "https://api.hyperliquid.xyz",
+        "warning": getattr(ex, "builder_warning", None),
+    }
+
+
+@app.get("/builder")
+def builder(ex: ExchangeAdapter = Depends(exchange)):
+    """Public: the Koinon builder address + fee, so a wallet owner can approve it (web: #/approve)."""
+    return builder_info(ex)
 
 
 @app.get("/health")
