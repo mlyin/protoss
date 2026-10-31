@@ -37,7 +37,7 @@ async def lifespan(app: FastAPI):
         task.cancel()
 
 
-app = FastAPI(title="Arena: agent exchange layer for Hyperliquid", version="0.1.0", lifespan=lifespan)
+app = FastAPI(title="Koinon: agentic trading orgs on Hyperliquid", version="0.2.0", lifespan=lifespan)
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 
@@ -120,11 +120,12 @@ def _order_out(o: Order) -> dict:
 
 # ------------------------------------------------------------------------------------------------ admin
 
-@app.post("/admin/agents", status_code=201, dependencies=[Depends(require_admin)])
-def create_agent(body: AgentCreate, db: Session = Depends(get_db), ex: ExchangeAdapter = Depends(exchange)):
+def create_agent_record(db: Session, ex: ExchangeAdapter, body: AgentCreate, org_id: str | None = None, starting_equity: float | None = None) -> dict:
+    """Shared by /admin/agents and /orgs/{slug}/agents. Returns the one-time key payload."""
     if db.scalar(select(Agent).where(Agent.name == body.name)):
         raise HTTPException(409, "agent name taken")
     s = get_settings()
+    equity = body.starting_equity if starting_equity is None else starting_equity
     owner_key, agent_key = new_key(OWNER_PREFIX), new_key(AGENT_PREFIX)
     today = dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%d")
     agent = Agent(
@@ -135,11 +136,12 @@ def create_agent(body: AgentCreate, db: Session = Depends(get_db), ex: ExchangeA
         owner_key_hash=hash_key(owner_key),
         agent_key_hash=hash_key(agent_key),
         key_prefix=agent_key[:12],
-        starting_equity=body.starting_equity,
-        cash=body.starting_equity,
-        peak_equity=body.starting_equity,
-        day_start_equity=body.starting_equity,
+        starting_equity=equity,
+        cash=equity,
+        peak_equity=equity,
+        day_start_equity=equity,
         day_start_date=today,
+        org_id=org_id,
     )
     li = body.limits or LimitsIn()
     agent.limits = Limits(
@@ -153,7 +155,7 @@ def create_agent(body: AgentCreate, db: Session = Depends(get_db), ex: ExchangeA
     db.add(agent)
     db.flush()
     ex.on_agent_created(db, agent)
-    db.add(Event(agent_id=agent.id, kind="info", detail=f"agent created with {agent.starting_equity:,.0f} USDC in {ex.name} mode"))
+    db.add(Event(agent_id=agent.id, kind="info", detail=f"agent created with {equity:,.0f} USDC in {ex.name} mode"))
     return {
         "id": agent.id,
         "name": agent.name,
@@ -162,7 +164,13 @@ def create_agent(body: AgentCreate, db: Session = Depends(get_db), ex: ExchangeA
         "note": "store both keys now; they are not retrievable later",
         "limits": _limits_out(agent.limits),
         "hl_subaccount": agent.hl_subaccount,
+        "org_id": org_id,
     }
+
+
+@app.post("/admin/agents", status_code=201, dependencies=[Depends(require_admin)])
+def create_agent(body: AgentCreate, db: Session = Depends(get_db), ex: ExchangeAdapter = Depends(exchange)):
+    return create_agent_record(db, ex, body)
 
 
 @app.post("/admin/tick", dependencies=[Depends(require_admin)])
@@ -183,6 +191,7 @@ def me(p: Principal = Depends(current_principal), db: Session = Depends(get_db),
         "owner": a.owner,
         "runtime": a.runtime,
         "strategy": a.strategy,
+        "org": a.org.slug if a.org_id and a.org else None,
         "role": p.role,
         "status": a.status,
         "halted_reason": a.halted_reason,
@@ -341,6 +350,10 @@ def stats(db: Session = Depends(get_db), ex: ExchangeAdapter = Depends(exchange)
 def health(ex: ExchangeAdapter = Depends(exchange)):
     return {"ok": True, "mode": ex.name, "markets": len(ex.markets())}
 
+
+from .routes_orgs import router as orgs_router  # noqa: E402
+
+app.include_router(orgs_router)
 
 # serve the built web app if present (web/dist)
 _dist = Path(__file__).resolve().parents[2] / "web" / "dist"

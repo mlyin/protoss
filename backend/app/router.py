@@ -71,7 +71,12 @@ def submit(
     reason: str | None = None,
 ) -> tuple[Order, Verdict]:
     state = account_state(db, agent, ex)
-    verdict = evaluate(Intent(market, side, size, reduce_only), state, limit_set(agent))
+    intent = Intent(market, side, size, reduce_only)
+    verdict = evaluate(intent, state, limit_set(agent))
+    if agent.org_id and verdict.ok:
+        from .orgs import combine, evaluate_for_org  # local import: orgs depends on this module
+
+        verdict = combine(verdict, evaluate_for_org(db, ex, agent.org, intent))
 
     order = Order(
         agent_id=agent.id,

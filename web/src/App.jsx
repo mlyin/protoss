@@ -88,12 +88,67 @@ function AgentDrawer({ id, onClose }) {
   )
 }
 
+function OrgDrawer({ slug, onClose }) {
+  const [d, err] = usePoll(slug ? `/orgs/${slug}` : null, 3000)
+  if (!slug) return null
+  if (err) return <div className="card drawer">Could not load koinon: {err}</div>
+  if (!d) return <div className="card drawer">Loading…</div>
+  return (
+    <div className="card drawer">
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <h3>{d.name}</h3>
+        <span className="sub">led by {d.leader}</span>
+        <span className="spacer" />
+        <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--muted)' }} aria-label="close">✕</button>
+      </div>
+      <div className="mandate">“{d.mandate}”</div>
+      <div className="kv"><span>Equity</span><span>{fmtUsd(d.equity)} <span className={cls(d.pnl_pct)}>({fmtPct(d.pnl_pct)})</span></span></div>
+      <div className="kv"><span>Deposited · unallocated</span><span>{fmtUsd(d.total_deposited)} · {fmtUsd(d.pool_cash)}</span></div>
+      <div className="kv"><span>Status</span><span className={d.status === 'live' ? 'pos' : 'neg'}>{d.status === 'live' ? '● live' : '■ halted'}</span></div>
+      {d.halted_reason && <div className="sub">{d.halted_reason}</div>}
+      <div>
+        <div className="sub" style={{ marginBottom: 6 }}>Mandate limits (every member nests inside these)</div>
+        <div className="kv"><span>Max leverage</span><span>{d.limits.max_leverage}×</span></div>
+        <div className="kv"><span>Max notional</span><span>{fmtUsd(d.limits.max_notional_usd)}</span></div>
+        <div className="kv"><span>Daily loss · drawdown stop</span><span>{d.limits.daily_loss_pct}% · {d.limits.drawdown_flatten_pct}%</span></div>
+        <div className="chips" style={{ marginTop: 8 }}>{d.limits.allowed_markets.map((x) => <span key={x}>{x}</span>)}</div>
+      </div>
+      <div>
+        <div className="sub" style={{ marginBottom: 6 }}>Agents ({d.members_detail.length})</div>
+        {d.members_detail.map((m) => (
+          <div className="kv" key={m.id}><span>{m.name} <span className="sub">{m.strategy ? `· ${m.strategy}` : ''}</span></span><span className={cls(m.pnl_total_pct)}>{fmtUsd(m.equity)} ({fmtPct(m.pnl_total_pct)}) {m.status === 'halted' ? '■' : '●'}</span></div>
+        ))}
+      </div>
+      <div>
+        <div className="sub" style={{ marginBottom: 6 }}>Depositors ({d.depositors_detail.length})</div>
+        {d.depositors_detail.map((x) => (
+          <div className="kv" key={x.depositor}><span>{x.depositor}</span><span>{fmtUsd(x.deposited)} → {fmtUsd(x.value_usd)} <span className="sub">({x.share_pct}%)</span></span></div>
+        ))}
+      </div>
+      <div>
+        <div className="sub" style={{ marginBottom: 6 }}>Recent decisions</div>
+        <div className="log">
+          {d.decisions.slice(0, 6).map((o, i) => (
+            <div className="entry" key={i}>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}><span className="sub" style={{ fontFamily: 'var(--mono)' }}>{time(o.ts)}</span><span><b>{o.agent}</b> {o.side} {Number(o.requested_size).toFixed(4)} {o.market}</span></div>
+              <div className={o.verdict === 'rejected' ? 'neg' : o.verdict === 'resized' ? '' : 'pos'} style={o.verdict === 'resized' ? { color: 'var(--amber)' } : {}}>{o.verdict}{o.filled_size ? ` · filled ${Number(o.filled_size).toFixed(4)}` : ''}</div>
+              {o.verdict !== 'approved' && o.verdict_reason && <div className="reason">{o.verdict_reason}</div>}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function App() {
   const [window, setWindow] = useState(7)
   const [lb, lbErr] = usePoll(`/leaderboard?window_days=${window}`, 3000)
   const [stats] = usePoll('/stats', 5000)
   const [fills] = usePoll('/fills?limit=12', 2500)
   const [sel, setSel] = useState(null)
+  const [selOrg, setSelOrg] = useState(null)
+  const [orgs] = usePoll('/orgs', 4000)
   const agents = lb?.agents ?? []
 
   return (
@@ -101,8 +156,8 @@ export default function App() {
       <header className="header">
         <div className="brand">
           <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 18 L10 8 L14 14 L20 4" /><path d="M4 21 H20" /></svg>
-          <span>Arena</span>
-          <span className="sub">agent exchange layer · Hyperliquid</span>
+          <span>Koinon</span>
+          <span className="sub">agentic trading orgs · Hyperliquid</span>
         </div>
         <span className="spacer" />
         {lb && <span className={`chip ${lb.mode === 'testnet' ? 'green' : 'amber'}`}>{lb.mode} mode</span>}
@@ -118,10 +173,33 @@ export default function App() {
         <div className="card stat"><span className="label">Halted by sandbox</span><span className="value">{agents.filter((a) => a.status === 'halted').length}</span><span className="sub">drawdown cap or kill switch</span></div>
       </section>
 
+      <section className="orgs">
+        <div className="orgs-head"><h2>Koinons</h2><span className="sub">pooled capital under a mandate, traded by agents · click one</span></div>
+        {(!orgs || orgs.length === 0) ? (
+          <div className="sub" style={{ padding: '4px 0 0' }}>No koinons yet. <code>POST /admin/orgs</code> creates one; <code>scripts/demo.sh</code> makes a sample.</div>
+        ) : (
+          <div className="orgs-grid">
+            {orgs.map((o) => (
+              <button key={o.slug} className={`card org ${selOrg === o.slug ? 'on' : ''}`} onClick={() => { setSelOrg(o.slug); setSel(null) }}>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}><b>{o.name}</b><span className="sub">led by {o.leader}</span><span className="spacer" /><span className={o.status === 'live' ? 'pos' : 'neg'}>{o.status === 'live' ? '●' : '■'}</span></div>
+                <div className="mandate">“{o.mandate}”</div>
+                <div className="org-stats">
+                  <span><span className="sub">equity</span> {fmtUsd(o.equity)}</span>
+                  <span className={cls(o.pnl_pct)}>{fmtPct(o.pnl_pct)}</span>
+                  <span><span className="sub">agents</span> {o.members_live}/{o.members}</span>
+                  <span><span className="sub">depositors</span> {o.depositors}</span>
+                  <span><span className="sub">max</span> {o.limits.max_leverage}× · stop {o.limits.drawdown_flatten_pct}%</span>
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+      </section>
+
       <div className="layout">
         <section className="card main">
           <div className="cardhead">
-            <h2>Leaderboard</h2>
+            <h2>Agent leaderboard</h2>
             <span className="muted">ranked by Sharpe · real limits · live agents first</span>
             <span className="spacer" />
             <div className="seg">
@@ -140,7 +218,7 @@ export default function App() {
                   {agents.map((a) => (
                     <tr key={a.id} className="row" onClick={() => setSel(a.id)}>
                       <td className="sub">{a.rank}</td>
-                      <td className="text"><b>{a.name}</b><br /><span className="sub">{a.strategy ? a.strategy : `by ${a.owner}`}</span></td>
+                      <td className="text"><b>{a.name}</b><br /><span className="sub">{a.org ? <span className="orgtag">{a.org}</span> : null}{a.strategy ? a.strategy : `by ${a.owner}`}</span></td>
                       <td className="text sub">{a.runtime}</td>
                       <td className={`num ${cls(a.pnl_window_pct)}`}>{fmtPct(a.pnl_window_pct)}</td>
                       <td className="num">{fmtUsd(a.equity)}</td>
@@ -159,6 +237,7 @@ export default function App() {
         </section>
 
         <aside className="aside">
+          <OrgDrawer slug={selOrg} onClose={() => setSelOrg(null)} />
           <AgentDrawer id={sel} onClose={() => setSel(null)} />
           <div className="card">
             <div className="cardhead"><h2>Live fills &amp; verdicts</h2></div>

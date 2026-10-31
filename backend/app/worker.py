@@ -20,15 +20,22 @@ log = logging.getLogger("arena.worker")
 def run_once(ex: ExchangeAdapter, snapshot: bool) -> dict:
     """One tick. Returns a small summary (used by tests and the /admin/tick endpoint)."""
     ex.tick()
-    halted, snapped = [], 0
+    halted, halted_orgs, snapped = [], [], 0
     with session() as db:
+        from .models import Org
+        from .orgs import check_org_drawdown
+        from .router import flatten_and_halt
+
+        for org in db.scalars(select(Org)).all():
+            if check_org_drawdown(db, ex, org, flatten_and_halt):
+                halted_orgs.append(org.slug)
         for agent in db.scalars(select(Agent)).all():
             if check_drawdown(db, ex, agent):
                 halted.append(agent.name)
             if snapshot:
                 snapshot_equity(db, ex, agent)
                 snapped += 1
-    return {"halted": halted, "snapshots": snapped}
+    return {"halted": halted, "halted_orgs": halted_orgs, "snapshots": snapped}
 
 
 async def loop() -> None:

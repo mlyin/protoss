@@ -1,6 +1,9 @@
-# Arena — agent exchange layer for Hyperliquid
+# Koinon — agentic trading orgs on Hyperliquid
 
-Give any AI agent a Hyperliquid account it cannot blow up.
+κοινόν: a common fund under shared rules. Friends pool capital under a plain-English mandate; a set of
+AI agents trades it; a risk sandbox enforces the mandate on every order; everyone watches the agents'
+reasoning live. Underneath it is an agent exchange layer: give any AI agent a Hyperliquid account it
+cannot blow up.
 
 An agent gets a credential, not an exchange key. Every order passes a **risk sandbox** (leverage, notional,
 daily loss, drawdown-flatten, order rate, allowed markets) before it reaches the exchange, routes through
@@ -16,6 +19,33 @@ gateway ──► risk sandbox ──► execution router ──► Hyperliquid 
                  ▼                 ▼
               events            ledger ──► leaderboard / arena
 ```
+
+## Koinons (orgs)
+
+```
+Org  = mandate (plain English) + mandate limits + pool of deposits + member agents
+       └─ each member agent has its own limits, which can only be tighter than the mandate
+       └─ every order passes the agent sandbox AND the org sandbox; the smaller size wins
+       └─ org equity through its drawdown cap -> every member flattened, org halted
+```
+
+```bash
+# leader creates the org (returns a one-time ar_org_… key)
+POST /admin/orgs   {"name":"Lee's Semis Koinon","leader":"lee","mandate":"…","initial_deposit":1000,
+                    "limits":{"max_leverage":3,"drawdown_flatten_pct":12,"allowed_markets":["xyz:NVDA","BTC"]}}
+# friends deposit (sim/paper: our ledger; testnet: the Hyperliquid vault, next step)
+POST /orgs/lee-semis/deposit  {"depositor":"sam","amount_usd":100}
+# leader adds agents, allocating capital from the pool; limits are clamped to the mandate
+POST /orgs/lee-semis/agents   {"name":"lee-momentum","allocation_usd":800,"limits":{"max_leverage":3}}
+# public
+GET  /orgs · GET /orgs/lee-semis   (mandate, members, depositor shares, recent decisions)
+# leader
+PUT  /orgs/{slug}/mandate · POST /orgs/{slug}/allocate · POST /orgs/{slug}/halt · /resume
+```
+
+Depositor shares are pro-rata on deposits; `profit_share_pct` (default 10, Hyperliquid's vault convention)
+is recorded for the leader's cut. On testnet the org maps onto a Hyperliquid vault so deposits and shares
+are protocol-native; that adapter is the next piece.
 
 ## Status
 
@@ -63,8 +93,12 @@ docker build -t arena . && docker run -p 8000:8000 -e ARENA_MODE=paper -e ADMIN_
 # or Fly.io: fly launch --no-deploy && fly secrets set ADMIN_TOKEN=... && fly deploy   (see fly.toml)
 ```
 
-The container serves the API and the built leaderboard on one port. For production swap `DATABASE_URL`
-to Postgres (a Supabase connection string works as-is).
+The container serves the API and the built leaderboard on one port.
+
+**Supabase / Postgres:** create a project, apply `backend/migrations/0001_init.sql` (SQL editor or the
+Supabase MCP), then set
+`DATABASE_URL=postgresql+psycopg://postgres.<ref>:<password>@aws-0-<region>.pooler.supabase.com:6543/postgres`
+(Project settings → Database → connection string, "transaction pooler"). Nothing else changes.
 
 ## Testnet
 
@@ -123,8 +157,9 @@ owner key can resume, and resuming resets the peak.
 ## Layout
 
 ```
-backend/app/   config · db · models · auth · risk · hl (adapters) · router · ledger · worker · main · keygen
-backend/tests/ risk engine + API flow (19 tests, sim mode)
+backend/app/   config · db · models · auth · risk · hl (adapters) · router · orgs · routes_orgs · ledger · worker · main · keygen
+backend/migrations/0001_init.sql   Postgres schema for Supabase (generated from the models)
+backend/tests/ risk engine, API flow, orgs (24 tests, sim mode)
 sdk/arena/     Python client
 agents/        momentum.py, meanrev.py demo agents (+ common.py loop)
 web/           Vite + React leaderboard (built into web/dist, served by the API)
@@ -140,5 +175,7 @@ Dockerfile, fly.toml
 - HIP-4 outcome markets as a first-class asset type (yes/no size semantics, 0/1 settlement)
 - Leagues: seasons, entry fee, prize pool, scoring by Sharpe over the season
 - Copy trading: mirror an agent inside your own sandbox limits
-- Postgres (Supabase) instead of SQLite; auth for owners beyond API keys
+- Hyperliquid vault adapter for orgs on testnet (deposits, shares, leader fee protocol-native)
+- Natural-language mandate → strategy spec builder
+- Auth for owners/depositors beyond API keys (wallet sign-in)
 - Framework adapters: MCP server, ElizaOS plugin, Virtuals ACP, OpenClaw skill

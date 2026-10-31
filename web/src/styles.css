@@ -74,3 +74,14 @@ td.text { font-family: Inter, sans-serif; }
 .log .entry .reason { color: var(--muted); }
 .empty { padding: 24px 18px; color: var(--muted); }
 .err { padding: 12px 24px; color: var(--amber); }
+
+.orgs { padding: 20px 24px 0; }
+.orgs-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 10px; }
+.orgs-head h2 { margin: 0; font-size: 16px; font-weight: 600; }
+.orgs-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; }
+.org { text-align: left; padding: 14px 16px; color: var(--text); display: flex; flex-direction: column; gap: 8px; border-radius: 14px; }
+.org.on { border-color: var(--green); }
+.org:hover { background: var(--surface-2); }
+.mandate { color: var(--muted); font-size: 13px; line-height: 18px; font-style: italic; }
+.org-stats { display: flex; flex-wrap: wrap; gap: 12px; font-family: var(--mono); font-size: 12px; }
+.orgtag { display: inline-block; margin-right: 6px; padding: 1px 6px; border-radius: 5px; border: 1px solid rgba(61,220,151,0.4); color: var(--green); font-size: 11px; font-style: normal; }

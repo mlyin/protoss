@@ -42,9 +42,71 @@ class Agent(Base):
     day_start_date: Mapped[str] = mapped_column(String(10))  # YYYY-MM-DD UTC
 
     hl_subaccount: Mapped[str | None] = mapped_column(String(42), nullable=True)  # testnet mode
+    org_id: Mapped[str | None] = mapped_column(ForeignKey("orgs.id", ondelete="SET NULL"), nullable=True)
 
     limits: Mapped["Limits"] = relationship(back_populates="agent", uselist=False, cascade="all, delete-orphan")
     positions: Mapped[list["Position"]] = relationship(back_populates="agent", cascade="all, delete-orphan")
+    org: Mapped["Org | None"] = relationship(back_populates="agents")
+
+
+class Org(Base):
+    """A koinon: friends' pooled capital under one mandate, traded by a set of agents.
+
+    In sim/paper the pool is our own ledger (deposits -> pool_cash -> allocations to member agents).
+    On testnet this maps onto a Hyperliquid vault (next step)."""
+
+    __tablename__ = "orgs"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_uuid)
+    slug: Mapped[str] = mapped_column(String(48), unique=True)
+    name: Mapped[str] = mapped_column(String(64))
+    mandate: Mapped[str] = mapped_column(Text)  # plain-English description depositors signed up for
+    leader: Mapped[str] = mapped_column(String(64))
+    owner_key_hash: Mapped[str] = mapped_column(String(64))
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+    status: Mapped[str] = mapped_column(String(16), default="live")  # live | halted
+    halted_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    profit_share_pct: Mapped[float] = mapped_column(Float, default=10.0)  # the vault leader's cut, Hyperliquid convention
+
+    pool_cash: Mapped[float] = mapped_column(Float, default=0.0)  # deposited but not yet allocated to an agent
+    total_deposited: Mapped[float] = mapped_column(Float, default=0.0)
+    peak_equity: Mapped[float] = mapped_column(Float, default=0.0)
+    day_start_equity: Mapped[float] = mapped_column(Float, default=0.0)
+    day_start_date: Mapped[str] = mapped_column(String(10), default="")
+
+    limits: Mapped["OrgLimits"] = relationship(back_populates="org", uselist=False, cascade="all, delete-orphan")
+    agents: Mapped[list["Agent"]] = relationship(back_populates="org")
+    deposits: Mapped[list["Deposit"]] = relationship(back_populates="org", cascade="all, delete-orphan")
+
+
+class OrgLimits(Base):
+    """The mandate as numbers. Every member agent's own limits nest inside these."""
+
+    __tablename__ = "org_limits"
+
+    org_id: Mapped[str] = mapped_column(ForeignKey("orgs.id", ondelete="CASCADE"), primary_key=True)
+    max_leverage: Mapped[float] = mapped_column(Float)
+    max_notional_usd: Mapped[float] = mapped_column(Float)
+    daily_loss_pct: Mapped[float] = mapped_column(Float)
+    drawdown_flatten_pct: Mapped[float] = mapped_column(Float)
+    max_orders_per_min: Mapped[int] = mapped_column(Integer)
+    allowed_markets: Mapped[list[str]] = mapped_column(JSON)
+
+    org: Mapped[Org] = relationship(back_populates="limits")
+
+
+class Deposit(Base):
+    __tablename__ = "deposits"
+    __table_args__ = (Index("ix_deposits_org", "org_id"),)
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_uuid)
+    org_id: Mapped[str] = mapped_column(ForeignKey("orgs.id", ondelete="CASCADE"))
+    depositor: Mapped[str] = mapped_column(String(64))  # handle or wallet
+    amount_usd: Mapped[float] = mapped_column(Float)  # negative for withdrawals
+    ts: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+    org: Mapped[Org] = relationship(back_populates="deposits")
 
 
 class Limits(Base):
