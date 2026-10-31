@@ -11,8 +11,11 @@ Rules that never change:
 - Keys never go into chat, commits or the brain. `.env`, `.fleet-keys.json`, `.builder-wallet.json` are gitignored.
 - Copy follows `brain/voice.md` (no em dashes, no hype words, numbers over adjectives).
 - UI follows `brain/design.md` (ink and paper, one accent, "the line you drew").
-- Tests before commits: `cd backend && python -m pytest -q`. Commits end with the attribution trailer the
-  session gives you.
+- GREEN before done: `harness/check.sh` (tests, Postgres suite when available, web build, secrets, voice, fence).
+  "Should pass now" is not evidence. Commits end with the attribution trailer the session gives you.
+- Working a task from `harness/tasks/`: `python harness/run.py <task>` gives you a room (isolated worktree), a
+  `PROGRESS.md` brief with the fence and the dead ends, and the loop. Read `harness/README.md`.
+- Gates: `python harness/gate.py` tells you whether a change ships on green, needs a review, or needs a person.
 - The pooled org is a **phalanx** in product copy; the code says `org`. Do not rename the code.
 
 Quick map: `backend/app` API + sandbox, `sdk/arena` Python SDK, `agents/` example bots, `scripts/` demo,

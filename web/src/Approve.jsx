@@ -67,7 +67,7 @@ export default function Approve() {
       say(JSON.stringify(j))
       if (j.status !== 'ok') throw new Error(j.response || JSON.stringify(j))
       await check()
-      say('done — your orders routed through Coliseum now carry its builder code')
+      say('done. your orders routed through Coliseum now carry its builder code')
     } catch (e) {
       setErr(e?.message || String(e))
     } finally {
@@ -91,7 +91,7 @@ export default function Approve() {
               <span className="seg">{['Mainnet', 'Testnet'].map((n) => <button key={n} className={net === n ? 'on' : ''} onClick={() => { setNet(n); setApproved(null) }}>{n}</button>)}</span>
             </dd>
             {acct && <><dt>wallet</dt><dd><code>{acct}</code></dd></>}
-            {approved != null && <><dt>approved</dt><dd className={ok ? 'pos' : 'neg'}>{(approved / 1000).toFixed(3)}% {ok ? '— sufficient' : '— needs approval'}</dd></>}
+            {approved != null && <><dt>approved</dt><dd className={ok ? 'pos' : 'neg'}>{(approved / 1000).toFixed(3)}% {ok ? '(sufficient)' : '(needs approval)'}</dd></>}
           </dl>
           {b.warning && <div className="err">{b.warning}</div>}
           <div className="actions">

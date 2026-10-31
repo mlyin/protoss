@@ -1,0 +1,38 @@
+# The shape of the work (Level 5) and the gates (Level 6) for Coliseum.
+#
+# Nodes are bounded jobs with their own context; edges are real dependencies (the early-start test:
+# "what breaks if B starts before A finishes?" — if nothing, there is no edge). Gates price the UNDO,
+# not the model's confidence: the model may label a change, code decides what the label unlocks.
+
+nodes:
+  scope:   { in: ticket, out: "fence + green definition + split", kind: model }
+  fix:     { in: scope,  out: diff, kind: model, loop: true }
+  audit:   { in: scope,  out: findings, kind: model, loop: true, parallel: true }   # one per area, each in its own room
+  docs:    { in: scope,  out: diff, kind: model, loop: true }
+  merge:   { in: [fix, audit, docs], out: branch, kind: code }     # same input -> same output: code, not a model
+  gate:    { in: merge,  out: tier, kind: code }                   # harness/gate.py
+  pr:      { in: gate,   out: pr, kind: code }
+
+# Split rule (Level 7 lesson): two pieces that can break for different reasons are two nodes.
+split_rules:
+  - "backend/app/risk.py and backend/app/router.py change together only when a verdict shape changes; otherwise separate nodes"
+  - "web/ changes never share a node with backend/ changes unless the API contract changed"
+  - "brand/ and brain/ edits are their own node and ship on green without review"
+
+# Gates by the price of undo. Evidence is read in ladder order: tests, trace, second opinion, self-report last.
+gates:
+  one_click_undo:          # revert a commit; ships on green
+    paths: [docs, brain, brand, web/src, web/public, README.md, agents, scripts/demo.py, scripts/demo.sh, scripts/fleet.py, fleet.yaml]
+    requires: [green]
+  cleanup_undo:            # fix what it touched; green + trace + second opinion
+    paths: [backend/app, sdk, scripts/builder.py, scripts/static_demo.py, harness, CLAUDE.md, AGENTS.md]
+    requires: [green, trace, review]
+  no_undo:                 # already happened: a person signs, no score to argue with
+    paths: [backend/migrations, deploy, backend/.env, .fleet-keys.json, .builder-wallet.json, Dockerfile, fly.toml, .github]
+    requires: [human]
+
+# Loop exits (Level 4): persistence without an exit is a cost leak.
+loop:
+  max_attempts: 4
+  same_saw_twice: escalate
+  budget_minutes: 45

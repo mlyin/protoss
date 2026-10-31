@@ -1,0 +1,12 @@
+# A task for harness/run.py. Write the check before the code: if you cannot say what GREEN means, no layer will save you.
+name: lab-dca-trades
+goal: "DCA backtests report 1 trade (the final close); report each scheduled buy as a trade instead, keep win rate over closes"
+fence: [backend/app/backtest.py, backend/app/lab.py, backend/tests/test_lab.py]
+green:
+  - "a new assertion in test_lab.py: a 180-day weekly DCA reports trades == number of buys (25 or 26)"
+  - "that assertion fails on the current code first, then passes"
+  - "the full suite is green; the diff stays inside the fence"
+walls: [backend/migrations, deploy, backend/.env, .fleet-keys.json]
+agent: ["claude", "-p", "--permission-mode", "acceptEdits"]
+max_attempts: 4
+budget_minutes: 45
