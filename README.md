@@ -1,4 +1,4 @@
-# Coliseum — agentic trading orgs on Hyperliquid
+# Coliseum — agents fight in the open, your money inside hard limits
 
 κοινόν: a common fund under shared rules. Friends pool capital under a plain-English mandate; a set of
 AI agents trades it; a risk sandbox enforces the mandate on every order; everyone watches the agents'
@@ -108,6 +108,35 @@ The container serves the API and the built leaderboard on one port.
 Supabase MCP), then set
 `DATABASE_URL=postgresql+psycopg://postgres.<ref>:<password>@aws-0-<region>.pooler.supabase.com:6543/postgres`
 (Project settings → Database → connection string, "transaction pooler"). Nothing else changes.
+
+## The Lab (what-if backtesting, in plain English)
+
+`#/lab` in the dashboard, or `POST /lab/chat {"message": "..."}`. Say it like you'd say it to a friend:
+
+- "what if I bought XMR every time a major company got hacked and held 7 days"
+- "tail 0x1234…abcd with $10k" (replays that wallet's Hyperliquid fills at your size)
+- "backtest a 3/10 momentum crossover on BTC over the last 90 days with $25k"
+- "DCA $100 into HYPE every week since January" · "buy NVDA every Monday, sell Friday"
+
+The planner turns the sentence into a typed spec (`event_buy`, `tail_wallet`, `momentum`, `meanrev`, `dca`,
+`weekday`, `buy_hold`), runs it on Hyperliquid candles (or seeded synthetic prices in `sim` mode / when the
+API is unreachable, and says so), charges taker fees + 3 bp slippage, and returns an equity curve, buy-and-hold
+benchmark, drawdown, Sharpe, win rate, a trade sample and a `deployable` agent definition you can paste into
+`fleet.yaml`. With `ANTHROPIC_API_KEY` set the planner uses Claude; without it a rule-based parser covers the
+patterns above. The hack dates in `backend/app/data/hacks.csv` are a curated, illustrative list.
+
+## Social: feed, people, phalanx pages
+
+Everything is public by design, so the social layer is mostly derived from the ledger:
+
+- `GET /feed` — fills, rejected and resized orders, halts, deposits, new agents and new phalanxes, newest first;
+  `?handle=sam` narrows it to what Sam follows plus Sam's own stakes and agents
+- `GET /u/{handle}` — a person: stakes per phalanx (put in → worth now → share), agents they run, phalanxes they lead
+- `POST /social/profiles`, `POST|DELETE /social/follow {handle, target_type: user|agent|org, target_id}`
+- `#/p/{slug}` — a phalanx's page: mandate, hard limits, who's in, agents, recent decisions, and the deposit
+  form (sim/paper); "Copy invite link" is how a leader brings friends in
+
+v0 has no auth on handles (a handle is what a depositor or owner called themselves); wallet auth replaces that.
 
 ## Always-on on a Mac mini (launchd)
 

@@ -1,0 +1,40 @@
+date,company,description,source_hint
+2021-03-02,Microsoft Exchange Server,Hafnium zero-days (ProxyLogon) in on-prem Exchange disclosed; mass exploitation followed,MSRC blog 2021-03-02
+2021-05-07,Colonial Pipeline,DarkSide ransomware shut down the largest US East Coast fuel pipeline,company statement / US DOE
+2021-07-02,Kaseya,REvil ransomware pushed through Kaseya VSA to roughly 1500 downstream businesses,Kaseya advisory
+2021-08-10,Poly Network,About $611M drained from the cross-chain bridge (most later returned),Poly Network statements
+2021-10-06,Twitch,Source code and creator payout data leaked by an anonymous poster,Twitch blog
+2022-02-02,Wormhole,About $320M stolen from the Solana-Ethereum bridge,Wormhole announcements
+2022-03-22,Okta,Lapsus$ posted screenshots gained via a support contractor's access,Okta blog
+2022-03-29,Ronin Network,About $625M Axie Infinity bridge theft disclosed (exploit dated Mar 23),Ronin newsletter
+2022-06-23,Harmony,About $100M stolen from the Horizon bridge,Harmony blog
+2022-08-01,Nomad,About $190M drained from the bridge in a free-for-all exploit,Nomad announcements
+2022-09-15,Uber,Internal systems compromised via MFA fatigue; attacker posted in company Slack,Uber newsroom
+2022-09-22,Optus,Australian telco breach exposing about 10M customer records,Optus media release
+2022-10-06,BNB Chain,About $570M minted via BSC Token Hub bridge exploit; chain paused,BNB Chain blog
+2022-10-11,Mango Markets,About $114M taken via oracle price manipulation,Mango DAO statements
+2022-12-22,LastPass,Disclosed that encrypted customer vault backups had been stolen,LastPass blog
+2023-03-13,Euler Finance,About $197M flash-loan exploit of the lending protocol,Euler announcements
+2023-03-29,3CX,Trojanized desktop app shipped in a supply-chain attack,CrowdStrike / 3CX advisory
+2023-05-31,MOVEit Transfer,Progress disclosed a zero-day; Cl0p mass-exploited hundreds of organisations,Progress advisory
+2023-07-11,Microsoft (Storm-0558),Forged tokens used to read US government Exchange Online mailboxes,MSRC blog
+2023-07-30,Curve Finance,Vyper reentrancy bug drained about $70M from stable pools,Curve announcements
+2023-09-11,MGM Resorts,Scattered Spider ransomware disrupted casinos and hotels,MGM statement
+2023-09-14,Caesars Entertainment,8-K disclosed a social-engineering breach and ransom payment,SEC 8-K
+2023-10-06,23andMe,Credential-stuffing breach; data on about 6.9M users scraped,23andMe blog
+2023-10-20,Okta,Support case management system breached via a stolen credential,Okta blog
+2023-11-09,ICBC Financial Services,LockBit ransomware disrupted US Treasury market settlement,ICBC FS notice
+2024-01-19,Microsoft (Midnight Blizzard),Russian state actor read senior leadership mailboxes,MSRC blog
+2024-02-21,Change Healthcare,ALPHV/BlackCat ransomware disrupted US pharmacy claims for weeks,UnitedHealth statements
+2024-05-31,DMM Bitcoin,About $305M of BTC stolen from the Japanese exchange,DMM Bitcoin notice
+2024-05-31,Live Nation / Ticketmaster,8-K confirmed theft of customer data via Snowflake credentials (identified May 20),SEC 8-K
+2024-06-19,CDK Global,Ransomware took dealer software offline at about 15000 US car dealerships,CDK statements
+2024-07-12,AT&T,Disclosed theft of call and text metadata for nearly all wireless customers,SEC 8-K
+2024-07-18,WazirX,About $230M drained from a multisig wallet (attributed to Lazarus),WazirX announcements
+2024-10-09,Internet Archive,31M user records breached alongside DDoS and defacement,Internet Archive / HIBP
+2024-12-30,US Treasury,Disclosed BeyondTrust remote-support key compromise by a Chinese state actor,Treasury letter to Senate
+2025-02-21,Bybit,About $1.5B of ETH stolen from a cold wallet; largest crypto theft to date,Bybit statement
+2025-04-22,Marks & Spencer,Cyber incident halted online orders for weeks,M&S LSE statement
+2025-05-15,Coinbase,8-K: bribed support contractors leaked customer data; $20M bounty offered,SEC 8-K
+2025-07-02,Qantas,About 6M customer records accessed via a third-party call-centre platform,Qantas media release
+2025-10-15,F5,Disclosed nation-state theft of BIG-IP source code and vulnerability data,F5 8-K / CISA ED 26-01
