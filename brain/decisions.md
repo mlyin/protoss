@@ -1,5 +1,6 @@
 # Decisions
 
+- 2026-10-31: Dev process runs on harness/ (check.sh GREEN, feedback with dead ends, gates by undo cost, rooms per task). CI runs the same check on PRs.
 - 2026-10-31: Ad headline is 'Your friends. One wall.'; brand files live in brand/, posters also on the 'Coliseum Ads' Design canvas.
 - 2026-10-31: Shared brain lives in brain/ (LLM-wiki pattern); CLAUDE.md and AGENTS.md point every agent at it. Corrections go in corrections.md, one line, dated.
 - 2026-10-31: Rebrand Koinon -> **Coliseum**; pooled org -> **phalanx**. Design motto: black-and-white comic Spartans. (Matthew)

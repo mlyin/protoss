@@ -1,0 +1,31 @@
+# Level 3, on every PR: the check that can fail. Deterministic evidence before anyone reads the diff.
+name: check
+on:
+  pull_request:
+  push:
+    branches: [master, main]
+jobs:
+  green:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env: { POSTGRES_USER: coliseum, POSTGRES_PASSWORD: coliseum, POSTGRES_DB: coliseum }
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U coliseum" --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - uses: actions/setup-node@v4
+        with: { node-version: "22" }
+      - run: pip install -r requirements.txt
+      - run: cd web && npm ci && npm run build
+      - name: harness/check.sh
+        env:
+          TEST_DATABASE_URL: postgresql+psycopg://coliseum:coliseum@localhost:5432/coliseum
+        run: bash harness/check.sh --base ${{ github.event.pull_request.base.sha || 'HEAD~1' }}
+      - name: gate
+        run: python harness/gate.py --base ${{ github.event.pull_request.base.sha || 'HEAD~1' }}
