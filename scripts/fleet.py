@@ -71,7 +71,7 @@ def ensure_agent(client: httpx.Client, cfg: dict, bot: dict, keys: dict, admin: 
 
 
 def ensure_org(client: httpx.Client, org: dict, keys: dict, admin: str) -> dict:
-    """Create a koinon (org) once and remember its owner key; on later runs just return the cached record."""
+    """Create a phalanx (org) once and remember its owner key; on later runs just return the cached record."""
     orgs = keys.setdefault("orgs", {})
     if org["slug"] in orgs:
         return orgs[org["slug"]]
@@ -95,7 +95,7 @@ def ensure_org(client: httpx.Client, org: dict, keys: dict, admin: str) -> dict:
         d = client.post(f"/orgs/{org['slug']}/deposit", json={"depositor": who, "amount_usd": float(amt)})
         if d.status_code >= 400:
             print(f"  deposit {who} -> {org['slug']}: {d.status_code} {d.text}")
-    print(f"created koinon {org['slug']} ({j['id'][:8]})")
+    print(f"created phalanx {org['slug']} ({j['id'][:8]})")
     return orgs[org["slug"]]
 
 
@@ -166,7 +166,7 @@ def main() -> None:
         sys.exit(f"API not reachable at {cfg['api']}: {e}\nStart it: cd backend && uvicorn app.main:app --port 8000")
 
     keys = load_keys()
-    runnables: list[tuple[dict, dict]] = []  # (bot config, key record) for standalone bots and koinon members alike
+    runnables: list[tuple[dict, dict]] = []  # (bot config, key record) for standalone bots and phalanx members alike
     for b in bots:
         k = ensure_agent(client, cfg, b, keys, admin)
         apply_limits(client, b, k)

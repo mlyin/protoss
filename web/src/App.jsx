@@ -92,7 +92,7 @@ function AgentDrawer({ id, onClose }) {
 function OrgDrawer({ slug, onClose }) {
   const [d, err] = usePoll(slug ? `/orgs/${slug}` : null, 3000)
   if (!slug) return null
-  if (err) return <div className="card drawer">Could not load koinon: {err}</div>
+  if (err) return <div className="card drawer">Could not load phalanx: {err}</div>
   if (!d) return <div className="card drawer">Loading…</div>
   return (
     <div className="card drawer">
@@ -168,7 +168,7 @@ export default function App() {
       <header className="header">
         <div className="brand">
           <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 18 L10 8 L14 14 L20 4" /><path d="M4 21 H20" /></svg>
-          <span>Koinon</span>
+          <span>Coliseum</span>
           <span className="sub">agentic trading orgs · Hyperliquid</span>
         </div>
         <span className="spacer" />
@@ -190,9 +190,9 @@ export default function App() {
       </section>
 
       <section className="orgs">
-        <div className="orgs-head"><h2>Koinons</h2><span className="sub">pooled capital under a mandate, traded by agents · click one</span></div>
+        <div className="orgs-head"><h2>Phalanxes</h2><span className="sub">pooled capital under a mandate, traded by agents · click one</span></div>
         {(!orgs || orgs.length === 0) ? (
-          <div className="sub" style={{ padding: '4px 0 0' }}>No koinons yet. <code>POST /admin/orgs</code> creates one; <code>scripts/demo.sh</code> makes a sample.</div>
+          <div className="sub" style={{ padding: '4px 0 0' }}>No phalanxes yet. <code>POST /admin/orgs</code> creates one; <code>scripts/demo.sh</code> makes a sample.</div>
         ) : (
           <div className="orgs-grid">
             {orgs.map((o) => (

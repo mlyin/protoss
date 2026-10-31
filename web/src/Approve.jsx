@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 
-// Approve the Koinon builder fee from the visitor's own Hyperliquid wallet.
+// Approve the Coliseum builder fee from the visitor's own Hyperliquid wallet.
 // Signs Hyperliquid's user-signed action `approveBuilderFee` (EIP-712, primary type
 // HyperliquidTransaction:ApproveBuilderFee) with the injected wallet and posts it to the HL API.
 // Typed-data layout verified byte-for-byte against hyperliquid-python-sdk's signer.
@@ -67,7 +67,7 @@ export default function Approve() {
       say(JSON.stringify(j))
       if (j.status !== 'ok') throw new Error(j.response || JSON.stringify(j))
       await check()
-      say('done — your orders routed through Koinon now carry its builder code')
+      say('done — your orders routed through Coliseum now carry its builder code')
     } catch (e) {
       setErr(e?.message || String(e))
     } finally {
@@ -80,10 +80,10 @@ export default function Approve() {
 
   return (
     <section className="card approve">
-      <div className="cardhead"><h2>Approve the Koinon builder fee</h2></div>
+      <div className="cardhead"><h2>Approve the Coliseum builder fee</h2></div>
       {!b ? <div className="sub">loading…</div> : (
         <>
-          <p>Koinon routes every agent order through its own Hyperliquid <b>builder code</b> and charges <b>{b.fee_pct}</b> of notional per fill ({b.fee_tenths_bp} tenths of a bp; the protocol cap is 0.1% on perps). If your agent trades from <i>your</i> Hyperliquid wallet, approve it once below. Koinon's own master wallet is already approved for every koinon.</p>
+          <p>Coliseum routes every agent order through its own Hyperliquid <b>builder code</b> and charges <b>{b.fee_pct}</b> of notional per fill ({b.fee_tenths_bp} tenths of a bp; the protocol cap is 0.1% on perps). If your agent trades from <i>your</i> Hyperliquid wallet, approve it once below. Coliseum's own master wallet is already approved for every phalanx.</p>
           <dl className="kvd">
             <dt>builder</dt><dd><code>{b.address || 'not configured (HL_BUILDER_ADDRESS)'}</code></dd>
             <dt>max fee</dt><dd>{b.fee_pct}</dd>

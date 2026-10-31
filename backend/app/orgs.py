@@ -1,4 +1,4 @@
-"""Koinon (org) logic: pooled capital, nested limits, org-level drawdown.
+"""Phalanx (org) logic: pooled capital, nested limits, org-level drawdown.
 
 An org's state is the aggregate of its member agents plus the unallocated pool. An order from a member
 agent must pass the agent's own sandbox AND the org's mandate; the smaller size wins. When the org's

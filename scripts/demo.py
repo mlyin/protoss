@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Cross-platform demo: start the API in sim mode, create two standalone agents and a sample koinon,
+"""Cross-platform demo: start the API in sim mode, create two standalone agents and a sample phalanx,
 run the bots, open the leaderboard in a browser. Ctrl-C stops everything.
 
     python scripts/demo.py              # runs until Ctrl-C
@@ -114,9 +114,9 @@ def main() -> None:
     bot("momentum.py", agent("momentum-7", "quantbros", ["BTC", "ETH"]))
     bot("meanrev.py", agent("meanrev-owl", "0xlena", ["ETH", "SOL", "HYPE"]))
 
-    # a sample koinon: Lee's mandate, two agents inside it, three friends deposited
+    # a sample phalanx: Lee's mandate, two agents inside it, three friends deposited
     org = c.post("/admin/orgs", json={
-        "name": "Lee's Semis Koinon", "slug": "lee-semis", "leader": "lee", "initial_deposit": 1000, "profit_share_pct": 10,
+        "name": "Lee's Semis Phalanx", "slug": "lee-semis", "leader": "lee", "initial_deposit": 1000, "profit_share_pct": 10,
         "mandate": "Memory and AI chips are mispriced vs demand. Trade xyz:NVDA and xyz:SP500 perps plus BTC as a hedge. Never above 3x. Stop everything at 12% drawdown.",
         "limits": {"max_leverage": 3, "max_notional_usd": 40000, "drawdown_flatten_pct": 12, "daily_loss_pct": 5, "allowed_markets": ["xyz:NVDA", "xyz:SP500", "BTC"]},
     }, headers=H)
@@ -129,7 +129,7 @@ def main() -> None:
     bot("momentum.py", m1["agent_key"], MARKETS="xyz:NVDA,xyz:SP500", RISK_FRACTION="0.8")
     bot("meanrev.py", m2["agent_key"], MARKETS="BTC", RISK_FRACTION="0.5")
 
-    print(f"\nKoinon demo is up: {API}   (API docs: {API}/docs)\nCtrl-C to stop.\n")
+    print(f"\nColiseum demo is up: {API}   (API docs: {API}/docs)\nCtrl-C to stop.\n")
     if not args.no_browser:
         webbrowser.open(API)
 

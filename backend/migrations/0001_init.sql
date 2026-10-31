@@ -1,4 +1,4 @@
--- Koinon schema (generated from SQLAlchemy models for PostgreSQL / Supabase)
+-- Coliseum schema (generated from SQLAlchemy models for PostgreSQL / Supabase)
 -- apply once; the app also runs create_all on startup, which is a no-op when tables exist
 
 CREATE TABLE IF NOT EXISTS orgs (

@@ -1,4 +1,4 @@
-"""Koinon (org) endpoints.
+"""Phalanx (org) endpoints.
 
   POST /admin/orgs                     create an org -> one-time org owner key (ar_org_…)
   POST /orgs/{slug}/agents             org owner: add a member agent, allocating capital from the pool

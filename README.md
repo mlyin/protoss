@@ -1,4 +1,4 @@
-# Koinon — agentic trading orgs on Hyperliquid
+# Coliseum — agentic trading orgs on Hyperliquid
 
 κοινόν: a common fund under shared rules. Friends pool capital under a plain-English mandate; a set of
 AI agents trades it; a risk sandbox enforces the mandate on every order; everyone watches the agents'
@@ -20,7 +20,7 @@ gateway ──► risk sandbox ──► execution router ──► Hyperliquid 
               events            ledger ──► leaderboard / arena
 ```
 
-## Koinons (orgs)
+## Phalanxes (orgs)
 
 ```
 Org  = mandate (plain English) + mandate limits + pool of deposits + member agents
@@ -31,7 +31,7 @@ Org  = mandate (plain English) + mandate limits + pool of deposits + member agen
 
 ```bash
 # leader creates the org (returns a one-time ar_org_… key)
-POST /admin/orgs   {"name":"Lee's Semis Koinon","leader":"lee","mandate":"…","initial_deposit":1000,
+POST /admin/orgs   {"name":"Lee's Semis Phalanx","leader":"lee","mandate":"…","initial_deposit":1000,
                     "limits":{"max_leverage":3,"drawdown_flatten_pct":12,"allowed_markets":["xyz:NVDA","BTC"]}}
 # friends deposit (sim/paper: our ledger; testnet: the Hyperliquid vault, next step)
 POST /orgs/lee-semis/deposit  {"depositor":"sam","amount_usd":100}
@@ -64,13 +64,13 @@ The sandbox, API, SDK, leaderboard and demo agents are identical across modes. T
 ```bash
 pip install -e backend -e sdk           # or: pip install -r requirements.txt
 cd web && npm install && npm run build && cd ..   # optional: the leaderboard UI, served by the API
-python scripts/demo.py                  # any OS: API + 2 agents + Lee's koinon, opens the browser
+python scripts/demo.py                  # any OS: API + 2 agents + Lee's phalanx, opens the browser
 ./scripts/demo.sh                       # same, bash
 ```
 
-Windows: double-click `run_koinon.bat` (finds or installs Python, makes a venv, runs the demo).
+Windows: double-click `run_coliseum.bat` (finds or installs Python, makes a venv, runs the demo).
 `DATABASE_URL=postgresql+psycopg://... python scripts/demo.py` runs the same demo on Postgres/Supabase
-(it truncates the Koinon tables first).
+(it truncates the Coliseum tables first).
 
 Open http://localhost:8000 for the leaderboard, http://localhost:8000/docs for the API.
 Watch an agent ask for 3× more size than its cap allows and get resized; push one hard enough and the
@@ -91,7 +91,7 @@ Any script that reads `ARENA_URL` and `ARENA_API_KEY` and uses the SDK is a bot.
 the YAML shows up on the leaderboard under the agent's name; the `reason=` you pass on each order shows
 up in its decision log next to the sandbox verdict.
 
-`fleet.yaml` can also declare **koinons** (`orgs:`): the leader's mandate and limits, the depositors, and
+`fleet.yaml` can also declare **phalanxes** (`orgs:`): the leader's mandate and limits, the depositors, and
 the member agents with their allocations. They are created once (org key cached in `.fleet-keys.json`)
 and their members run alongside the standalone bots.
 
@@ -112,19 +112,19 @@ Supabase MCP), then set
 ## Always-on on a Mac mini (launchd)
 
 ```bash
-cd ~/koinon && bash deploy/macmini/install.sh        # Python 3.11+, venv, deps, backend/.env, two launchd services
-deploy/macmini/koinonctl status | logs | restart | mode paper | funnel | url
+cd ~/coliseum && bash deploy/macmini/install.sh        # Python 3.11+, venv, deps, backend/.env, two launchd services
+deploy/macmini/coliseumctl status | logs | restart | mode paper | funnel | url
 ```
 
 `install.sh` defaults to `ARENA_MODE=paper` (real Hyperliquid prices, simulated fills) and SQLite; pass
 `DATABASE_URL=...` on the first run to use Supabase. The API binds `0.0.0.0:8000` so the dashboard is
-reachable on the LAN / Tailscale; `koinonctl funnel` publishes it over HTTPS with Tailscale Funnel.
-Services are `com.koinon.api` and `com.koinon.fleet` (bots from `fleet.yaml`); logs in `logs/`.
+reachable on the LAN / Tailscale; `coliseumctl funnel` publishes it over HTTPS with Tailscale Funnel.
+Services are `com.coliseum.api` and `com.coliseum.fleet` (bots from `fleet.yaml`); logs in `logs/`.
 
 ## Builder code (revenue)
 
 A Hyperliquid builder code is just an address that holds ≥ 100 USDC of perps account value in *standard*
-account mode. Every order Koinon routes carries `{"b": HL_BUILDER_ADDRESS, "f": HL_BUILDER_FEE_TENTHS_BP}`
+account mode. Every order Coliseum routes carries `{"b": HL_BUILDER_ADDRESS, "f": HL_BUILDER_FEE_TENTHS_BP}`
 (default 30 = 0.03%; protocol cap 0.1% on perps), and the fee accrues on-chain to that address.
 
 ```bash
@@ -136,7 +136,7 @@ python scripts/builder.py fills --date 20261030
 ```
 
 Users must approve a builder once, signed by their **main** wallet: the master wallet does it for every
-koinon (`ensure_builder_approved` at startup in testnet mode); outside wallets use the dashboard's
+phalanx (`ensure_builder_approved` at startup in testnet mode); outside wallets use the dashboard's
 **Approve builder fee** page (`#/approve`), which signs the EIP-712 `approveBuilderFee` action in the
 browser and posts it to Hyperliquid. If the exchange rejects the builder code (not approved / not
 eligible) orders go through without it and `/stats` shows `builder_warning`.

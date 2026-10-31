@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Koinon's Hyperliquid builder code — a dedicated wallet that earns a fee on every order we route.
+"""Coliseum's Hyperliquid builder code — a dedicated wallet that earns a fee on every order we route.
 
     python scripts/builder.py keygen                       # make the builder wallet (prints it once)
     python scripts/builder.py status  [--testnet]          # eligibility (>=100 USDC, standard mode), approvals, revenue
@@ -68,7 +68,7 @@ def cmd_keygen(_args) -> None:
     acct = Account.create()
     WALLET.write_text(json.dumps({"address": acct.address, "private_key": acct.key.hex()}, indent=2))
     WALLET.chmod(0o600)
-    print("Koinon builder wallet")
+    print("Coliseum builder wallet")
     print("  address:     ", acct.address)
     print("  private key: ", acct.key.hex(), "   (also in .builder-wallet.json, gitignored — back it up)")
     print()
