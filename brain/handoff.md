@@ -8,8 +8,8 @@ and follows him; this page is about the repo.
 Blocked on Matthew, in order:
 1. Done 16:06: gh on the mini now has repo scope; branch `claude/project-thread-495i0w` is pushed; Pages is on (Actions)
    with custom domain protoss.trade and the workflow is green. It serves nothing at protoss.trade until DNS exists.
-2. Cloudflare sign-in: DNS (`CNAME @` and `www` to mlyin.github.io, proxy off) and a Cloudflare Tunnel for
-   `app.protoss.trade`. Funnel cannot carry a custom domain. `cloudflared` is installed.
+2. Done 16:38: https://app.protoss.trade serves the live app through a Cloudflare Tunnel (see runbooks). Still missing:
+   DNS `CNAME @` and `CNAME www` to mlyin.github.io, proxy off, which only Matthew can add in the dashboard.
 3. Master wallet: create the first legion's vault (runbooks, "pooling into a vault").
 4. Keys: `PRIVY_APP_ID`, `ONRAMP_MOONPAY_KEY/SECRET/WEBHOOK_KEY` in backend/.env, then `protossctl restart`.
 

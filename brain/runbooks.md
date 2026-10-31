@@ -14,6 +14,10 @@ Services `com.protoss.api`, `com.protoss.fleet`; logs in `logs/`. Public URL: `p
 - 2026-10-31: Installed on aaaas-mac-mini (paper mode, SQLite, 1057 markets). Live app: https://aaaas-mac-mini.tailb9b0ef.ts.net
   (the API serves web/dist, so the dashboard and API share that origin). Funnel serves only its own ts.net name, so
   `app.protoss.trade` cannot be a CNAME to it; a custom app domain needs a Cloudflare Tunnel (`cloudflared`) instead.
+- 2026-10-31: app.protoss.trade is a Cloudflare Tunnel (`protoss`, id f4016e23) to 127.0.0.1:8000, run by launchd
+  `com.protoss.tunnel` (`cloudflared tunnel run protoss`, config in ~/.cloudflared/config.yml, log logs/com.protoss.tunnel.log).
+  `PUBLIC_URL=https://app.protoss.trade` in backend/.env so checkout redirects land on the live app. Recreate on a new
+  machine: `cloudflared tunnel login` (Matthew clicks Authorize on protoss.trade), `tunnel create`, `tunnel route dns`.
 - 2026-10-31: Refresh the Lab's offline candles with `.venv/bin/python scripts/candles.py [MARKETS]` (default BTC ETH SOL HYPE XMR,
   daily, full history, drops the bar still forming). Lab tests pin their own cache to XMR, so shipping a market does not move them.
 - 2026-10-31: Tail-wallet verified on real fills from the mini: `scripts/lab.py "tail 0x... with $10k over the last 7 days"` replayed 65 fills across 14 markets. Vault addresses like HLP trade through sub-accounts and have no fills of their own, so the Lab synthesizes for them and says so.
