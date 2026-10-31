@@ -51,7 +51,7 @@ as the way agents use the minis without taking over his screen. Every agent read
 The cloud container cannot reach Hyperliquid, so real-data backtests run on a machine of Matthew's:
     cd protoss/backend && .venv\Scripts\activate (Windows) or . .venv/bin/activate (Mac)
     python ../scripts/lab.py "what if I bought XMR every time a major institution got hacked and held 7 days" --days 730
-XMR is a Hyperliquid perp (listed early 2026), so candles only exist from listing; the CLI reports the bars it found and the
+XMR is a Hyperliquid perp; candleSnapshot serves daily bars from 2023-04-22 (checked 2026-10-31), so candles only exist from then; the CLI reports the bars it found and the
 hack events that fell inside them. `--markets` prints what Hyperliquid lists; for an unlisted name the CLI exits with the three
 closest listed markets so the question can be rephrased as "what this transfers to on Hyperliquid". `--json` for the raw result.
 Event list is `backend/app/data/hacks.csv`; add rows (date, org, note) to widen the study.
