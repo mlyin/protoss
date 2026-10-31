@@ -57,7 +57,7 @@ export default function Join({ legion: preset }) {
     const go = () => getJson(`/onboard/session/${sid}`).then((d) => {
       if (!alive) return
       setSession(d)
-      if (d.status === 'staked' || d.status === 'expired') clearInterval(id)
+      if (d.status === 'staked' || d.status === 'expired' || d.status === 'failed') clearInterval(id)
     }).catch(() => {})
     go()
     return () => { alive = false; clearInterval(id) }
@@ -240,6 +240,7 @@ function Result({ res, session, prov, org, onReset }) {
           {st === 'funded' && <span className="pos">Funded {fmtUsd(session.funded_usd)}. Staking next.</span>}
           {st === 'staked' && <span className="pos">Staked {fmtUsd(session.funded_usd)}{org ? ` in ${org.name}` : ''}.</span>}
           {st === 'expired' && <span className="amber">This session expired. Start again.</span>}
+          {st === 'failed' && <span className="amber">The payment did not go through, so nothing was staked. Start again or try another card.</span>}
         </div>
       </div>
     </>

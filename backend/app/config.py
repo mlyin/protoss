@@ -65,6 +65,7 @@ class Settings(BaseSettings):
     privy_app_id: str | None = None  # embedded wallets in the browser; the key never leaves the user's device
     onramp_moonpay_key: str | None = None  # publishable key (pk_live_...)
     onramp_moonpay_secret: str | None = None  # signs hosted-checkout URLs that carry a wallet address
+    onramp_moonpay_webhook_key: str | None = None  # wk_live_...; verifies Moonpay-Signature-V2 on /onboard/webhooks/moonpay
     onramp_moonpay_currency: str = "usdc_arbitrum"  # usdc_hypercore once MoonPay Gateway is enabled on the account
     onramp_coinbase_app_id: str | None = None  # Coinbase Onramp project id; URLs also need a session token (see onboard.py)
     onboard_min_usd: float = 20.0

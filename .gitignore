@@ -17,3 +17,4 @@ harness/runs/
 node_modules/
 web/dist/
 web/node_modules
+logs/
