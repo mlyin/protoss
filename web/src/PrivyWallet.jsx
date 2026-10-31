@@ -22,10 +22,10 @@ function Inner({ onAddress }) {
   }, [embedded?.address])
 
   if (!ready) return <button type="button" disabled>Loading</button>
-  if (!authenticated) return <button type="button" onClick={login}>Sign in with email</button>
+  if (!authenticated) return <button type="button" onClick={login}>Get a Protoss wallet with email</button>
   return (
     <span className="sub">
-      {embedded ? `Your wallet: ${embedded.address.slice(0, 6)}…${embedded.address.slice(-4)}` : 'Making your wallet'}
+      {embedded ? `Your Protoss wallet: ${embedded.address.slice(0, 6)}…${embedded.address.slice(-4)}` : 'Making your Protoss wallet'}
       {' · '}<button type="button" className="ghost" onClick={logout}>Sign out</button>
     </span>
   )

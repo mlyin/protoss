@@ -56,3 +56,4 @@ Matthew's first strategy question. Daily XMR candles pulled from the public Hype
 - On Hyperliquid: XMR-PERP since 2026-01-15, 5x max, funding positive 97% of hours, longs paying ~29% annualized (0.3 to 1.4% per 7-day hold). That alone eats the mean move.
 - Binance $6.3B theft (2026-10-29) added to the list; XMR -2.9% day one.
 Lesson for the product: the Lab must always print the any-day baseline next to an event study, or people will read time-in-market as edge. Done the same day: every event_buy result carries a `baseline:` note (mean move after the events vs from any bar).
+- 2026-10-31: The Privy embedded wallet is called the **Protoss wallet** in copy (Matthew). Code keeps `privy`/`protossWallet`.
