@@ -11,6 +11,10 @@ Local Postgres for that: `/usr/lib/postgresql/16/bin/initdb` + `pg_ctl` on port 
 ## Mac mini (always-on)
 `cd ~/protoss && DATABASE_URL='...' bash deploy/macmini/install.sh`. Then `deploy/macmini/protossctl status|logs|restart|mode|funnel|url`.
 Services `com.protoss.api`, `com.protoss.fleet`; logs in `logs/`. Public URL: `protossctl funnel` (Tailscale Funnel).
+- 2026-10-31: Installed on aaaas-mac-mini (paper mode, SQLite, 1057 markets). Live app: https://aaaas-mac-mini.tailb9b0ef.ts.net
+  (the API serves web/dist, so the dashboard and API share that origin). Funnel serves only its own ts.net name, so
+  `app.protoss.trade` cannot be a CNAME to it; a custom app domain needs a Cloudflare Tunnel (`cloudflared`) instead.
+- 2026-10-31: The local `gh` token cannot enable Pages (403 on POST /pages); that switch needs Matthew's browser login.
 
 ## Supabase
 Project `koinon` (ref hgegigtdjkkclexqnuoy, us-east-1; the project keeps the old name). Migrations in `backend/migrations/`,
