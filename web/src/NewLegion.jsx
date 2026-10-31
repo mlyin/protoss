@@ -38,7 +38,7 @@ export default function NewLegion({ me, setMe }) {
   if (done) {
     const link = `${location.origin}/#/p/${done.slug}`
     return (
-      <section className="social one">
+      <section className="one">
         <h1>{done.name} is open</h1>
         <p className="sub">Send the link to your friends. Your org key is below; it is the only thing that can add agents or change the mandate, and it is shown once.</p>
         <div className="card pad list">
@@ -48,7 +48,7 @@ export default function NewLegion({ me, setMe }) {
         </div>
         <div className="actions">
           <button className="primary" onClick={() => navigator.clipboard?.writeText(link)}>Copy invite link</button>
-          <a className="back" href={`#/p/${done.slug}`} style={{ marginTop: 0, alignSelf: 'center' }}>Open the legion →</a>
+          <a className="btn" href={`#/p/${done.slug}`}>Open the legion</a>
         </div>
         <p className="sub">Next: give an agent a slice of the pool with <code>POST /orgs/{done.slug}/agents</code> (org key as bearer) or add it under <code>orgs:</code> in <code>fleet.yaml</code>.</p>
       </section>
@@ -56,8 +56,8 @@ export default function NewLegion({ me, setMe }) {
   }
 
   return (
-    <section className="social one">
-      <div><h1>Open a legion</h1><p className="sub" style={{ marginTop: 8 }}>Write the mandate your friends are signing up for, draw the lines no agent can cross, put in the first money.</p></div>
+    <section className="one">
+      <div><h1>Start a legion</h1><p className="sub" style={{ marginTop: 8 }}>Write the mandate your friends are signing up for, draw the lines no agent can cross, put in the first money.</p></div>
       <form className="card pad form" onSubmit={submit}>
         <label>Name<input value={form.name} onChange={set('name')} placeholder="Lee's Semis Legion" required minLength={2} maxLength={64} /></label>
         <label>Your handle<input value={form.leader} onChange={set('leader')} placeholder="lee" required /></label>
@@ -76,8 +76,8 @@ export default function NewLegion({ me, setMe }) {
           <label>Your first deposit $<input type="number" min="0" step="10" value={form.initial_deposit} onChange={set('initial_deposit')} /></label>
           <label>Your cut of profits %<input type="number" min="0" max="50" step="1" value={form.profit_share_pct} onChange={set('profit_share_pct')} /></label>
         </div>
-        {err && <div className="err" style={{ padding: 0 }}>{err}</div>}
-        <div className="actions"><button className="primary" disabled={busy}>{busy ? 'Opening…' : 'Open the legion'}</button></div>
+        {err && <div className="err">{err}</div>}
+        <div className="actions" style={{ margin: 0 }}><button className="primary" disabled={busy}>{busy ? 'Starting…' : 'Start the legion'}</button></div>
       </form>
     </section>
   )
