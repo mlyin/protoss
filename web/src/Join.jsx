@@ -1,5 +1,7 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { Suspense, lazy, useEffect, useRef, useState } from 'react'
 import { stakeInVault } from './hlsign.js'
+
+const PrivyWallet = lazy(() => import('./PrivyWallet.jsx'))
 
 // Join with card: pick a legion, an amount and a payment provider, get a wallet funded, stake it.
 // Talks to GET /onboard/options, POST /onboard/session and GET /onboard/session/{id}.
@@ -160,7 +162,7 @@ export default function Join({ legion: preset }) {
                 <h3>Your wallet</h3>
                 <div className="wallet-row">
                   {opts?.wallet_provider?.app_id && (
-                    <div className="soon"><button type="button" disabled>Sign in with email</button><span className="sub">coming next</span></div>
+                    <div className="soon"><Suspense fallback={<button type="button" disabled>Loading</button>}><PrivyWallet appId={opts.wallet_provider.app_id} onAddress={(a) => { setWallet(a); saveWallet(a) }} /></Suspense></div>
                   )}
                   <input ref={walletRef} value={wallet} onChange={(e) => setWallet(e.target.value)} placeholder="0x…" spellCheck={false} autoComplete="off" aria-label="Your wallet address" aria-invalid={wallet !== '' && !walletOk} />
                   <div className="hint">{wallet !== '' && !walletOk ? 'A wallet address is 0x followed by 40 hex characters.' : 'Funds go to a wallet only you control. Protoss never holds them.'}</div>

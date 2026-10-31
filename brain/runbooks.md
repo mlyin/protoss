@@ -17,6 +17,7 @@ Services `com.protoss.api`, `com.protoss.fleet`; logs in `logs/`. Public URL: `p
 - 2026-10-31: Refresh the Lab's offline candles with `.venv/bin/python scripts/candles.py [MARKETS]` (default BTC ETH SOL HYPE XMR,
   daily, full history, drops the bar still forming). Lab tests pin their own cache to XMR, so shipping a market does not move them.
 - 2026-10-31: Tail-wallet verified on real fills from the mini: `scripts/lab.py "tail 0x... with $10k over the last 7 days"` replayed 65 fills across 14 markets. Vault addresses like HLP trade through sub-accounts and have no fills of their own, so the Lab synthesizes for them and says so.
+- 2026-10-31: Privy turns on by setting `PRIVY_APP_ID=` in backend/.env, then `protossctl restart`. The Join page lazy-loads web/src/PrivyWallet.jsx (1.6 MB chunk) only when the id is set; email sign-in makes an embedded wallet and the Stake button signs with it. In the Privy dashboard, allow the app's origins (the Funnel URL, protoss.trade).
 - 2026-10-31: The local `gh` token cannot enable Pages (403 on POST /pages); that switch needs Matthew's browser login.
 
 ## Supabase
