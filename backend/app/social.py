@@ -41,7 +41,7 @@ class Profile(Base):
 
 
 class Follow(Base):
-    """`handle` follows a target: another user, an agent (by id) or a phalanx (by slug)."""
+    """`handle` follows a target: another user, an agent (by id) or a legion (by slug)."""
 
     __tablename__ = "follows"
     __table_args__ = (Index("ix_follows_handle", "handle"),)
@@ -169,7 +169,7 @@ def create_profile(body: ProfileIn, db: Session = DbDep):
 
 @router.get("/u/{handle}")
 def profile_page(handle: str, db: Session = DbDep, ex: ExchangeAdapter = Depends(exchange)):
-    """A person: what they put into which phalanxes (and what it's worth now), the agents they run, who they follow."""
+    """A person: what they put into which legions (and what it's worth now), the agents they run, who they follow."""
     p = db.get(Profile, handle)
     deposits = db.scalars(select(Deposit).where(Deposit.depositor == handle)).all()
     agents = db.scalars(select(Agent).where(Agent.owner == handle)).all()
@@ -206,7 +206,7 @@ def follow(body: FollowIn, db: Session = DbDep):
     if body.target_type == "agent" and not db.get(Agent, body.target_id):
         raise HTTPException(404, "no such agent")
     if body.target_type == "org" and not db.scalar(select(Org).where(Org.slug == body.target_id)):
-        raise HTTPException(404, "no such phalanx")
+        raise HTTPException(404, "no such legion")
     if db.get(Follow, (body.handle, body.target_type, body.target_id)):
         return {"ok": True, "already": True}
     db.add(Follow(handle=body.handle, target_type=body.target_type, target_id=body.target_id))

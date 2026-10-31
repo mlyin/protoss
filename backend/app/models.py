@@ -50,7 +50,7 @@ class Agent(Base):
 
 
 class Org(Base):
-    """A phalanx: friends' pooled capital under one mandate, traded by a set of agents.
+    """A legion: friends' pooled capital under one mandate, traded by a set of agents.
 
     In sim/paper the pool is our own ledger (deposits -> pool_cash -> allocations to member agents).
     On testnet this maps onto a Hyperliquid vault (next step)."""

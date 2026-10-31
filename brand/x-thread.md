@@ -6,38 +6,38 @@
 - [x] R2. No emoji, no hashtags, no rocket or fire, no thread emoji
 - [x] R3. No em dashes anywhere. Periods or commas. At most one exclamation mark in the whole thread
 - [x] R4. Every post carries a concrete noun or number (a limit, a fill, a dollar amount, a market). No post is pure abstraction
-- [x] R5. Post 1 says what it is in one sentence a trader would say to a friend. Post 2 is a specific scenario with numbers (Lee's phalanx: $1,300 pooled, 4 depositors, 3x cap, 12% stop, NVDA + SP500 + BTC)
+- [x] R5. Post 1 says what it is in one sentence a trader would say to a friend. Post 2 is a specific scenario with numbers (Lee's legion: $1,300 pooled, 4 depositors, 3x cap, 12% stop, NVDA + SP500 + BTC)
 - [x] R6. One post on what it is NOT (not a fund, not strangers holding your wallet, not an AI without limits)
 - [x] R7. One post on builder-code economics in plain numbers (0.03% of notional)
-- [x] R8. First person singular, founder voice, lowercase ok. No corporate "we are". No CTA except one "DM me if you want in on the first 20 phalanxes" at the end
+- [x] R8. First person singular, founder voice, lowercase ok. No corporate "we are". No CTA except one "DM me if you want in on the first 20 legions" at the end
 - [x] R9. No return claims, no "guaranteed", no financial-advice framing. Says plainly that it is testnet / paper mode now
 - [x] R10. Every post is 260 characters or fewer
 
 ## Thread (9 posts)
 
-1. i built a thing where you and your friends each put in about $100, an AI agent trades the pot on Hyperliquid perps, and it physically cannot trade past the limits you wrote down. it's called Coliseum. the pool is a phalanx.
+1. i built a thing where you and your friends each put in about $100, an AI agent trades the pot on Hyperliquid perps, and it physically cannot trade past the limits you wrote down. it's called Coliseum. the pool is a legion.
 
-2. example. Lee's phalanx: 4 depositors, $1,300 pooled. his mandate, one paragraph: memory chips are priced below demand. trade NVDA and SP500 perps, BTC as the hedge. never above 3x. flatten everything at a 12% drawdown. that paragraph is the whole brief.
+2. example. Lee's legion: 4 depositors, $1,300 pooled. his mandate, one paragraph: memory chips are priced below demand. trade NVDA and SP500 perps, BTC as the hedge. never above 3x. flatten everything at a 12% drawdown. that paragraph is the whole brief.
 
 3. the limits are not a prompt. leverage cap, notional cap, daily-loss cap, drawdown flatten and the allowed-market list are checked in code before an order is sent to the exchange. an agent that asks for 5x on Lee's pool gets a rejected order, not a warning.
 
-4. every fill and every rejected order goes on a public leaderboard. when an agent asks for 4x against a 3x cap you see the rejected order and the reason. you can copy-trade a phalanx you like or tail one agent. nothing happens off the board.
+4. every fill and every rejected order goes on a public leaderboard. when an agent asks for 4x against a 3x cap you see the rejected order and the reason. you can copy-trade a legion you like or tail one agent. nothing happens off the board.
 
 5. there is a Lab. it's a chat box for backtests in plain English. "what if i bought XMR every time a major company got hacked?" "what if i tailed this wallet for the last 90 days?" you get a curve, a drawdown number and the trade list.
 
 6. what Coliseum is not. not a fund, nobody manages your money. not custody, no stranger holds your wallet, the keys stay with you. not an AI that trades without limits, every order passes the line you drew or it does not exist.
 
-7. how i get paid: a Hyperliquid builder code. 0.03% of routed notional. a phalanx that turns over $100k in a month pays $30. no management fee, no carry, no token. if nobody trades, i make nothing, which is the right incentive.
+7. how i get paid: a Hyperliquid builder code. 0.03% of routed notional. a legion that turns over $100k in a month pays $30. no management fee, no carry, no token. if nobody trades, i make nothing, which is the right incentive.
 
 8. status: testnet and paper mode right now. agents trade paper on live prices, limits run for real, the leaderboard is public. no live money until i have watched the wall hold through a few ugly weeks. no returns to show you and i will not pretend otherwise.
 
-9. i'm Matthew, ex-IMC quant researcher, building this from Queens and raising through Alliance. DM me if you want in on the first 20 phalanxes.
+9. i'm Matthew, ex-IMC quant researcher, building this from Queens and raising through Alliance. DM me if you want in on the first 20 legions.
 
 ## Standalone post variants (5)
 
 A. a 12% drawdown stop that lives in a prompt is a suggestion. a 12% drawdown stop that runs before the order hits Hyperliquid is a wall. Coliseum does the second one.
 
-B. (post this with real numbers from the leaderboard, never invented ones) Lee's phalanx, paper mode, week [n]: [fills] fills, [rejected] rejected orders, max leverage touched [x] against a 3x cap. the rejections are the point. every one is public.
+B. (post this with real numbers from the leaderboard, never invented ones) Lee's legion, paper mode, week [n]: [fills] fills, [rejected] rejected orders, max leverage touched [x] against a 3x cap. the rejections are the point. every one is public.
 
 C. four friends, $100 each, one paragraph of thesis, three markets, one hard line. that is the whole product. the rest is a leaderboard.
 

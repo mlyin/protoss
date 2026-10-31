@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 
-// Social layer: the public feed, a person's page, and a phalanx's join page.
+// Social layer: the public feed, a person's page, and a legion's join page.
 
 const fmtUsd = (v) => (v == null ? '—' : '$' + Number(v).toLocaleString(undefined, { maximumFractionDigits: Math.abs(v) < 100 ? 2 : 0 }))
 const fmtPct = (v) => (v == null ? '—' : (v > 0 ? '+' : '') + Number(v).toFixed(2) + '%')
@@ -80,7 +80,7 @@ export function Feed({ me, setMe }) {
             {!i.agent_id && i.org_slug && <FollowButton me={me} type="org" id={i.org_slug} following={following} />}
           </div>
         ))}
-        {items && items.length === 0 && <div className="sub" style={{ padding: 16 }}>{mine ? 'Nothing from the people and phalanxes you follow yet.' : 'Quiet arena.'}</div>}
+        {items && items.length === 0 && <div className="sub" style={{ padding: 16 }}>{mine ? 'Nothing from the people and legions you follow yet.' : 'Quiet arena.'}</div>}
       </div>
     </section>
   )
@@ -103,13 +103,13 @@ export function Profile({ handle, me }) {
       <div className="statrow">
         <div><span className="label">Staked</span><span className="value">{fmtUsd(p.total_deposited)}</span></div>
         <div><span className="label">Worth now</span><span className={`value ${cls(pnl)}`}>{fmtUsd(p.total_value_usd)}</span><span className="sub">{fmtPct(pnl)}</span></div>
-        <div><span className="label">Phalanxes</span><span className="value">{p.stakes.length}</span></div>
+        <div><span className="label">Legions</span><span className="value">{p.stakes.length}</span></div>
         <div><span className="label">Agents</span><span className="value">{p.agents.length}</span></div>
       </div>
       {p.stakes.length > 0 && (
         <div className="card block">
           <div className="cardhead"><h2>Stakes</h2></div>
-          <div className="tablewrap"><table><thead><tr><th>Phalanx</th><th className="num">Put in</th><th className="num">Worth</th><th className="num">Share</th><th>Status</th></tr></thead>
+          <div className="tablewrap"><table><thead><tr><th>Legion</th><th className="num">Put in</th><th className="num">Worth</th><th className="num">Share</th><th>Status</th></tr></thead>
             <tbody>{p.stakes.map((s) => <tr key={s.org} className="row" onClick={() => { location.hash = `#/p/${s.org}` }}><td className="text"><b>{s.org_name}</b></td><td className="num">{fmtUsd(s.deposited)}</td><td className={`num ${cls(s.value_usd - s.deposited)}`}>{fmtUsd(s.value_usd)}</td><td className="num">{s.share_pct}%</td><td className="text">{s.status === 'live' ? <span className="pos">● live</span> : <span className="neg">■ halted</span>}</td></tr>)}</tbody></table></div>
         </div>
       )}
@@ -125,13 +125,13 @@ export function Profile({ handle, me }) {
   )
 }
 
-export function Phalanx({ slug, me, setMe }) {
+export function Legion({ slug, me, setMe }) {
   const [d, err] = usePoll(`/orgs/${slug}`, 3000)
   const [stats] = usePoll('/stats', 10000)
   const [meP, , reload] = [...usePoll(me ? `/u/${me}` : null, 8000), () => {}]
   const [amt, setAmt] = useState('100')
   const [msg, setMsg] = useState(null)
-  if (err) return <section className="social"><div className="err">No phalanx called {slug}.</div></section>
+  if (err) return <section className="social"><div className="err">No legion called {slug}.</div></section>
   if (!d) return <section className="social"><div className="sub" style={{ padding: 16 }}>loading…</div></section>
   const live = d.status === 'live'
   const canDeposit = stats && stats.mode !== 'testnet'
@@ -163,7 +163,7 @@ export function Phalanx({ slug, me, setMe }) {
         <div className="card block">
           <div className="cardhead"><h2>Join with your friends</h2></div>
           <div className="pad">
-            <p className="sub">Your money sits in the pool under this mandate. Every agent here is capped at {d.limits.max_leverage}× and the whole phalanx is flattened if it draws down {d.limits.drawdown_flatten_pct}%. You see every fill.</p>
+            <p className="sub">Your money sits in the pool under this mandate. Every agent here is capped at {d.limits.max_leverage}× and the whole legion is flattened if it draws down {d.limits.drawdown_flatten_pct}%. You see every fill.</p>
             <WhoAmI me={me} setMe={setMe} />
             <form className="ask" onSubmit={deposit}>
               <input type="number" min="1" step="1" value={amt} onChange={(e) => setAmt(e.target.value)} disabled={!canDeposit || !live} />

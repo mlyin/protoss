@@ -122,7 +122,7 @@ td.text { font-family: Inter, sans-serif; }
 .log .entry .reason { color: var(--text-2); }
 .close { background: none; border: none; color: var(--muted); min-height: 28px; padding: 0 6px; }
 
-/* phalanxes */
+/* legions */
 .orgs-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 12px; }
 .orgs-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; }
 .org { text-align: left; padding: 16px 20px; color: var(--text); display: flex; flex-direction: column; gap: 10px; border-radius: var(--r-card); min-height: 0; }

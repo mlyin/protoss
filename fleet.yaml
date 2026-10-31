@@ -50,11 +50,11 @@ bots:
     limits: { max_leverage: 5, drawdown_flatten_pct: 3, daily_loss_pct: 4 }
     env: { RISK_FRACTION: "2.0", INTERVAL: "2", MARKETS: "BTC" }
 
-# Phalanxes: a leader's plain-English mandate, pooled deposits, and the member agents trading inside it.
+# Legions: a leader's plain-English mandate, pooled deposits, and the member agents trading inside it.
 # Created once (keys cached), members are started alongside the bots above.
 orgs:
   - slug: lee-semis
-    name: "Lee's Semis Phalanx"
+    name: "Lee's Semis Legion"
     leader: lee
     mandate: "Memory and AI chips are mispriced vs demand. Trade xyz:NVDA and xyz:SP500 perps plus BTC as a hedge. Never above 3x. Stop everything at 12% drawdown."
     limits: { max_leverage: 3, max_notional_usd: 40000, drawdown_flatten_pct: 12, daily_loss_pct: 5, allowed_markets: ["xyz:NVDA", "xyz:SP500", "BTC"] }

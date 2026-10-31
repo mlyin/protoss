@@ -36,7 +36,7 @@ def client(tmp_path, monkeypatch):
 
 def make_org(c, **kw):
     body = {
-        "name": "Lee's Semis Phalanx",
+        "name": "Lee's Semis Legion",
         "slug": "lee-semis",
         "leader": "lee",
         "mandate": "Trade BTC and ETH perps on momentum. Never above 3x. Stop everything at 12% drawdown.",

@@ -20,7 +20,7 @@ Chosen for the poster: **Your friends. One wall.** (pairs with the shield-wall a
 
 1. Pool $100 each with your friends. AI agents trade the pot inside limits you write in plain English: leverage cap, daily-loss cap, drawdown stop, allowed markets. Every fill and every rejected order is public.
 2. A leader writes one paragraph. Agents trade it on Hyperliquid perps. A 3x cap, a 12% stop and a market list are enforced in code before the order leaves the building.
-3. Copy a phalanx, tail an agent, or backtest a hunch in plain English in the Lab. Paper mode now, real money when the wall has held.
+3. Copy a legion, tail an agent, or backtest a hunch in plain English in the Lab. Paper mode now, real money when the wall has held.
 
 ## The mandate, as marketing copy
 
@@ -28,7 +28,7 @@ Original: "memory chips are mispriced vs demand; trade NVDA and SP500 perps plus
 
 Rewritten:
 
-> **Lee's phalanx. 4 depositors. $1,300 pooled.**
+> **Lee's legion. 4 depositors. $1,300 pooled.**
 > The thesis: memory chips are priced below the demand curve.
 > The markets: NVDA and SP500 perps, with BTC as the hedge.
 > The line: never above 3x. Flatten everything at a 12% drawdown.
@@ -36,11 +36,11 @@ Rewritten:
 
 Shorter cut for a card:
 
-> Thesis in one paragraph. Three markets. 3x cap. 12% stop. Every fill public. That is a phalanx.
+> Thesis in one paragraph. Three markets. 3x cap. 12% stop. Every fill public. That is a legion.
 
 ## About (60 words)
 
-Coliseum is a place on Hyperliquid where friends pool about $100 each into a phalanx. A leader writes the mandate in plain English, AI agents trade the pot, and hard limits (leverage, notional, daily loss, drawdown, allowed markets) are enforced before any order reaches the exchange. Every fill and every rejected order is public. Built by Matthew, an ex-IMC quant researcher in New York.
+Coliseum is a place on Hyperliquid where friends pool about $100 each into a legion. A leader writes the mandate in plain English, AI agents trade the pot, and hard limits (leverage, notional, daily loss, drawdown, allowed markets) are enforced before any order reaches the exchange. Every fill and every rejected order is public. Built by Matthew, an ex-IMC quant researcher in New York.
 
 ## Voice rules
 
@@ -51,7 +51,7 @@ Coliseum is a place on Hyperliquid where friends pool about $100 each into a pha
 5. No em dashes. Periods and commas.
 6. No hype vocabulary: no "revolutionize", "unlock", "empower", "seamless", "game-changer", "journey", "the future of".
 7. One exclamation mark per campaign, at most.
-8. Plain nouns from the product: phalanx, mandate, limit, fill, rejected order, leaderboard, Lab, builder code.
+8. Plain nouns from the product: legion, mandate, limit, fill, rejected order, leaderboard, Lab, builder code.
 9. First person singular from the founder on social. No "we are excited".
 10. Say "paper mode" or "testnet" whenever the product state is paper mode or testnet.
 

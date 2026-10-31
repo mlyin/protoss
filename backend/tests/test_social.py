@@ -31,7 +31,7 @@ def client(tmp_path, monkeypatch):
 
 def seed(c):
     org = c.post("/admin/orgs", json={
-        "name": "Lee's Semis Phalanx", "slug": "lee-semis", "leader": "lee", "initial_deposit": 1_000,
+        "name": "Lee's Semis Legion", "slug": "lee-semis", "leader": "lee", "initial_deposit": 1_000,
         "mandate": "Trade BTC and ETH perps on momentum. Never above 3x. Stop everything at 12% drawdown.",
         "limits": {"max_leverage": 3, "max_notional_usd": 60_000, "drawdown_flatten_pct": 12, "allowed_markets": ["BTC", "ETH"]},
     }, headers=ADMIN).json()
@@ -77,12 +77,12 @@ def test_follow_filters_the_feed(client):
     org, m, solo = seed(client)
     assert client.post("/social/profiles", json={"handle": "sam", "display_name": "Sam"}).status_code == 201
     assert client.post("/social/profiles", json={"handle": "sam", "display_name": "Sam"}).status_code == 409
-    # sam follows only the solo bot: feed has solo's fill, nothing from the phalanx
+    # sam follows only the solo bot: feed has solo's fill, nothing from the legion
     assert client.post("/social/follow", json={"handle": "sam", "target_type": "agent", "target_id": solo["id"]}).status_code == 201
     feed = client.get("/feed", params={"handle": "sam"}).json()
     assert feed and all(i["org_slug"] is None for i in feed)
     assert any(i["kind"] == "fill" and i["actor"] == "solo-bot" for i in feed)
-    # now follow the phalanx too
+    # now follow the legion too
     client.post("/social/follow", json={"handle": "sam", "target_type": "org", "target_id": "lee-semis"})
     feed = client.get("/feed", params={"handle": "sam"}).json()
     assert any(i["kind"] == "deposit" and i["org_slug"] == "lee-semis" for i in feed)

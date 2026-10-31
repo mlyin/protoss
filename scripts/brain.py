@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Append to the shared brain so every agent remembers it.
 
-    python scripts/brain.py remember "don't rename the code's `org` to phalanx"
+    python scripts/brain.py remember "don't rename the code's `org` to legion"
     python scripts/brain.py decide "ship the Lab behind a feature flag"
     python scripts/brain.py note runbooks "## Rotate the admin token ..."
 """

@@ -1,4 +1,4 @@
-"""Phalanx (org) endpoints.
+"""Legion (org) endpoints.
 
   POST /admin/orgs                     create an org -> one-time org owner key (ar_org_…)
   POST /orgs/{slug}/agents             org owner: add a member agent, allocating capital from the pool
@@ -135,10 +135,10 @@ def _summary(db: Session, ex: ExchangeAdapter, org: Org) -> dict:
 
 @router.post("/orgs", status_code=201)
 def open_org(body: OrgCreate, db: Session = DbDep, ex: ExchangeAdapter = Depends(exchange)):
-    """Anyone can open a phalanx in sim/paper mode (the social flow: a leader writes a mandate, friends join).
+    """Anyone can open a legion in sim/paper mode (the social flow: a leader writes a mandate, friends join).
     In testnet/live mode creation goes through /admin/orgs until wallet auth lands."""
     if ex.name == "testnet":
-        raise HTTPException(501, "open phalanxes with the admin API in testnet mode (wallet auth coming)")
+        raise HTTPException(501, "open legions with the admin API in testnet mode (wallet auth coming)")
     return create_org(body, db, ex)
 
 

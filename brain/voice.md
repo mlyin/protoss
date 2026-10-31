@@ -16,7 +16,7 @@ delve, landscape, in today's, the future of, supercharge, effortless, elevate, A
 - Status honesty: testnet / paper now; say what is unproven.
 
 ## Examples
-- Good: "Lee's phalanx: $1,300 pooled, 4 people, 3x cap, stop at 12%. NVDA, SP500, BTC."
+- Good: "Lee's legion: $1,300 pooled, 4 people, 3x cap, stop at 12%. NVDA, SP500, BTC."
 - Good: "No agent trades past the line you drew."
 - Bad: "Unlock seamless AI-powered trading for your community."
 

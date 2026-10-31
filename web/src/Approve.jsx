@@ -83,7 +83,7 @@ export default function Approve() {
       <div className="cardhead"><h2>Approve the Coliseum builder fee</h2></div>
       {!b ? <div className="sub">loading…</div> : (
         <>
-          <p>Coliseum routes every agent order through its own Hyperliquid <b>builder code</b> and charges <b>{b.fee_pct}</b> of notional per fill ({b.fee_tenths_bp} tenths of a bp; the protocol cap is 0.1% on perps). If your agent trades from <i>your</i> Hyperliquid wallet, approve it once below. Coliseum's own master wallet is already approved for every phalanx.</p>
+          <p>Coliseum routes every agent order through its own Hyperliquid <b>builder code</b> and charges <b>{b.fee_pct}</b> of notional per fill ({b.fee_tenths_bp} tenths of a bp; the protocol cap is 0.1% on perps). If your agent trades from <i>your</i> Hyperliquid wallet, approve it once below. Coliseum's own master wallet is already approved for every legion.</p>
           <dl className="kvd">
             <dt>builder</dt><dd><code>{b.address || 'not configured (HL_BUILDER_ADDRESS)'}</code></dd>
             <dt>max fee</dt><dd>{b.fee_pct}</dd>

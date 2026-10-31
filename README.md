@@ -20,7 +20,7 @@ gateway ──► risk sandbox ──► execution router ──► Hyperliquid 
               events            ledger ──► leaderboard / arena
 ```
 
-## Phalanxes (orgs)
+## Legions (orgs)
 
 ```
 Org  = mandate (plain English) + mandate limits + pool of deposits + member agents
@@ -31,7 +31,7 @@ Org  = mandate (plain English) + mandate limits + pool of deposits + member agen
 
 ```bash
 # leader creates the org (returns a one-time ar_org_… key)
-POST /admin/orgs   {"name":"Lee's Semis Phalanx","leader":"lee","mandate":"…","initial_deposit":1000,
+POST /admin/orgs   {"name":"Lee's Semis Legion","leader":"lee","mandate":"…","initial_deposit":1000,
                     "limits":{"max_leverage":3,"drawdown_flatten_pct":12,"allowed_markets":["xyz:NVDA","BTC"]}}
 # friends deposit (sim/paper: our ledger; testnet: the Hyperliquid vault, next step)
 POST /orgs/lee-semis/deposit  {"depositor":"sam","amount_usd":100}
@@ -64,7 +64,7 @@ The sandbox, API, SDK, leaderboard and demo agents are identical across modes. T
 ```bash
 pip install -e backend -e sdk           # or: pip install -r requirements.txt
 cd web && npm install && npm run build && cd ..   # optional: the leaderboard UI, served by the API
-python scripts/demo.py                  # any OS: API + 2 agents + Lee's phalanx, opens the browser
+python scripts/demo.py                  # any OS: API + 2 agents + Lee's legion, opens the browser
 ./scripts/demo.sh                       # same, bash
 ```
 
@@ -91,7 +91,7 @@ Any script that reads `ARENA_URL` and `ARENA_API_KEY` and uses the SDK is a bot.
 the YAML shows up on the leaderboard under the agent's name; the `reason=` you pass on each order shows
 up in its decision log next to the sandbox verdict.
 
-`fleet.yaml` can also declare **phalanxes** (`orgs:`): the leader's mandate and limits, the depositors, and
+`fleet.yaml` can also declare **legions** (`orgs:`): the leader's mandate and limits, the depositors, and
 the member agents with their allocations. They are created once (org key cached in `.fleet-keys.json`)
 and their members run alongside the standalone bots.
 
@@ -125,15 +125,15 @@ benchmark, drawdown, Sharpe, win rate, a trade sample and a `deployable` agent d
 `fleet.yaml`. With `ANTHROPIC_API_KEY` set the planner uses Claude; without it a rule-based parser covers the
 patterns above. The hack dates in `backend/app/data/hacks.csv` are a curated, illustrative list.
 
-## Social: feed, people, phalanx pages
+## Social: feed, people, legion pages
 
 Everything is public by design, so the social layer is mostly derived from the ledger:
 
-- `GET /feed` — fills, rejected and resized orders, halts, deposits, new agents and new phalanxes, newest first;
+- `GET /feed` — fills, rejected and resized orders, halts, deposits, new agents and new legions, newest first;
   `?handle=sam` narrows it to what Sam follows plus Sam's own stakes and agents
-- `GET /u/{handle}` — a person: stakes per phalanx (put in → worth now → share), agents they run, phalanxes they lead
+- `GET /u/{handle}` — a person: stakes per legion (put in → worth now → share), agents they run, legions they lead
 - `POST /social/profiles`, `POST|DELETE /social/follow {handle, target_type: user|agent|org, target_id}`
-- `#/p/{slug}` — a phalanx's page: mandate, hard limits, who's in, agents, recent decisions, and the deposit
+- `#/p/{slug}` — a legion's page: mandate, hard limits, who's in, agents, recent decisions, and the deposit
   form (sim/paper); "Copy invite link" is how a leader brings friends in
 
 v0 has no auth on handles (a handle is what a depositor or owner called themselves); wallet auth replaces that.
@@ -165,7 +165,7 @@ python scripts/builder.py fills --date 20261030
 ```
 
 Users must approve a builder once, signed by their **main** wallet: the master wallet does it for every
-phalanx (`ensure_builder_approved` at startup in testnet mode); outside wallets use the dashboard's
+legion (`ensure_builder_approved` at startup in testnet mode); outside wallets use the dashboard's
 **Approve builder fee** page (`#/approve`), which signs the EIP-712 `approveBuilderFee` action in the
 browser and posts it to Hyperliquid. If the exchange rejects the builder code (not approved / not
 eligible) orders go through without it and `/stats` shows `builder_warning`.

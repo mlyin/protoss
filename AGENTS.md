@@ -16,7 +16,7 @@ Rules that never change:
 - Working a task from `harness/tasks/`: `python harness/run.py <task>` gives you a room (isolated worktree), a
   `PROGRESS.md` brief with the fence and the dead ends, and the loop. Read `harness/README.md`.
 - Gates: `python harness/gate.py` tells you whether a change ships on green, needs a review, or needs a person.
-- The pooled org is a **phalanx** in product copy; the code says `org`. Do not rename the code.
+- The pooled org is a **legion** in product copy; the code says `org`. Do not rename the code.
 
 Quick map: `backend/app` API + sandbox, `sdk/arena` Python SDK, `agents/` example bots, `scripts/` demo,
 fleet, builder-code CLI, `deploy/macmini` launchd kit, `web/` dashboard, `brand/` assets and copy, `brain/` memory.
