@@ -65,7 +65,7 @@ def test_thesis_to_result_in_a_web_huddle(client):
     assert len(th) == 1 and th[0]["kind"] == "rule" and th[0]["status"] == "proposed"
     assert th[0]["test"]["real"] and th[0]["test"]["events"]["events"] > 3  # real cached XMR candles, several hacks in window
     card = bot(client, hid)[-1]
-    assert card["kind"] == "card" and card["text"].startswith("Thesis 1, from Matthew") and "/t/" in card["text"]
+    assert card["kind"] == "card" and card["text"].startswith("Idea 1 from Matthew") and "/t/" in card["text"]
     assert "—" not in card["text"]
 
     # chit-chat is ignored

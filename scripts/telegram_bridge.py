@@ -202,7 +202,8 @@ def friendly(text):
     parts = re.split(r"(https?://\S+)", text)
     for index in range(0, len(parts), 2):
         for word, replacement in replacements.items():
-            parts[index] = re.sub(r"\b" + re.escape(word) + r"\b", replacement, parts[index], flags=re.I)
+            parts[index] = re.sub(r"\b" + re.escape(word) + r"\b", lambda m, r=replacement: r[:1].upper() + r[1:] if m.group(0)[:1].isupper() else r,
+                                  parts[index], flags=re.I)
     return "".join(parts)
 
 

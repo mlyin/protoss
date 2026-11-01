@@ -302,8 +302,44 @@ def _test_summary(spec, res) -> dict:
     return out
 
 
+def _verdict(t: Thesis, s: dict) -> list[str]:
+    """Plain words first: is there an edge, how did the plain market do, and how much history is behind it."""
+    spec, mk = t.spec or {}, s.get("market", "")
+    start, end = (dt.date.fromisoformat(s["start"]), dt.date.fromisoformat(s["end"])) if s.get("start") else (None, None)
+    days = (end - start).days if start else 0
+    since = (f"{start:%b %-d}" if start.year == end.year else f"{start:%b %-d, %Y}") if start and days < 365 else f"{start:%b %Y}" if start else ""
+    out = []
+    ev = s.get("events")
+    if ev and ev.get("events"):
+        what, many = {"major_hacks": ("a hack", "hacks"), "dwarkesh": ("an episode", "episodes")}.get(s.get("event_set"), ("an event", "events"))
+        hold = s.get("hold_days") or 1
+        after = f"the day after {what}" if hold == 1 else f"over the {hold} days after {what}"
+        gap = ev["event_mean_pct"] - ev["any_mean_pct"]
+        word = "No edge." if gap <= 0 else "Barely an edge." if gap < 0.5 else "Some edge."
+        out.append(f"{word} {mk} averaged {ev['event_mean_pct']:+.1f}% {after}, {ev['any_mean_pct']:+.1f}% on any day. "
+                   f"{ev['event_up']} of {ev['events']} were up.")
+        hold_line = f" Just holding {mk}: {s['bench_pct']:+.1f}%." if s.get("bench_pct") is not None else ""
+        out.append(f"As a rule since {since}: {s['return_pct']:+.1f}%, worst drop {s['max_drawdown_pct']:.1f}%.{hold_line}")
+        if ev["events"] < 40:
+            out.append(f"{ev['events']} {many} is a small sample.")
+    elif spec.get("type") == "buy_hold" and spec.get("side") == "short":
+        bench = s.get("bench_pct")
+        out.append(f"Shorting {mk} since {since}: {s['return_pct']:+.1f}%" + (f", while {mk} moved {bench:+.1f}%." if bench is not None else "."))
+    elif spec.get("type") == "buy_hold":
+        out.append(f"Holding {mk} since {since}: {s['return_pct']:+.1f}%, with a {s['max_drawdown_pct']:.1f}% drop along the way.")
+    else:
+        bench = f", just holding {mk} {s['bench_pct']:+.1f}%" if s.get("bench_pct") is not None else ""
+        out.append(f"As a rule since {since}: {s.get('return_pct', 0):+.1f}%{bench}, worst drop {s.get('max_drawdown_pct', 0):.1f}%, {s.get('trades', 0)} trades.")
+    if start and days < 60:
+        out.append(f"Only {days} days of price history ({mk} listed {start:%b %-d}), so this is a snapshot, not evidence.")
+    return out
+
+
 def card_text(t: Thesis) -> str:
-    lines = [f"Thesis {t.n}, from {t.author}", t.label, ""]
+    from .lab import theme
+
+    why = (theme(t.text or "") or (None, ""))[1]
+    lines = [f"Idea {t.n} from {t.author}", t.label] + ([why] if why else []) + [""]
     if t.kind == "call":
         lines += ["No Hyperliquid market or price history matches this, so I logged it as a call instead of a backtest.",
                   "Thumbs up to back it. When it plays out, say protoss hit " + str(t.n) + " or protoss miss " + str(t.n) + "."]
@@ -311,21 +347,11 @@ def card_text(t: Thesis) -> str:
     s = t.test or {}
     if s.get("untested"):
         lines += [f"{s.get('market')} is listed on Hyperliquid; no price history here to test it, so this is a conviction trade.",
-                  "", "Thumbs up this to back it. Say \"$50 each\" to set the stake.", _link(f"/t/{t.id}")]
+                  "", "Thumbs up to back it, then each of you says \"in for 20\" with your own amount.", _link(f"/t/{t.id}")]
         return "\n".join(lines)
-    span = f"{dt.date.fromisoformat(s['start']):%b %Y} to {dt.date.fromisoformat(s['end']):%b %Y}" if s.get("start") else ""
-    data = "real Hyperliquid candles" if s.get("real") else "simulated prices, mechanics only"
-    ev = s.get("events")
-    if ev and ev.get("events"):
-        lines.append(f"Tested on {ev['events']} events, {span}, {data}:")
-        lines.append(f"{s['market']} {ev['event_mean_pct']:+.1f}% on average in the {s.get('hold_days')}d after an event, "
-                     f"{ev['any_mean_pct']:+.1f}% after any day. {ev['event_up']} of {ev['events']} up.")
-        lines.append(f"As a rule: {s['return_pct']:+.1f}%, max drawdown {s['max_drawdown_pct']:.1f}%.")
-    else:
-        lines.append(f"Tested {span}, {data}:")
-        bench = f" vs {s['bench_pct']:+.1f}% buy and hold" if s.get("bench_pct") is not None else ""
-        lines.append(f"{s.get('return_pct', 0):+.1f}%{bench}, max drawdown {s.get('max_drawdown_pct', 0):.1f}%, {s.get('trades', 0)} trades.")
-    lines += ["", "Thumbs up this to back it. Say \"$50 each\" to set the stake.", _link(f"/t/{t.id}")]
+    lines += _verdict(t, s)
+    data = "Real Hyperliquid prices. Fees and slippage included, funding not." if s.get("real") else "Simulated prices: this shows the mechanics only."
+    lines += [data, "", "Thumbs up to back it, then each of you says \"in for 20\" with your own amount.", _link(f"/t/{t.id}")]
     return "\n".join(lines)
 
 

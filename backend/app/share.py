@@ -283,9 +283,11 @@ def thesis_card(tid: int, db: Session = DbDep):
                  ("Up", f"{ev['event_up']} of {ev['events']}", None), ("In", _usd(t["pledged_usd"]), None)]
         foot = f"{s.get('hold_days')}d hold · {'real Hyperliquid candles' if s.get('real') else 'simulated prices'} · {s.get('start', '')[:7]} to {s.get('end', '')[:7]}"
     else:
-        stats = [("Backtest", f"{s.get('return_pct', 0):+.1f}%", tone(s.get("return_pct", 0))), ("Max drawdown", f"-{abs(s.get('max_drawdown_pct', 0)):.1f}%", None),
-                 ("Trades", str(s.get("trades", 0)), None), ("In", _usd(t["pledged_usd"]), None)]
-        foot = f"{'real Hyperliquid candles' if s.get('real') else 'simulated prices'} · {s.get('start', '')[:7]} to {s.get('end', '')[:7]}"
+        days = (dt.date.fromisoformat(s["end"]) - dt.date.fromisoformat(s["start"])).days if s.get("start") else 0
+        history = f"{days} days" if days < 90 else f"{round(days / 30.4)} months"
+        stats = [("Return", f"{s.get('return_pct', 0):+.1f}%", tone(s.get("return_pct", 0))), ("Worst drop", f"-{abs(s.get('max_drawdown_pct', 0)):.1f}%", None),
+                 ("History", history, "neg" if days < 60 else None), ("In", _usd(t["pledged_usd"]), None)]
+        foot = f"{'real Hyperliquid candles' if s.get('real') else 'simulated prices'} · since {s.get('start', '')}" + (" · too short to call" if days < 60 else "")
     rec = t["record"]
     if rec["closed"]:
         stats[-1] = ("Record", f"{rec['up']} of {rec['closed']}", tone(rec["pnl_usd"]))
