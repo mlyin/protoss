@@ -1,4 +1,4 @@
-"""Run the four demo ideas on live Hyperliquid data and write what the website shows before anyone asks:
+"""Run the explicit market demo ideas on live Hyperliquid data and write what the website shows before anyone asks:
 web/public/ideas/ideas.json (verdicts, events, dates) and web/public/ideas/<id>.png (the card the Telegram bot posts).
 
     python scripts/idea_snapshots.py
@@ -21,7 +21,7 @@ os.environ.setdefault("ARENA_MODE", "paper")  # paper = real Hyperliquid prices,
 from app.backtest import get_source, load_events, run_backtest  # noqa: E402
 from app.config import get_settings  # noqa: E402
 from app.huddle import _test_summary, _verdict  # noqa: E402
-from app.lab import EXAMPLES, plan, theme  # noqa: E402
+from app.lab import Clarify, EXAMPLES, plan, theme  # noqa: E402
 from app.share import card_png  # noqa: E402
 
 IDS = ["hacks", "robots", "anthropic", "dwarkesh"]  # same order as lab.EXAMPLES
@@ -36,6 +36,11 @@ def main() -> None:
     rows = []
     for n, (idea_id, said) in enumerate(zip(IDS, EXAMPLES), 1):
         spec = plan(said, known=set(src.markets()))
+        if isinstance(spec, Clarify):
+            for suffix in (".png", "-phone.png"):
+                (OUT / f"{idea_id}{suffix}").unlink(missing_ok=True)
+            rows.append({"id": idea_id, "said": said, "status": "needs_research", "why": spec.question})
+            continue
         res = run_backtest(spec, src)
         s = _test_summary(spec, res)
         verdict = _verdict(SimpleNamespace(n=n, text=said, label=res.label, spec=spec.model_dump(mode="json")), s)

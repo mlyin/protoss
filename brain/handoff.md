@@ -2,6 +2,9 @@
 
 ## Update, 2026-11-01
 
+Latest user clarification: fourth idea = "Research each episode and propose a trade." This supersedes all fixed NVDA wording below. Episode analysis is not connected; do not present release-date backtests as transcript research. Preserve existing runtime rules, trading settings, fleet, databases and checkpoints. Do not stop the fleet or run real stakes as acceptance tests; those older checklist items below are not authorized.
+
+
 Private account route repair: the simplified frontend had discarded the connection and trade-review links still issued by Telegram. The two private screens are restored without adding public navigation. Browser fixtures cover link preservation/reload, ownership click gating, owner changes, missing/expired links, public API destination, prepared-trade reloads and leaving during preparation. An isolated running API/database trace confirms actual issued links render the correct private records. No real wallet was connected and no trade was signed or submitted. Live acceptance still needs the bot and its issuing API available together; local-only links do not work for remote participants.
 
 Goal audit: at the start of the 12-hour product goal the MacBook bot and its API on port 8001 were stopped after the separate Telegram-card deployment. No token was present in the remaining test API process or this shell. Restoring the bot needs private token entry; never print credentials or reset its databases/checkpoints. The homepage preview runs at port 4374; private account screens are previewed at port 4375. The other session installed `com.protoss.telegram`, but it is stopped with exit 126 and repeated macOS operation-not-permitted errors; its private token file is absent. Do not start a competing poller. PRs #10 and #11 are merged; the public XMR request completes, while the newer backend code still needs deployment. A subsequent research audit found date-only event timestamps can cause entries before publication; study validity is not established and needs correction.
@@ -18,7 +21,7 @@ his Claude memory and follows him.
 ## What Protoss is
 Friends say a trading idea in a Telegram group. Protoss tests it on real Hyperliquid history, then each person picks their own
 amount and the order goes out from their own account; the money is never combined. The demo is **four ideas** (see
-[[decisions]] 2026-11-01): XMR on hacks, robots to Unitree, short the Anthropic bubble, NVDA on each new Dwarkesh episode.
+[[decisions]] 2026-11-01): XMR on hacks, robots to Unitree, short the Anthropic bubble, research each new Dwarkesh episode.
 **Nothing on the website is simulated** (see [[corrections]]). Revenue: a builder code on every fill. The pooled **legion**
 (code says `org`; do not rename) and vault-backed legions still exist in the backend but are not on the website.
 

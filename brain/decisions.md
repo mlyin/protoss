@@ -54,3 +54,5 @@
   engine is transport-agnostic (`backend/app/huddle.py`), so an iMessage extension later reuses it. The web group chat at
   `#/huddle/<name>` is the same engine for demos without a phone. Pledges are paper only; with real money each person stakes
   into the vault themselves.
+
+- 2026-11-01: Superseding the fixed NVDA demo: the fourth idea researches each Dwarkesh episode and proposes a relevant trade for individual review. The homepage and bot menu must not advertise a predetermined market, return, or automatic purchase. Until transcript research is connected, show its actual unavailable state and request an episode or claim; never substitute a release-date backtest.

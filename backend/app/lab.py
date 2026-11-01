@@ -180,7 +180,7 @@ EXAMPLES = [  # the four ideas Protoss demos (Matthew, 2026-11-01); keep them in
     "Let's buy XMR every time a major company gets hacked",
     "I think robots are going to take over the world",
     "The Anthropic bubble is going to pop",
-    "Dwarkesh is always right. Trade every new episode",
+    "Research each new Dwarkesh episode and propose a trade",
 ]
 
 # ------------------------------------------------------------------------------------------- LLM planner
@@ -199,7 +199,7 @@ Return exactly one of:
 {"type":"clarify","question":str}   when the message cannot be mapped; ask ONE specific question.
 Every spec may also carry "days" (lookback window, 2-730) and "starting_equity" when the user states them.
 Markets are Hyperliquid perp names: BTC, ETH, SOL, HYPE, XMR, DOGE; stocks/indices are HIP-3 names like xyz:NVDA, xyz:TSLA, xyz:SP500.
-"hacked/breach/exploit" means event_set major_hacks. "Dwarkesh is always right" or trading every new Dwarkesh episode is the demo idea: event_buy, event_set "dwarkesh", xyz:NVDA, long, hold 7 days. Any other Dwarkesh mention: ask for the episode or specific claim; never invent a market or direction.
+"hacked/breach/exploit" means event_set major_hacks. A Dwarkesh episode is a research prompt: ask for the episode or specific claim unless the user explicitly names a trading direction and market; never default to NVDA or invent a trade.
 Robots or humanoids taking over means buy_hold xyz:UNITREE. A bubble popping or something being overvalued means buy_hold with side "short". Omit fields you are unsure about; defaults apply."""
 
 
@@ -260,16 +260,8 @@ THEMES = [
     (r"\bdwarkesh\b", {"kind": "event_buy", "event_set": "dwarkesh"},
      "This tests your stated trading rule on podcast release dates. It does not analyze episode claims or establish that the podcast predicts prices."),
 ]
-# Demo idea 4 (Matthew, 2026-11-01 goal): "Dwarkesh is always right" buys NVDA on each new episode for 7 days.
-DWARKESH_IDEA = re.compile(r"\bdwarkesh\b.*\b(always right|every (?:new |single )?(?:episode|podcast)|each (?:new )?(?:episode|podcast))"
-                           r"|\b(every|each) (?:new )?dwarkesh (?:episode|podcast)", re.I)
-DWARKESH_WHY = ("Dwarkesh is always right, and he mostly talks about AI, so each new episode buys AI compute: xyz:NVDA for 7 days. "
-                "This trades the release dates; it does not read what was said.")
-
 
 def theme(message: str) -> tuple[dict, str] | None:
-    if dwarkesh_idea(message):
-        return {"market": "xyz:NVDA", "kind": "event_buy", "event_set": "dwarkesh"}, DWARKESH_WHY
     low = message.lower()
     return next(((t, why) for pat, t, why in THEMES if re.search(pat, low)), None)
 
@@ -293,14 +285,8 @@ def podcast_trade(message: str, known: set[str]) -> tuple[str, str] | None:
     return entries[0]
 
 
-def dwarkesh_idea(message: str) -> bool:
-    """The demo idea, said plainly and not negated: no market named, so it is NVDA long for 7 days."""
-    return (bool(DWARKESH_IDEA.search(message)) and not re.search(r"\b(?:not|never|avoid|don't|dont)\b", message, re.I)
-            and not re.search(r"\b(?:buy|long|short|sell)\b", message, re.I))  # a stated buy/sell is its own rule (podcast_trade)
-
-
 def podcast_research_question(message: str, known: set[str]) -> Clarify | None:
-    if not re.search(r"\bdwarkesh\b", message, re.I) or podcast_trade(message, known) or dwarkesh_idea(message):
+    if not re.search(r"\bdwarkesh\b", message, re.I) or podcast_trade(message, known):
         return None
     return Clarify(question="Which Dwarkesh episode or specific claim should we research? "
                    "A new episode alone does not choose a market or direction. "

@@ -206,9 +206,9 @@ def test_the_four_ideas(client):
     # the benchmark stays plain buy and hold, so a short and its benchmark move in opposite directions
     b = bubble["result"]
     assert (b["final_equity"] - b["starting_equity"]) * (b["benchmark_curve"][-1][1] - b["starting_equity"]) <= 0
-    # idea 4 (Matthew's goal, 2026-11-01): NVDA on each new episode for 7 days, and the reply says it trades release dates only
-    assert dwarkesh["kind"] == "backtest" and dwarkesh["spec"]["event_set"] == "dwarkesh" and dwarkesh["spec"]["market"] == "xyz:NVDA"
-    assert dwarkesh["spec"]["side"] == "long" and dwarkesh["spec"]["hold_days"] == 7 and "does not read what was said" in dwarkesh["reply"]
+    # Episode research needs evidence, not an invented default market.
+    assert dwarkesh["kind"] == "clarify" and dwarkesh["spec"] is None and dwarkesh["result"] is None
+    assert "specific claim" in dwarkesh["reply"]
     explicit = chat(client, "buy NVDA on each new Dwarkesh episode and hold 7 days")
     assert explicit["kind"] == "backtest" and explicit["spec"]["event_set"] == "dwarkesh"
     assert explicit["spec"]["market"] == "xyz:NVDA"
@@ -230,10 +230,9 @@ def test_podcast_idea_cannot_be_assigned_a_market_by_llm(monkeypatch):
     for message in ["Dwarkesh mentioned NVDA", "Dwarkesh had a long episode about NVDA", "Dwarkesh had a short episode about NVDA",
                     "do not buy NVDA on each Dwarkesh episode"]:
         assert isinstance(lab.plan(message, known={"xyz:NVDA"}), lab.Clarify)
-    # the demo idea itself is a fixed rule, decided by Matthew, not by a model
-    for message in ["Dwarkesh is always right", "Trade every new Dwarkesh episode"]:
-        spec = lab.plan(message, known={"xyz:NVDA"})
-        assert spec.event_set == "dwarkesh" and spec.market == "xyz:NVDA" and spec.side == "long" and spec.hold_days == 7
+    for message in ["Dwarkesh is always right", "Trade every new Dwarkesh episode",
+                    "Research each new Dwarkesh episode and propose a trade"]:
+        assert isinstance(lab.plan(message, known={"xyz:NVDA"}), lab.Clarify)
 
 
 def test_podcast_release_rule_preserves_explicit_direction():
