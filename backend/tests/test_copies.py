@@ -19,7 +19,7 @@ ADMIN = {"x-admin-token": "test-admin"}
 CHAT = -100555
 
 K1, K2 = Account.create(), Account.create()
-ACC1, ACC2 = "0x562B9081dF47193428a67b0885d9562eDE242c01", "0x027D9eEEe7eFc177b5287f7f5E0976b37ad838c9"
+ACC1, ACC2 = "0x1111111111111111111111111111111111111111", "0x2222222222222222222222222222222222222222"
 WALLETS = {"tg:111": {"name": "lando", "address": ACC1, "agent_key": K1.key.hex()},
            "tg:222": {"name": "second", "address": ACC2, "agent_key": K2.key.hex()}}
 
@@ -195,8 +195,8 @@ def test_two_participants_two_real_orders_from_their_own_accounts(live, tmp_path
     # the exchange's own fill history is what gets announced
     texts = [m["text"] for m in tg.sent]
     assert sum("Real order, real money" in t for t in texts) == 2
-    assert any("0x562B...2c01" in t and "0xfeedbeef" in t for t in texts)
-    assert any("0x027D...38c9" in t for t in texts)
+    assert any("0x1111...1111" in t and "0xfeedbeef" in t for t in texts)
+    assert any("0x2222...2222" in t for t in texts)
     assert not any("paper" in t.lower() or "practice" in t.lower() for t in texts), [t for t in texts if "paper" in t.lower() or "practice" in t.lower()]
     assert any("separate orders, one per account" in t for t in texts)
 

@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Register a participant's own Hyperliquid account for live copies. Runs on the machine that runs the bridge.
 
-    python scripts/wallets.py add tg:5727530056 --name lando --address 0x562B9081dF47193428a67b0885d9562eDE242c01
+    python scripts/wallets.py add tg:111111111 --name lando --address 0x1111111111111111111111111111111111111111
     python scripts/wallets.py list
-    python scripts/wallets.py check tg:5727530056      # is the API wallet authorized on Hyperliquid for that account?
+    python scripts/wallets.py check tg:111111111      # is the API wallet authorized on Hyperliquid for that account?
 
 `add` asks for the API wallet's private key at a hidden prompt (the one the Hyperliquid app shows once under More, API,
 after the account owner pressed Authorize) and writes ~/.protoss/wallets.json with mode 0600. The key never goes in a
@@ -39,7 +39,7 @@ def main() -> None:
 
     if args.cmd == "add":
         if not re.fullmatch(r"tg:\d+", args.who):
-            sys.exit("who must look like tg:5727530056")
+            sys.exit("who must look like tg:111111111")
         if not ADDR.match(args.address):
             sys.exit("address must be 0x followed by 40 hex characters")
         entry = {"name": args.name, "address": args.address}
