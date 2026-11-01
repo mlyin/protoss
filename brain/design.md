@@ -25,3 +25,4 @@ Slop here means: gradients, glows, emoji, uppercase tracked labels, pulsing dots
   `ad.html` (1080x1350 + 1200x628; headline set in an original chiseled block alphabet drawn as SVG polygons, so it needs no
   webfont), `copy.md`, `x-thread.md`. Spot red appears on the issue box, the headline period and the center crest only (~1.5% of area).
   Chosen headline: "Your friends. One wall." Editable canvas: the "Protoss Ads" Design artifact (Anton stands in for the block alphabet there).
+- 2026-10-31: Matthew wants the practice flow to look like the real product and the gold-and-cyan Probe brand. Keep the app shell, trade review and visual language consistent; show practice status clearly. Public homepage and character galleries should not expose SVG download controls.
