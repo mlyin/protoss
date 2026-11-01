@@ -265,7 +265,11 @@ def is_copy_chat(h: Huddle) -> bool:
 
 
 def _can_trade(ex: ExchangeAdapter) -> bool:
-    return ex.name in ("sim", "paper")
+    return ex.name in ("sim", "paper", "copies")
+
+
+def _real(ex: ExchangeAdapter) -> bool:
+    return ex.name == "copies"
 
 
 # ------------------------------------------------------------------------------------------------ the card
@@ -382,7 +386,7 @@ def set_each(db: Session, ex: ExchangeAdapter, h: Huddle, t: Thesis, who: str, a
             b.pledge_usd = t.each_usd
     db.flush()
     bs = backers(db, t)
-    capped = f" (capped at {_usd(cap)} a person in paper mode)" if amount > cap else ""
+    capped = f" (capped at {_usd(cap)} a person{'' if _real(ex) else ' in paper mode'})" if amount > cap else ""
     if not _maybe_arm(db, ex, h, t):
         need = max(0, h.quorum - sum(b.approved for b in bs))
         more = f" Need {need} more to back it." if need else ""
@@ -400,7 +404,8 @@ def _maybe_arm(db: Session, ex: ExchangeAdapter, h: Huddle, t: Thesis, announce_
         return False
     if is_copy_chat(h) and t.kind == "rule" and sum((b.pledge_usd or 0) > 0 for b in approved) < h.quorum:
         if announce_backing:
-            say(db, h, f"Thesis {t.n} needs a separate pledge from each participant. Use /pledge 20 to record your own paper pledge.", thesis_id=t.id)
+            kind = "real order from your own account" if _real(ex) else "paper pledge"
+            say(db, h, f"Thesis {t.n} needs a separate pledge from each participant. Use /pledge 20 to record your own {kind}.", thesis_id=t.id)
         return False
     arm(db, ex, h, t)
     return True
@@ -440,20 +445,35 @@ def arm(db: Session, ex: ExchangeAdapter, h: Huddle, t: Thesis) -> None:
             db.flush()
             db.add(Backer(thesis_id=child.id, who=backer.who, approved=True, pledge_usd=backer.pledge_usd))
             db.flush()
-            arm(db, ex, h, child)
+            try:
+                arm(db, ex, h, child)
+            except Exception as e:  # a copy that cannot trade (no authorized wallet, cap, exchange refusal) must not stop the others
+                child.status = "halted"
+                say(db, h, f"{backer.who}'s copy did not go out: {e}", "result", child.id)
+                continue
             copies.append(child.id)
             for tr in db.scalars(select(Trigger).where(Trigger.thesis_id == child.id)).all():
-                say(db, h, f"{backer.who}'s separate paper copy filled: {tr.size:.6g} {tr.market} at {_px(tr.entry_px)}. "
-                           f"Paper allocation {_usd(backer.pledge_usd)}. Agent {child.agent_id}. No real funds moved.", "result", child.id)
+                if _real(ex):
+                    lf = getattr(ex, "last_fill", None) or {}
+                    stamp = f" Hyperliquid fill {lf.get('hash', '')[:14]}" if lf.get("hash") else ""
+                    acct = ex.wallets.get(backer.who, {}).get("address", "")
+                    say(db, h, f"{backer.who}'s order filled from their own account {acct[:6]}...{acct[-4:]}: {tr.size:.6g} {tr.market} at {_px(tr.entry_px)}, "
+                               f"{_usd(tr.size * tr.entry_px)} of the {_usd(backer.pledge_usd)} they pledged.{stamp} Real order, real money.", "result", child.id)
+                else:
+                    say(db, h, f"{backer.who}'s separate paper copy filled: {tr.size:.6g} {tr.market} at {_px(tr.entry_px)}. "
+                               f"Paper allocation {_usd(backer.pledge_usd)}. Agent {child.agent_id}. No real funds moved.", "result", child.id)
         t.spec = {**original_spec, "type": "telegram_copies", "copy_ids": copies}
-        say(db, h, f"Thesis {t.n} created {len(copies)} separate paper accounts. Each participant owns their own copy and its result. No shared pot.", thesis_id=t.id)
+        if _real(ex):
+            say(db, h, f"Thesis {t.n}: {len(copies)} separate orders, one per account. Each of you owns your own position and can close it from your own account at any time. No shared pot.", thesis_id=t.id)
+        else:
+            say(db, h, f"Thesis {t.n} created {len(copies)} separate paper accounts. Each participant owns their own copy and its result. No shared pot.", thesis_id=t.id)
         return
     name = f"huddle{h.id}-t{t.n}-{secrets.token_hex(2)}"
     org = db.scalar(select(Org).where(Org.slug == h.org_slug)) if h.org_slug else None
     in_org = bool(org and not spec.get("_telegram_copy_owner") and org.status == "live" and market in (org.limits.allowed_markets or []))
     holdings = spec.get("holdings") or []
     allowed = [item["market"] for item in holdings] if holdings else ([market] if market else None)
-    lim = LimitsIn(max_leverage=1.0 if holdings else 2.0, drawdown_flatten_pct=25.0, daily_loss_pct=20.0, allowed_markets=allowed)
+    lim = LimitsIn(max_leverage=1.0 if (holdings or _real(ex)) else 2.0, drawdown_flatten_pct=25.0, daily_loss_pct=20.0, allowed_markets=allowed)  # real money: 1x, always
     body = AgentCreate(name=name, owner=t.author, runtime="huddle rule", strategy=f"{t.label} (thesis {t.n}, {h.title})"[:280], starting_equity=total, limits=lim)
     if in_org:
         from . import orgs as O
@@ -478,7 +498,8 @@ def arm(db: Session, ex: ExchangeAdapter, h: Huddle, t: Thesis) -> None:
         waiting = ""
     elif spec.get("type") not in ("event_buy", "buy_hold"):
         waiting = "No live runtime for this rule type yet, so the agent holds the cash and the card keeps the backtest."
-    say(db, h, f"Thesis {t.n} is live{where}. {_usd(total)} in paper money from {_who_line(bs)}, max 2x leverage, flattens at -25%. "
+    money = "real money" if _real(ex) else "paper money"
+    say(db, h, f"Thesis {t.n} is live{where}. {_usd(total)} in {money} from {_who_line(bs)}, max {int(lim.max_leverage)}x leverage, flattens at -25%. "
                f"{waiting} Every fill is public: {_link('/#/feed')}".strip(), thesis_id=t.id)
 
 

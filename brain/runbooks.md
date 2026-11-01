@@ -90,3 +90,10 @@ Env: `PROTOSS_API` (default http://127.0.0.1:8000), `ADMIN_TOKEN`, `BRIDGE_ME`. 
 (JSON list of RSS URLs read for hack headlines), `HUDDLE_QUORUM` (default 2), `APP_URL` (links in chat).
 - 2026-10-31: iMessage extension (in-thread cards) scaffolded in `ios/` (XcodeGen spec, SwiftUI). Build and Simulator steps in
   `ios/README.md`. Written without a Mac in the loop: the first `xcodebuild` on the mini is its first compile.
+
+## Live Telegram copies (added 2026-10-31)
+
+See docs/telegram-demo.md, section "Live copies". Short form: per participant `scripts/wallets.py add tg:<id> --name .. --address 0x..`
+(key at a hidden prompt), `scripts/wallets.py check tg:<id>`, collateral on the xyz dex, then
+`scripts/telegram_demo.py --live --chat <group> --users <id1>,<id2>` and type LIVE. Receipts come from Hyperliquid fill history.
+Matthew's rule: the only thing a participant should touch is Telegram; the one-time authorization is the exception because it is their signature.

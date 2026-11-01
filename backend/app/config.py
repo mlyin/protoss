@@ -6,6 +6,8 @@ ARENA_MODE
   testnet  real orders on Hyperliquid testnet via the official SDK. Needs HL_MASTER_PRIVATE_KEY
            funded with testnet USDC; each agent gets its own sub-account.
   mainnet  mainnet vault accounts; execution is off unless MAINNET_TRADING_ENABLED=true.
+  copies   mainnet, one API wallet per participant (copies.py); each order leaves that person's own account.
+           Off unless MAINNET_TRADING_ENABLED=true. Wallets come from ~/.protoss/wallets.json (scripts/wallets.py).
 """
 from __future__ import annotations
 
@@ -19,15 +21,15 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_prefix="", extra="ignore")
 
-    arena_mode: Literal["sim", "paper", "testnet", "mainnet"] = "sim"
+    arena_mode: Literal["sim", "paper", "testnet", "mainnet", "copies"] = "sim"
     mainnet_trading_enabled: bool = False
 
     @model_validator(mode="after")
     def check_network(self):
-        expected = {"testnet": "https://api.hyperliquid-testnet.xyz", "mainnet": "https://api.hyperliquid.xyz"}
+        expected = {"testnet": "https://api.hyperliquid-testnet.xyz", "mainnet": "https://api.hyperliquid.xyz", "copies": "https://api.hyperliquid.xyz"}
         if self.arena_mode in expected and self.hl_api_url and self.hl_api_url.rstrip("/") != expected[self.arena_mode]:
             raise ValueError(f"{self.arena_mode} requires {expected[self.arena_mode]}")
-        if self.arena_mode == "mainnet" and self.admin_token == "change-me":
+        if self.arena_mode in ("mainnet", "copies") and self.admin_token == "change-me":
             raise ValueError("mainnet requires a configured ADMIN_TOKEN")
         return self
     database_url: str = "sqlite:///./arena.db"

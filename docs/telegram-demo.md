@@ -121,6 +121,41 @@ Wallet ownership is distinct from verified funding. No copy is executed against 
 copy execution needs separate per-account authorization and exchange-fill reconciliation before it can
 be described as working. The existing shared-vault adapter is a different product path.
 
+## Live copies: real orders, each from the participant's own account
+
+`--live` replaces the practice engine with `copies` mode (`backend/app/copies.py`): every `/pledge` becomes a real
+market order that leaves that participant's own Hyperliquid account, signed by an API wallet they authorized. Nothing
+is pooled and no master key exists on the server. Per-order cap `COPIES_MAX_USD` (default 100), leverage 1x cross.
+
+One-time, per participant, in their own hands:
+
+1. app.hyperliquid.xyz -> More -> API -> generate an API wallet (name it protoss) -> Authorize. The app shows its private
+   key once.
+2. On the Mac that runs the bridge, register it (the key goes to a hidden prompt, never to chat or a command argument):
+
+```sh
+cd ~/protoss-demo
+.venv/bin/python scripts/wallets.py add tg:5727530056 --name lando  --address 0x562B9081dF47193428a67b0885d9562eDE242c01
+.venv/bin/python scripts/wallets.py add tg:8368345119 --name second --address 0x027D9eEEe7eFc177b5287f7f5E0976b37ad838c9
+.venv/bin/python scripts/wallets.py check tg:5727530056     # authorized on Hyperliquid? core and xyz balances
+```
+
+   The Telegram ID to wallet mapping is whatever you register here; `check` prints both so you can see it is right.
+3. HIP-3 markets (`xyz:*`) are margined in their own dex. A 1x $20 copy needs about $20.10 on xyz. Move collateral in
+   the app (Portfolio -> Transfer between perp DEXs) before pledging; an underfunded copy is refused and the group is told.
+4. Start the bridge live (stop the practice poller first; one poller per bot):
+
+```sh
+read -r -s -p 'Telegram bot token: ' TELEGRAM_BOT_TOKEN; export TELEGRAM_BOT_TOKEN
+.venv/bin/python scripts/telegram_demo.py --live --chat -5535266870 --users 5727530056,8368345119
+```
+
+   It lists the mapping and waits for you to type LIVE. From then on Telegram is the only interface:
+   `/demo` -> tap ANT (xyz) only, the other person taps Back this idea, each sends `/pledge 20`. Each copy's receipt
+   is read back from Hyperliquid's fill history (size, price, fee, hash) before it is posted; a copy that cannot
+   trade (not authorized, no collateral, above the cap) is reported for that person only and the other still goes out.
+   Positions stay open when the bridge stops; close them from your own account whenever you like.
+
 ## Reliability and scope
 
 - Only the selected group and two allowlisted users can drive the bridge. No anonymous channel posts.

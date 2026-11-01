@@ -332,6 +332,22 @@ class TestnetExchange:
     def _builder(self):
         return {"b": self.builder, "f": int(self.settings.hl_builder_fee_tenths_bp)} if not self.builder_warning else None
 
+    def sz_decimals(self, market: str) -> int | None:
+        """The market's size step from its dex meta; None when the meta cannot be read."""
+        cache = self.__dict__.setdefault("_szd", {})
+        if market not in cache:
+            dex = market.split(":")[0] if ":" in market else ""
+            try:
+                for u in self.info.post("/info", {"type": "meta", **({"dex": dex} if dex else {})})["universe"]:
+                    cache[u["name"]] = int(u["szDecimals"])
+            except Exception as e:
+                log.debug("meta unavailable for %s: %s", market, e)
+        return cache.get(market)
+
+    def round_size(self, market: str, size: float) -> float:
+        d = self.sz_decimals(market)
+        return size if d is None else math.floor(size * 10**d + 1e-9) / 10**d
+
     def _send(self, ex, market, is_buy, size, order_type, limit_px, reduce_only, builder):
         if order_type == "market" or limit_px is None:
             if reduce_only:
@@ -367,6 +383,9 @@ class TestnetExchange:
         return total
 
     def place(self, db, agent, market, side, size, order_type, limit_px, reduce_only) -> Fill | None:
+        size = self.round_size(market, size)
+        if size <= 0:
+            return None
         ex = self._exchange(self._account_for(db, agent))
         is_buy = side == "buy"
         builder = self._builder()
@@ -501,6 +520,10 @@ def get_exchange() -> ExchangeAdapter:
             _adapter = PaperExchange(s)
         elif s.arena_mode == "mainnet":
             _adapter = MainnetExchange(s)
+        elif s.arena_mode == "copies":
+            from .copies import CopiesExchange  # imports this module
+
+            _adapter = CopiesExchange(s)
         else:
             _adapter = TestnetExchange(s)
     return _adapter

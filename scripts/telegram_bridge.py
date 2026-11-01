@@ -122,6 +122,9 @@ def setup_demo():
 HELP = ("Protoss practice demo\n/demo (choose a crypto example)\n/idea buy and hold 60% BTC and 40% ETH\n/back 1 (or tap Back this idea)\n"
         "/pledge 20 (your own paper pledge)\n/status\n/join (private wallet connection)\n"
         "Wallet ownership is checked with a signature. Chat backing never authorizes spending.")
+HELP_LIVE = ("Protoss\n/demo (choose an idea)\n/idea buy and hold 60% BTC and 40% ETH\n/idea buy and hold xyz:ANT\n/back 1 (or tap Back this idea)\n"
+             "/pledge 20 (a real order of that size from your own account)\n/status\n/join (private wallet connection)\n"
+             "Orders leave your own Hyperliquid account through an API wallet you authorized. Nothing is pooled. Close any position yourself at any time.")
 
 
 def friendly(text):
@@ -135,9 +138,11 @@ def friendly(text):
 
 
 class Bridge:
-    def __init__(self, telegram, protoss, state, chat, users, username, hid):
+    def __init__(self, telegram, protoss, state, chat, users, username, hid, live=False):
         self.telegram, self.protoss, self.state = telegram, protoss, state
         self.chat, self.users, self.username, self.hid = chat, set(users), username, hid
+        self.live = live
+        self.help = HELP_LIVE if live else HELP
 
     def send(self, chat, text, key, keyboard=None):
         """Checkpoint every successful chunk. Telegram delivery is at least once across a crash."""
@@ -189,8 +194,8 @@ class Bridge:
                 return
             if match:
                 text = f"protoss back {match[1]}"
-            elif payload in ("idea:crypto", "idea:bitcoin"):
-                text = "protoss buy and hold " + ("60% BTC and 40% ETH" if payload == "idea:crypto" else "BTC")
+            elif payload in ("idea:crypto", "idea:bitcoin", "idea:ant"):
+                text = "protoss buy and hold " + {"idea:crypto": "60% BTC and 40% ETH", "idea:bitcoin": "BTC", "idea:ant": "xyz:ANT"}[payload]
             else:
                 return
         else:
@@ -211,12 +216,16 @@ class Bridge:
                           [[{"text": "Connect my wallet", "url": link["url"]}]])
                 return
             if command in ("start", "help"):
-                self.send(self.chat, HELP, key)
+                self.send(self.chat, self.help, key)
                 return
             if command == "demo":
-                self.send(self.chat, "Choose a practice idea. You and your friend each choose your own amount. No real money moves. These examples use perpetual markets, not coin ownership.", key,
+                intro = ("Choose an idea. You and your friend each confirm your own amount with /pledge; each order leaves your own account. Perpetual markets, not coin ownership."
+                         if self.live else
+                         "Choose a practice idea. You and your friend each choose your own amount. No real money moves. These examples use perpetual markets, not coin ownership.")
+                self.send(self.chat, intro, key,
                     [[{"text": "60% Bitcoin + 40% Ethereum", "callback_data": "idea:crypto"}],
-                     [{"text": "Bitcoin only", "callback_data": "idea:bitcoin"}]])
+                     [{"text": "Bitcoin only", "callback_data": "idea:bitcoin"}],
+                     [{"text": "ANT (xyz) only", "callback_data": "idea:ant"}]])
                 return
             if command == "join":
                 url = f"https://t.me/{self.username}?start=join_{self.chat}"
@@ -235,13 +244,13 @@ class Bridge:
             elif command == "pledge" and re.fullmatch(r"\d+(?:\.\d{1,2})?", argument) and 0 < float(argument) <= 1000:
                 text = "in for " + argument
             else:
-                self.send(self.chat, HELP, key)
+                self.send(self.chat, self.help, key)
                 return
         self.protoss.call("POST", f"/huddle/{self.hid}/messages", {"sender": f"tg:{user_id}", "text": text[:2000],
                           "guid": f"tg-update:{uid}"})
         self.drain()
         if callback:
-            self.telegram.call("answerCallbackQuery", callback_query_id=callback["id"], text="Demo step recorded. No funds moved.")
+            self.telegram.call("answerCallbackQuery", callback_query_id=callback["id"], text="Recorded." if self.live else "Demo step recorded. No funds moved.")
 
 
 def main():
@@ -295,8 +304,9 @@ def main():
             latest = telegram.call("getUpdates", offset=-1, timeout=0, allowed_updates=["message", "callback_query"])
             state.data["offset"] = latest[-1]["update_id"] + 1 if latest else 0
             state.save()  # first start ignores old commands; send fresh commands after this point
-        bridge = Bridge(telegram, protoss, state, args.chat, users, me["username"], huddle["id"])
-        print(f"Protoss Telegram bridge running in {health['mode']} mode. Send fresh commands in the selected group. Ctrl-C stops it.")
+        live = health.get("mode") == "copies"
+        bridge = Bridge(telegram, protoss, state, args.chat, users, me["username"], huddle["id"], live=live)
+        print(f"Protoss Telegram bridge running in {health['mode']} mode{' (REAL ORDERS from each participant\'s own account)' if live else ''}. Send fresh commands in the selected group. Ctrl-C stops it.")
         while True:
             try:
                 bridge.drain()
