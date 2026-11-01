@@ -241,3 +241,18 @@ test('old snapshots and a failed snapshot request never show invented research o
   await expect(page.getByRole('tabpanel')).toContainText('saved test is unavailable')
   await expect(page.getByRole('tabpanel')).not.toContainText('Loading the test')
 })
+
+
+test('several installed wallets: the visitor picks the one they use on Hyperliquid', async ({ page }) => {
+  await marketData(page, { empty: true })
+  await page.addInitScript(() => {
+    const make = (name, account) => ({ info: { uuid: name, name, icon: '', rdns: `test.${name.toLowerCase()}` },
+      provider: { request: async ({ method }) => { if (method === 'eth_requestAccounts') return [account]; throw new Error('no ' + method) }, on() {}, removeListener() {} } })
+    const wallets = [make('Phantom', '0x' + '3'.repeat(40)), make('Rabby', '0x' + '1'.repeat(40))]
+    window.addEventListener('eip6963:requestProvider', () => wallets.forEach(detail => window.dispatchEvent(new CustomEvent('eip6963:announceProvider', { detail }))))
+  })
+  await page.goto('/app/')
+  await expect(page.getByRole('button', { name: 'Connect Phantom' })).toBeVisible()
+  await page.getByRole('button', { name: 'Connect Rabby' }).click()
+  await expect(page.getByText('0x1111…1111')).toBeVisible()  // the Rabby account, not Phantom's
+})

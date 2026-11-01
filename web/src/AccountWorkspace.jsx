@@ -106,7 +106,27 @@ function Friends({ address }) {
   </section>
 }
 
+// Every installed wallet announces itself (EIP-6963), so a visitor picks the one they use on Hyperliquid instead of whichever
+// extension claimed window.ethereum (often Phantom). Older wallets that do not announce still work through window.ethereum.
+function useWallets() {
+  const [wallets, setWallets] = useState([])
+  useEffect(() => {
+    const seen = new Map()
+    const announce = event => {
+      const { info, provider } = event.detail || {}
+      if (!info?.uuid || !provider?.request || seen.has(info.uuid)) return
+      seen.set(info.uuid, { info, provider })
+      setWallets([...seen.values()])
+    }
+    window.addEventListener('eip6963:announceProvider', announce)
+    window.dispatchEvent(new Event('eip6963:requestProvider'))
+    return () => window.removeEventListener('eip6963:announceProvider', announce)
+  }, [])
+  return wallets
+}
+
 export default function AccountWorkspace({ embedded = false }) {
+  const wallets = useWallets()
   const [address, setAddress] = useState('')
   const [connecting, setConnecting] = useState(false)
   const [connectError, setConnectError] = useState('')
@@ -120,8 +140,8 @@ export default function AccountWorkspace({ embedded = false }) {
     cleanupRef.current?.(); cleanupRef.current = null; providerRef.current = null
     setAddress(''); setConnectError(''); setConnecting(false)
   }
-  const connect = async () => {
-    const provider = window.ethereum
+  const connect = async (chosen) => {
+    const provider = chosen || window.ethereum
     if (!provider?.request) { setConnectError('Open this site in your wallet browser, or enable your browser wallet extension. Connect the wallet that owns your Hyperliquid account.'); return }
     const attempt = ++connectionAttempt.current
     setConnecting(true); setConnectError('')
@@ -147,7 +167,11 @@ export default function AccountWorkspace({ embedded = false }) {
     {!address ? <div className="account-connect">
       <div className="account-connect-mark"><img src="/probe/idle.svg" alt="Probe" /></div>
       <h2>Connect your account</h2><p>See your actual Hyperliquid positions and keep your friends close.</p>
-      <button className="btn primary" onClick={connect} disabled={connecting}>{connecting ? 'Connecting…' : 'Connect wallet'}</button>
+      {wallets.length > 1 ? <>
+        <p className="account-note">Pick the wallet you sign in to app.hyperliquid.xyz with. Your Hyperliquid account is that wallet's address.</p>
+        <div className="wallet-choices">{wallets.map(w => <button key={w.info.uuid} className="btn" onClick={() => connect(w.provider)} disabled={connecting}>
+          {w.info.icon && <img src={w.info.icon} alt="" width="20" height="20" />}Connect {w.info.name}</button>)}</div>
+      </> : <button className="btn primary" onClick={() => connect(wallets[0]?.provider)} disabled={connecting}>{connecting ? 'Connecting…' : 'Connect wallet'}</button>}
       <span>Read-only. No trades or signatures.</span>
       {connectError && <p className="account-error" role="alert">{connectError}</p>}
     </div> : <div className="account-content" key={address.toLowerCase()}>
