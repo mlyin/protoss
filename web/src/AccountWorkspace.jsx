@@ -100,63 +100,6 @@ function Friends({ address }) {
   </section>
 }
 
-// The accounts the Telegram bot trades for (scripts/wallets.py). Public addresses; every order in the group leaves from one.
-export const GROUP_ACCOUNTS = [
-  { name: 'lando', address: '0x562B9081dF47193428a67b0885d9562eDE242c01' },
-  { name: 'second', address: '0x027D9eEEe7eFc177b5287f7f5E0976b37ad838c9' },
-]
-
-async function readAccount(address, signal) {
-  const info = async body => {
-    const r = await fetch('https://api.hyperliquid.xyz/info', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'omit', body: JSON.stringify(body), signal })
-    if (!r.ok) throw new Error('Hyperliquid is unavailable. Try again.')
-    return r.json()
-  }
-  const [{ positions, unavailable }, spot, mode, fills, spotMeta] = await Promise.all([readPositions(address, signal), info({ type: 'spotClearinghouseState', user: address }),
-    info({ type: 'userAbstraction', user: address }), info({ type: 'userFills', user: address }), info({ type: 'spotMeta' })])
-  const usdc = number(spot.balances?.find(b => b.coin === 'USDC')?.total) || 0
-  const states = await Promise.all(['', 'xyz'].map(dex => info({ type: 'clearinghouseState', user: address, dex })))
-  const perps = states.reduce((sum, x) => sum + (number(x.marginSummary?.accountValue) || 0), 0)
-  const upnl = positions.reduce((sum, p) => sum + (number(p.unrealizedPnl) || 0), 0)
-  const pair = Object.fromEntries((spotMeta.universe || []).map(u => [u.name, spotMeta.tokens[u.tokens[0]]?.name || u.name]))
-  // unified accounts keep collateral as spot USDC (perps read 0); standard accounts keep the two apart
-  const equity = mode === 'unifiedAccount' ? usdc + upnl : perps + usdc
-  return { positions, unavailable, equity, upnl, fills: fills.slice(0, 8).map(f => ({ ...f, market: f.coin.startsWith('@') ? `${pair[f.coin] || f.coin} spot` : f.coin })) }
-}
-
-function GroupAccounts() {
-  const [data, setData] = useState(null)
-  const [error, setError] = useState('')
-  useEffect(() => {
-    let alive = true, timer
-    const controller = new AbortController()
-    const load = async () => {
-      try {
-        const rows = await Promise.all(GROUP_ACCOUNTS.map(async a => ({ ...a, ...(await readAccount(a.address, controller.signal)) })))
-        if (alive) { setData({ rows, checked: new Date() }); setError('') }
-      } catch (e) { if (alive) setError(controller.signal.aborted ? '' : e.message) }
-      finally { if (alive) timer = setTimeout(load, 30000) }
-    }
-    load()
-    return () => { alive = false; controller.abort(); clearTimeout(timer) }
-  }, [])
-  const fills = (data?.rows || []).flatMap(a => a.fills.map(f => ({ ...f, who: a.name }))).sort((x, y) => y.time - x.time).slice(0, 10)
-  return <section className="account-positions group-accounts" aria-labelledby="group-title">
-    <div className="account-section-heading"><h2 id="group-title">The group's accounts</h2></div>
-    <p className="account-note">The accounts the Telegram bot trades for, read straight from Hyperliquid. Every order in the group leaves from one of these.</p>
-    {error && <p className="account-error" role="alert">{error} Nothing is shown rather than old numbers.</p>}
-    {!data && !error && <p className="account-note" role="status">Reading the accounts from Hyperliquid…</p>}
-    {data && <div className="group-account-list">{data.rows.map(a => <article className="group-account" key={a.address}>
-      <div className="position-heading"><b>{a.name}</b><a href={`https://app.hyperliquid.xyz/explorer/address/${a.address}`} target="_blank" rel="noreferrer">{short(a.address)} ↗</a></div>
-      <dl><div><dt>Equity</dt><dd>{money(a.equity)}</dd></div><div><dt>Open positions</dt><dd>{a.positions.length}</dd></div><div><dt>Unrealized P&amp;L</dt><dd>{money(a.upnl)}</dd></div></dl>
-      {a.positions.map(p => <p className="group-position" key={`${p.dex}:${p.coin}`}><b>{p.coin}</b> {Number(p.szi) > 0 ? 'long' : 'short'} {Math.abs(Number(p.szi))} at {money(p.entryPx)}, now {money(p.positionValue)} ({money(p.unrealizedPnl)})</p>)}
-    </article>)}</div>}
-    {data && <div className="group-fills"><h3>Recent fills</h3>{fills.length ? <table><tbody>{fills.map(f => <tr key={`${f.who}-${f.tid}`}>
-      <td>{new Date(f.time).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</td><td>{f.who}</td><td>{f.market}</td><td className={f.side === 'B' ? 'long' : 'short'}>{f.side === 'B' ? 'buy' : 'sell'} {f.sz}</td><td>{money(f.px)}</td>
-    </tr>)}</tbody></table> : <p className="account-note">No fills yet.</p>}<p className="account-updated">Checked {data.checked.toLocaleTimeString()} · Updates every 30 seconds</p></div>}
-  </section>
-}
-
 export default function AccountWorkspace({ embedded = false }) {
   const [address, setAddress] = useState('')
   const [connecting, setConnecting] = useState(false)
@@ -195,7 +138,6 @@ export default function AccountWorkspace({ embedded = false }) {
   }
   return <section className={`account-workspace ${embedded ? 'embedded' : ''}`} aria-label="Friends and positions">
     <header className="account-header"><img src="/probe/idle.svg" alt="" /><div><h2>Your circle</h2><p>{address ? short(address) : 'Your friends. Your positions.'}</p></div>{address && <button className="account-text-button" onClick={disconnect}>Disconnect</button>}</header>
-    <GroupAccounts />
     {!address ? <div className="account-connect">
       <div className="account-connect-mark"><img src="/probe/idle.svg" alt="Probe" /></div>
       <h2>Connect your account</h2><p>See your actual Hyperliquid positions and keep your friends close.</p>

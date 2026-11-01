@@ -26,17 +26,10 @@ test.afterEach(async ({ page }) => {
   expect((await page.evaluate(() => window.__walletRequests || [])).every(method => method === 'eth_requestAccounts')).toBeTruthy()
 })
 
-// The two accounts the Telegram bot trades for; the positions page reads them for everyone (AccountWorkspace GROUP_ACCOUNTS).
-const GROUP = ['0x562b9081df47193428a67b0885d9562ede242c01', '0x027d9eeee7efc177b5287f7f5e0976b37ad838c9']
-
 async function marketData(page, { empty = false, fail = '', delay = 0 } = {}) {
   const reads = []
   await page.route('https://api.hyperliquid.xyz/info', async route => {
     const body = route.request().postDataJSON()
-    if (body.type === 'spotMeta') return route.fulfill({ json: { universe: [], tokens: [] } })
-    if (GROUP.includes(String(body.user).toLowerCase())) {
-      return route.fulfill({ json: { clearinghouseState: { assetPositions: [], marginSummary: { accountValue: '0' } }, spotClearinghouseState: { balances: [] }, userAbstraction: 'disabled', userFills: [] }[body.type] ?? {} })
-    }
     reads.push(body)
     if (body.type === 'metaAndAssetCtxs') return route.fulfill({ json: [{ universe: [{ name: 'XMR' }] }, [{ markPx: '200' }]] })
     if (body.type === 'perpDexs') return route.fulfill({ json: [null, { name: 'xyz' }] })
@@ -66,15 +59,23 @@ test('homepage contains the real account entry and no practice navigation', asyn
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBeTruthy()
 })
 
+test('disconnected visitors never request or see any account data', async ({ page }) => {
+  const reads = await marketData(page)
+  await page.goto('/app/')
+  await expect(page.getByRole('heading', { name: 'Connect your account' })).toBeVisible()
+  await expect(page.locator('.real-position, .group-accounts, .group-fills')).toHaveCount(0)
+  await expect(page.getByRole('heading', { name: /Recent fills|The group's accounts|My positions/ })).toHaveCount(0)
+  expect(reads).toEqual([])
+  expect(await page.evaluate(() => window.__walletRequests)).toEqual([])
+})
+
 test('connection reads actual venue responses and never calls the exchange', async ({ page }, info) => {
   const reads = await marketData(page)
   await page.goto('/app/')
   await page.getByRole('button', { name: 'Connect wallet', exact: true }).click()
   await expect(page.getByText('BTC', { exact: true })).toBeVisible()
   await expect(page.getByText('xyz:ANT', { exact: true })).toBeVisible()
-  // the group accounts read the market list too; the connected wallet's own reads are exactly these two
-  expect(reads.some(body => body.type === 'perpDexs')).toBeTruthy()
-  expect(reads.filter(body => body.type !== 'perpDexs')).toEqual([{ type: 'clearinghouseState', user: owner, dex: '' }, { type: 'clearinghouseState', user: owner, dex: 'xyz' }])
+  expect(reads).toEqual([{ type: 'perpDexs' }, { type: 'clearinghouseState', user: owner, dex: '' }, { type: 'clearinghouseState', user: owner, dex: 'xyz' }])
   await expect(page.getByText('Long', { exact: true })).toBeVisible()
   await expect(page.getByText('Short', { exact: true })).toBeVisible()
   await expect(page.getByText('No friends added yet.')).toBeVisible()
