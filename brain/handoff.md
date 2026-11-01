@@ -29,11 +29,12 @@ amount and the order goes out from their own account; the money is never combine
   Run it now (live Lab) and Trade it in Telegram. Friends & positions shows the group's two accounts (lando, second) from
   Hyperliquid, then the visitor's own connected wallet. Run it now on protoss.trade calls the mini's Lab, which still runs old
   code: it works once the mini runs main.
-- Telegram bot (@ProtossTradingDemoBot): a launchd agent on Matthew's MacBook, `com.protoss.telegram`
-  (`deploy/macbook/install_telegram.sh`), running from `~/Documents/protoss2` (the working copy: a fix goes live on
-  `launchctl kickstart -k gui/$(id -u)/com.protoss.telegram`). It waits for `~/.protoss/telegram.env` (TELEGRAM_BOT_TOKEN, mode
-  600, written by Matthew; never read it). Group "protoss beta testing" became a supergroup when the bot was made admin: chat id
-  -1004329810936. Log: `~/.protoss/telegram-live.log`. Python comes from `~/protoss-demo/.venv`; needs `web/dist` built.
+- Telegram bot (@ProtossTradingDemoBot): a launchd agent on Matthew's MacBook, `com.protoss.telegram`, running from its own clone
+  `~/protoss-bot` (launchd cannot read `~/Documents`: exit 126 "Operation not permitted"). Put a dev commit on it with
+  `deploy/macbook/update_bot.sh` from `~/Documents/protoss2` (local fetch, copies `web/dist`, restarts). It waits for
+  `~/.protoss/telegram.env` (TELEGRAM_BOT_TOKEN, mode 600, written by Matthew; never read it). Group "protoss beta testing"
+  became a supergroup when the bot was made admin: chat id -1004329810936. Log: `~/.protoss/telegram-live.log`. Python comes
+  from `~/protoss-demo/.venv`.
   In the chat: cards are a chart image with a plain verdict; "show the events" or the button lists an event rule's events;
   status shows live P&L; copies are numbered from 1001; the bot calls `POST /huddle/tick` every minute (closes holds, reads the
   hack and Dwarkesh feeds).
