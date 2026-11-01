@@ -572,7 +572,7 @@ def main():
                     protoss.call("POST", f"/live/groups/{huddle['id']}/verify", {})
                 if time.monotonic() - last_tick > 60:  # close finished holds, fire rules on new hacks and episodes
                     last_tick = time.monotonic()
-                    protoss.call("POST", "/huddle/tick")
+                    protoss.call("POST", "/huddle/tick", {})  # a body keeps it a POST (no body sends GET)
                 bridge.drain()
                 updates = telegram.call("getUpdates", offset=state.data["offset"], timeout=20, allowed_updates=["message", "callback_query", "message_reaction"])
                 for update in updates:

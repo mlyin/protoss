@@ -210,3 +210,9 @@ def test_dwarkesh_rule_fires_on_a_new_episode(client):
     # a hack does not fire a podcast rule
     say(client, hid, "Ana", "protoss hack: Example Exchange drained")
     assert len(client.get(f"/huddle/{hid}").json()["theses"][0]["triggers"]) == 1
+
+
+def test_tick_endpoint_is_admin_only_and_settles(client):
+    assert client.post("/huddle/tick").status_code == 403
+    r = client.post("/huddle/tick", headers=ADMIN, json={})
+    assert r.status_code == 200 and r.json()["settled"] == 0 and "feed_events" in r.json()
