@@ -381,7 +381,8 @@ def builder(ex: ExchangeAdapter = Depends(exchange)):
 
 @app.get("/health")
 def health(ex: ExchangeAdapter = Depends(exchange)):
-    return {"ok": True, "mode": ex.name, "markets": len(ex.markets())}
+    return {"ok": True, "mode": ex.name, "markets": len(ex.markets()),
+            "telegram_live_enabled": get_settings().telegram_live_enabled}
 
 
 from .routes_orgs import router as orgs_router  # noqa: E402
@@ -403,6 +404,9 @@ from .telegram import router as telegram_router  # noqa: E402
 app.include_router(huddle_router)
 app.include_router(share_router)
 app.include_router(telegram_router)
+
+from .live import router as live_router  # noqa: E402
+app.include_router(live_router)
 
 # serve the built web app if present (web/dist)
 _dist = Path(__file__).resolve().parents[2] / "web" / "dist"

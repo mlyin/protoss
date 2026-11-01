@@ -20,7 +20,9 @@ from pathlib import Path
 
 
 class APIError(RuntimeError):
-    pass
+    def __init__(self, message, status=None):
+        super().__init__(message)
+        self.status = status
 
 
 def request(url, body=None, headers=None, timeout=35):
@@ -31,7 +33,7 @@ def request(url, body=None, headers=None, timeout=35):
             return json.load(response)
     except urllib.error.HTTPError as exc:
         # Telegram URLs contain the token. Never print the URL or raw exception.
-        raise APIError(f"HTTP {exc.code}; check local credentials, permissions and service status") from None
+        raise APIError(f"HTTP {exc.code}; check local credentials, permissions and service status", status=exc.code) from None
     except (urllib.error.URLError, TimeoutError, ValueError):
         raise APIError("service unreachable or invalid response") from None
 
@@ -84,7 +86,7 @@ def discover_groups(updates):
     return groups
 
 
-def setup_demo():
+def setup_demo(live=False, wallet_review=False):
     """Run only in the owner's terminal. The token is hidden and never written to disk."""
     token = os.environ.get("TELEGRAM_BOT_TOKEN") or getpass.getpass("Telegram bot token (hidden): ").strip()
     if not token:
@@ -114,7 +116,8 @@ def setup_demo():
         if len(users) != 2:
             print("The demo needs exactly two human accounts in the pending messages. Use a new private demo group.")
             continue
-        print(f"Using group {chat_id} with participant IDs {users[0]} and {users[1]}. Practice trading only.")
+        mode = "Real trades require individual browser wallet approvals." if wallet_review else "Real orders use your authorized API wallets." if live else "Practice trading only."
+        print(f"Using group {chat_id} with participant IDs {users[0]} and {users[1]}. {mode}")
         os.environ["TELEGRAM_BOT_TOKEN"] = token
         return chat_id, ",".join(str(user) for user in users)
 
@@ -138,11 +141,12 @@ def friendly(text):
 
 
 class Bridge:
-    def __init__(self, telegram, protoss, state, chat, users, username, hid, live=False):
+    def __init__(self, telegram, protoss, state, chat, users, username, hid, live=False, wallet_review=False):
         self.telegram, self.protoss, self.state = telegram, protoss, state
         self.chat, self.users, self.username, self.hid = chat, set(users), username, hid
         self.live = live
         self.help = HELP_LIVE if live else HELP
+        self.wallet_review = wallet_review
 
     def send(self, chat, text, key, keyboard=None):
         """Checkpoint every successful chunk. Telegram delivery is at least once across a crash."""
@@ -169,7 +173,7 @@ class Bridge:
             if row["kind"] == "card" and thesis and thesis["status"] == "proposed":
                 keyboard = [[{"text": "Back this idea", "callback_data": f"back:{thesis['n']}"}]]
             text = friendly(row["text"])
-            if huddle.get("mode") in ("sim", "paper"):
+            if not self.wallet_review and huddle.get("mode") in ("sim", "paper"):
                 text = "Paper demo. No real funds.\n" + text
             self.send(self.chat, text, f"outbox:{row['id']}", keyboard)
             self.protoss.call("POST", f"/huddle/{self.hid}/delivered", {"ids": [row["id"]]})
@@ -186,6 +190,16 @@ class Bridge:
             return
         if not private and (chat.get("id") != self.chat or chat.get("type") not in ("group", "supergroup")):
             return
+        if self.wallet_review:
+            try:
+                return self.handle_live(update, user, message, private, callback)
+            except APIError as exc:
+                if exc.status and 400 <= exc.status < 500 and exc.status != 429:
+                    self.send(user_id if private else self.chat,
+                        "This request could not be accepted. Use your own review button and the original amount. "
+                        "Send /status in the group to check existing requests before creating a new idea.", f"update:{uid}:error")
+                    return
+                raise
         key = f"update:{uid}"
         if callback:
             payload = callback.get("data", "")
@@ -252,6 +266,65 @@ class Bridge:
         if callback:
             self.telegram.call("answerCallbackQuery", callback_query_id=callback["id"], text="Recorded." if self.live else "Demo step recorded. No funds moved.")
 
+    def handle_live(self, update, user, message, private, callback):
+        key = f"update:{update['update_id']}"
+        if callback:
+            self.telegram.call("answerCallbackQuery", callback_query_id=callback["id"],
+                               text="Choose your own amount with /pledge 20. Wallet approval is required.")
+            return
+        raw = message.get("text", "").strip()
+        match = re.fullmatch(r"/([a-z]+)(?:@([A-Za-z0-9_]+))?(?:\s+([\s\S]*))?", raw)
+        if not match or (match[2] and match[2].lower() != self.username.lower()):
+            return
+        command, argument = match[1], (match[3] or "").strip()
+        if private:
+            if command != "start" or not re.fullmatch(r"trade_[a-f0-9]{32}", argument):
+                self.send(user["id"], "Use the Review my trade button in your group to get a personal link.", key)
+                return
+            if f"{key}:0" in self.state.data["sent"]:
+                return
+            link = self.protoss.call("POST", f"/live/intents/{argument[6:]}/link",
+                {"telegram_user_id": str(user["id"]), "huddle_id": self.hid})
+            self.send(user["id"], "Your private real-trade review link. Open it on the Mac running Protoss with your wallet extension, "
+                      "or use the configured HTTPS site. Review the price, wallet and amount. Only your wallet approvals can place an order.", key,
+                      [[{"text": "Review my trade", "url": link["url"]}]])
+            return
+        if command == "idea":
+            asset = re.fullmatch(r"(?:buy(?: and hold)?\s+)?(ANT|Anthropic|xyz:ANT|BTC|ETH)", argument, re.I)
+            if not asset:
+                self.send(self.chat, "Start with one market: /idea buy and hold ANT (or BTC, ETH). Each participant approves a separate buy.", key)
+                return
+            idea = self.protoss.call("POST", "/live/ideas", {"huddle_id": self.hid,
+                "request_id": f"telegram:{self.chat}:{update['update_id']}", "market": asset[1]})
+            self.send(self.chat, f"Buy {idea['market']} · idea {idea['id']}\nEach person keeps their own position. "
+                "Send /pledge 20 to review a buy of up to $20. The review uses a live quote and 1× cross margin, with fees additional. "
+                "Your wallet must approve it. ANT is an Anthropic-linked perpetual, not shares.", key)
+        elif command == "pledge":
+            if not re.fullmatch(r"\d+(?:\.\d{1,2})?", argument) or not 12 <= float(argument) <= 100:
+                self.send(self.chat, "Choose $12 to $100 for this first version, for example /pledge 20.", key)
+                return
+            ideas = self.protoss.call("GET", f"/live/groups/{self.hid}")
+            if not ideas:
+                self.send(self.chat, "Start an idea first: /idea buy and hold ANT", key)
+                return
+            intent = self.protoss.call("POST", "/live/intents", {"idea_id": ideas[0]["id"], "telegram_user_id": str(user["id"]),
+                "display_name": str(user.get("first_name") or "Participant")[:80], "budget": argument})
+            self.send(self.chat, f"{user.get('first_name') or 'Participant'}: review up to ${intent['budget']} of {ideas[0]['market']}. "
+                      "No order has been placed by this message. Open your private link, then press Start.", key,
+                      [[{"text": "Review my trade privately", "url": f"https://t.me/{self.username}?start=trade_{intent['id']}"}]])
+        elif command == "status":
+            self.protoss.call("POST", f"/live/groups/{self.hid}/verify", {})
+            ideas = self.protoss.call("GET", f"/live/groups/{self.hid}")
+            labels = {"draft": "waiting for wallet review", "prepared": "awaiting exchange verification", "filled": "fill verified", "partial": "partial fill verified"}
+            lines = [f"Idea {i['id']} · {i['market']}: " + ("; ".join(
+                f"{p['participant']} (tg:{p['telegram_user_id']}), up to ${p['budget']}: {labels.get(p['status'], p['status'])}"
+                for p in i['participants']) or "waiting for participants") for i in ideas]
+            self.send(self.chat, "Real-trade requests\n" + ("\n".join(lines) or "No requests yet."), key)
+            self.drain()
+        else:
+            self.send(self.chat, "Protoss · individual wallet approvals\n/idea buy and hold ANT\n/pledge 20 (each person chooses their own amount)\n/status\n"
+                "A chat message never places an order. Open the private review link and approve from your own wallet. No automatic copying or closing.", key)
+
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
@@ -305,10 +378,16 @@ def main():
             state.data["offset"] = latest[-1]["update_id"] + 1 if latest else 0
             state.save()  # first start ignores old commands; send fresh commands after this point
         live = health.get("mode") == "copies"
-        bridge = Bridge(telegram, protoss, state, args.chat, users, me["username"], huddle["id"], live=live)
-        print(f"Protoss Telegram bridge running in {health['mode']} mode{' (REAL ORDERS from each participant\'s own account)' if live else ''}. Send fresh commands in the selected group. Ctrl-C stops it.")
+        wallet_review = health.get("telegram_live_enabled", False)
+        if live and wallet_review:
+            parser.error("API-wallet trading and browser wallet review must run separately")
+        bridge = Bridge(telegram, protoss, state, args.chat, users, me["username"], huddle["id"], live=live, wallet_review=wallet_review)
+        mode_label = "individual wallet approval" if wallet_review else health["mode"]
+        print(f"Protoss Telegram bridge running in {mode_label} mode. Send fresh commands in the selected group. Ctrl-C stops it.")
         while True:
             try:
+                if wallet_review:
+                    protoss.call("POST", f"/live/groups/{huddle['id']}/verify", {})
                 bridge.drain()
                 updates = telegram.call("getUpdates", offset=state.data["offset"], timeout=20, allowed_updates=["message", "callback_query"])
                 for update in updates:

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react'
+import Probe, { ProbeConversation } from './Probe.jsx'
 
 const PEOPLE = ['You', 'Your friend']
 const money = (v) => '$' + Number(v || 0).toFixed(2)
@@ -75,7 +76,7 @@ export default function Demo({ room }) {
           </>}
         {error && <p className="err" role="alert">{error}</p>}
       </div>
-      <aside className="demo-results"><h2>Your trade copies</h2>{PEOPLE.map((name) => {
+      <aside className="demo-results">{busy ? <div className="probe-status" role="status"><Probe state={!parent ? 'thinking' : 'working'} /><span>{!parent ? 'Testing your idea…' : 'Updating your practice account…'}</span></div> : completeCopies.length === 2 ? <Probe state="success" /> : <ProbeConversation label={parent ? 'Same idea. Each friend chooses their own amount.' : 'Start a conversation with an idea.'} />}<h2>Your trade copies</h2>{PEOPLE.map((name) => {
         const copy = copies.find((item) => item.author === name)
         const backer = parent?.backers.find((item) => item.who === name)
         const fills = copy?.triggers || []

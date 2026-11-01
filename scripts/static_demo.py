@@ -109,6 +109,11 @@ def build(snap: dict, out: Path, artifact: bool) -> None:
     mark = (DIST / "mark.svg").read_bytes() if (DIST / "mark.svg").exists() else b""
     mark_uri = "data:image/svg+xml;base64," + base64.b64encode(mark).decode() if mark else ""
     js = js.replace('"/mark.svg"', json.dumps(mark_uri)).replace("'/mark.svg'", json.dumps(mark_uri))
+    # Keep frozen exports self-contained with the current Probe avatar too.
+    probe = DIST / 'probe.png'
+    if probe.exists():
+        probe_uri = 'data:image/png;base64,' + base64.b64encode(probe.read_bytes()).decode()
+        js = js.replace('"/probe.png"', json.dumps(probe_uri)).replace("'/probe.png'", json.dumps(probe_uri))
     fonts = re.search(r'<link[^>]+fonts\.googleapis\.com[^>]+>', index)
     head = [
         "<title>Protoss</title>",

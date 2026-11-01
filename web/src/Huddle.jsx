@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { SkelLines } from './ui.jsx'
+import Probe, { ProbeConversation } from './Probe.jsx'
 
 // The group chat: the same conversation the iMessage bridge runs, in the browser.
 // Say an idea, the Lab tests it, friends back it with a thumbs up, "$50 each" stakes it, the rule fires on the next hack.
@@ -150,9 +151,11 @@ export default function Huddle({ name = 'demo', me }) {
         <div className="card phone">
           <div className="phone-top"><b>{d.title}</b><span className="sub">{people.length} people and Protoss</span></div>
           <div className="hm-list" aria-live="polite">
+            {d.messages.length === 0 && <ProbeConversation label="Your group’s next idea starts here." />}
             {d.messages.filter((m) => m.kind !== 'reaction').map((m) => (
               <Bubble key={m.id} m={m} mine={!m.from_bot && m.sender === as} taps={taps[m.guid]} onBack={back} thesis={m.kind === 'card' ? byId[m.thesis_id] : null} />
             ))}
+            {busy && <div className="probe-status" role="status"><Probe state="thinking" size={90} /><span>Reading your message and checking the idea…</span></div>}
             <div ref={endRef} />
           </div>
           <div className="as-row">

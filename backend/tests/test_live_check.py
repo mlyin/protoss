@@ -32,3 +32,26 @@ def test_only_matching_recent_fills_count(monkeypatch):
     result = check.account_snapshot("0x" + "1" * 40, "xyz:ANT", 100)
     assert [f["oid"] for f in result["fills"]] == [1]
     assert calls[0]["dex"] == "xyz"
+
+
+@pytest.mark.parametrize("market,dex", [("BTC", ""), ("ETH", ""), ("xyz:ANT", "xyz")])
+def test_account_queries_correct_dex(monkeypatch, market, dex):
+    calls = []
+    def info(body):
+        calls.append(body)
+        if body["type"] == "clearinghouseState":
+            return {"assetPositions": [{"position": {"coin": market, "szi": "1"}},
+                                       {"position": {"coin": "OTHER", "szi": "2"}}]}
+        return [{"coin": market, "time": 100, "oid": 1},
+                {"coin": "OTHER", "time": 100, "oid": 2}]
+    monkeypatch.setattr(check, "info", info)
+    result = check.account_snapshot("0x" + "1" * 40, market, 100)
+    assert calls[0]["dex"] == dex
+    assert [p["position"]["coin"] for p in result["positions"]] == [market]
+    assert [f["oid"] for f in result["fills"]] == [1]
+
+
+@pytest.mark.parametrize("market", ["", ":BTC", "xyz:", "xyz:foo:BTC", "BTC ETH"])
+def test_invalid_market_rejected(market):
+    with pytest.raises(ValueError, match="market symbol"):
+        check.market_dex(market)

@@ -1,8 +1,11 @@
 # Protoss demo: two accounts, two separate trades
 
-The website and Telegram use the same practice engine. Each person confirms their own amount and
+The default website and Telegram demo use the same practice engine. Each person confirms their own amount and
 gets a separate practice account and fill. Money is not pooled. Neither demo places a real order.
 The browser's You / Your friend buttons are demo roles. Telegram uses two allowlisted numeric user IDs.
+
+For the opt-in real-trade flow with individual wallet approval, see [Real Telegram trades](telegram-live.md).
+That flow uses current mainnet quotes and verifies actual fills. It does not use practice receipts.
 
 The default crypto example is 60% Bitcoin and 40% Ethereum. The complete percentage split is shown before
 confirmation and kept with each copy. These are Hyperliquid perpetual markets, not ownership of BTC or ETH.
@@ -157,6 +160,20 @@ read -r -s -p 'Telegram bot token: ' TELEGRAM_BOT_TOKEN; export TELEGRAM_BOT_TOK
    Positions stay open when the bridge stops; close them from your own account whenever you like.
 
 ## Reliability and scope
+
+### Checking user-submitted mainnet trades
+
+The Telegram runner stays in practice mode. Changing an environment variable does not
+enable separate live copies. For a real-money acceptance check, each participant reviews
+and submits their own order in Hyperliquid. Keep this separate from practice receipts.
+
+`scripts/live_check.py --market BTC` checks the core BTC market; `--market ETH` checks ETH,
+and `--market xyz:ANT` checks the trade.xyz market. Supply each public trading wallet with
+`--account`, the start of the test as a Unix timestamp in milliseconds with `--since-ms`,
+and `--require-fill` to fail unless every supplied account has a matching recent fill.
+This uses the public information API and never signs or submits an order. A matching fill
+is evidence of activity in that market, not proof that it matches a particular proposal:
+also compare its direction, size, order ID, and timestamp with the user's order.
 
 - Only the selected group and two allowlisted users can drive the bridge. No anonymous channel posts.
 - Incoming Telegram update IDs are deduplicated before applying a pledge. Restart checkpoints live in `~/.protoss/`.

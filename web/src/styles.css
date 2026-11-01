@@ -138,7 +138,7 @@ input[type="number"] { font-family: var(--mono); font-size: 13px; }
 .header-in { height: 100%; padding: 0 var(--gutter); display: flex; align-items: center; gap: 20px; min-width: 0; }
 .brand { display: flex; align-items: center; gap: 10px; color: var(--text); flex: 0 0 auto; }
 .brand:hover { text-decoration: none; }
-.brand img, .brand svg { width: 26px; height: 26px; display: block; }
+.brand img, .brand svg { width: 40px; height: 40px; display: block; object-fit: contain; }
 .brand .word { font-family: var(--display); font-size: 20px; letter-spacing: 0.04em; line-height: 1; padding-top: 2px; }
 .nav { display: flex; gap: 2px; min-width: 0; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
 .nav::-webkit-scrollbar { display: none; }
@@ -206,6 +206,45 @@ input[type="number"] { font-family: var(--mono); font-size: 13px; }
 .hero-mode { margin-top: 16px; font-size: 13px; line-height: 18px; color: var(--muted); }
 .hero-art { display: block; width: 100%; min-width: 0; --spot: var(--accent); }
 .hero-art svg { display: block; width: 100%; height: auto; }
+.probe-hero { text-align: center; }
+.probe-hero .probe-mascot { margin-inline: auto; }
+.probe-mascot { flex-shrink: 0; }
+.probe-mascot svg { width: 100%; height: auto; display: block; }
+.probe-status { display: flex; align-items: center; gap: 12px; }
+.probe-status > div:last-child { min-width: 0; }
+.probe-pair { display: flex; align-items: center; justify-content: center; gap: 0; }
+.probe-friend { transform: scaleX(-1); }
+.probe-friend .float { animation-delay: -.8s; }
+.probe-signal { display: flex; gap: 5px; padding-inline: 4px; }
+.probe-signal i { width: 4px; height: 4px; border-radius: 50%; background: #39b9d5; animation: probe-signal 1.8s ease-in-out infinite; }
+.probe-signal i:nth-child(2) { animation-delay: .2s; }.probe-signal i:nth-child(3) { animation-delay: .4s; }
+.probe-conversation { text-align: center; padding: 8px 0 20px; }
+.probe-conversation .sub { margin: 4px 0 0; }
+.probe-gallery { max-width: 1100px; margin: 16px auto 60px; }
+.probe-gallery > h1 { margin: 12px 0 20px; font-size: clamp(36px, 6vw, 64px); }
+.probe-state-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 16px; margin: 28px 0; }
+.probe-state-grid article { display: flex; flex-direction: column; align-items: flex-start; gap: 14px; }
+.probe-state-grid .probe-mascot { margin-inline: auto; }
+.probe-state-grid h2 { font-size: 21px; }.probe-state-grid p { line-height: 1.5; flex: 1; }
+.probe-duet { text-align: center; }
+@keyframes probe-signal { 0%,100% { opacity: .25; } 50% { opacity: 1; } }
+@media(prefers-reduced-motion: reduce) { .probe-signal i { animation: none; } }
+@media(max-width: 520px) { .probe-duet .probe-mascot { width: 125px!important; } .trade-heading .probe-mascot { width: 64px!important; } }
+.probe-hero img { width: min(100%, 420px); height: auto; }
+.trade-review { max-width: 720px; margin: 0 auto; padding: 24px 0 60px; }
+.trade-heading { display: flex; align-items: center; gap: 18px; margin-bottom: 16px; }
+.trade-heading img { flex-shrink: 0; object-fit: contain; }
+.trade-heading h1 { font-size: clamp(28px, 5vw, 44px); margin: 8px 0; }
+.trade-network { font-size: 13px; color: var(--amber, #d9a441); }
+.trade-review > .sub { margin-bottom: 24px; }
+.trade-review .list { gap: 20px; }
+.trade-review .addr { overflow-wrap: anywhere; font-family: var(--mono); font-size: 12px; }
+.trade-review .kv { gap: 12px; flex-wrap: wrap; }
+.trade-review .kv strong { overflow-wrap: anywhere; }
+.trade-steps { display: flex; flex-wrap: wrap; gap: 12px; border-block: 1px solid var(--line); padding: 16px 0; font-size: 12px; }
+.trade-consent { display: flex; align-items: flex-start; gap: 12px; font-size: 14px; line-height: 1.5; }
+.trade-consent input { width: 20px; height: 20px; flex-shrink: 0; margin-top: 2px; }
+@media (max-width: 520px) { .trade-heading { gap: 10px; } .trade-heading img { width: 64px; height: 64px; } .trade-review .pad { padding: 18px; } }
 .hero-ink { fill: var(--text); }
 .hero-ink-stroke { stroke: var(--text); }
 .hero-paper { fill: var(--bg); }

@@ -23,9 +23,12 @@ class Settings(BaseSettings):
 
     arena_mode: Literal["sim", "paper", "testnet", "mainnet", "copies"] = "sim"
     mainnet_trading_enabled: bool = False
+    telegram_live_enabled: bool = False  # browser-signed, independent orders; server has no signing role
 
     @model_validator(mode="after")
     def check_network(self):
+        if self.telegram_live_enabled and self.arena_mode not in ("sim", "paper"):
+            raise ValueError("browser wallet review must run separately from server-side exchange execution")
         expected = {"testnet": "https://api.hyperliquid-testnet.xyz", "mainnet": "https://api.hyperliquid.xyz", "copies": "https://api.hyperliquid.xyz"}
         if self.arena_mode in expected and self.hl_api_url and self.hl_api_url.rstrip("/") != expected[self.arena_mode]:
             raise ValueError(f"{self.arena_mode} requires {expected[self.arena_mode]}")

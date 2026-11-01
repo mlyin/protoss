@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { SkelLines } from './ui.jsx'
+import Probe from './Probe.jsx'
 
 // The Lab: ask a what-if in plain English, get a backtest back, deploy it as an agent.
 // Talks to POST /lab/chat (see backend/app/lab.py for the contract).
@@ -34,6 +35,7 @@ function Result({ r, deployable }) {
   return (
     <div className="result">
       <div className="result-head">
+        <Probe state="success" size={48} />
         <b>{r.label}</b>
         <span className="sub">{r.market} · {day(r.start)} → {day(r.end)} · {r.bars} bars · {r.trades} trades</span>
       </div>
@@ -108,7 +110,7 @@ export default function Lab() {
             </div>
           </div>
         ))}
-        {busy && <div className="msg ai"><div className="bubble"><SkelLines n={3} widths={['45%', '80%', '60%']} /></div></div>}
+        {busy && <div className="msg ai"><div className="bubble probe-status" role="status"><Probe state="thinking" size={100} /><div><b>Testing your idea…</b><p className="sub">Checking the strategy against the available price history.</p><SkelLines n={2} widths={['80%', '60%']} /></div></div></div>}
         <div ref={endRef} />
       </div>
       {examples.length > 0 && msgs.length < 3 && (
