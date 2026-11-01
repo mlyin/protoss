@@ -474,6 +474,7 @@ class BacktestResult:
     trades_sample: list[Fill]
     notes: list[str]
     stats: dict | None = None  # event strategies: the event-day vs any-day comparison (event_stats)
+    coverage: dict | None = None
 
     def as_dict(self) -> dict:
         d = asdict(self)
@@ -600,13 +601,32 @@ def _source_note(source: PriceSource, market: str | None, bar: str) -> str:
     return SIM_NOTE
 
 
+def _validate_history(candles: list[Candle], market: str, bar: str, start: dt.datetime, end: dt.datetime) -> None:
+    """Reject holes and unusable values rather than treating neighboring rows as neighboring bars."""
+    step = dt.timedelta(seconds=BAR_SECONDS[bar])
+    if len(candles) < 2:
+        raise SourceUnavailable(f"not enough {bar} candles for {market}")
+    for index, candle in enumerate(candles):
+        if candle.ts.tzinfo is None or not start <= candle.ts or candle.ts + step > end:
+            raise SourceUnavailable(f"{market} history contains an out-of-window or unfinished candle")
+        prices = (candle.o, candle.h, candle.l, candle.c)
+        if (any(not math.isfinite(value) or value <= 0 for value in prices)
+                or not candle.l <= min(candle.o, candle.c) <= max(candle.o, candle.c) <= candle.h
+                or not math.isfinite(candle.v) or candle.v < 0):
+            raise SourceUnavailable(f"{market} history contains an invalid candle at {candle.ts.isoformat()}")
+        if index and candle.ts - candles[index - 1].ts != step:
+            raise SourceUnavailable(f"{market} history has missing, duplicate or out-of-order {bar} candles near {candle.ts.isoformat()}; no backtest was produced")
+
+
 def run_backtest(spec, source: PriceSource, now: dt.datetime | None = None) -> BacktestResult:
     """Run a validated Spec (see lab.py) against a price source. Raises SourceUnavailable / ValueError."""
     bar = getattr(spec, "bar", None) or auto_bar(spec.days)
     files = source.files if isinstance(source, LayeredCandles) else source if isinstance(source, FileCandles) else None
-    if spec.type == "event_buy" and files and files.has(spec.market) and not files.has(spec.market, bar):
+    market = getattr(spec, "market", None)
+    if market and files and files.has(market) and not files.has(market, bar):
         bar = "1d"  # FileCandles' daily fallback must use the actual close time, not an hourly offset.
     start, end = window(spec.days, bar, now)
+    requested_start, requested_end = start, end
     notes = [_source_note(source, getattr(spec, "market", None), bar), f"fees: {spec.fee_bps} bp taker per side plus {SLIPPAGE_BPS:g} bp slippage on every fill"]
     if spec.type == "tail_wallet":
         return _run_tail(spec, source, start, end, notes)
@@ -617,14 +637,25 @@ def run_backtest(spec, source: PriceSource, now: dt.datetime | None = None) -> B
         raise ValueError(f"not enough {bar} candles for {spec.market}")
     if candles[0].ts > start + dt.timedelta(seconds=2 * BAR_SECONDS[bar]) and not hasattr(spec, "bar") and bar != "1d":
         # Hyperliquid keeps fewer intraday bars than daily ones: daily may reach back further for the same window
-        daily = cached_candles(source, spec.market, "1d", start, end)
+        daily_start, daily_end = window(spec.days, "1d", now)
+        daily = cached_candles(source, spec.market, "1d", daily_start, daily_end)
         if len(daily) >= 2 and daily[0].ts < candles[0].ts - dt.timedelta(days=7):
             bar, candles = "1d", daily
+            start, end = daily_start, daily_end
+            requested_start, requested_end = start, end
             notes[0] = _source_note(source, spec.market, bar)
-    if candles[0].ts > start + dt.timedelta(seconds=2 * BAR_SECONDS[bar]):
+    _validate_history(candles, spec.market, bar, start, end)
+    if candles[0].ts > start:
         # listed after the window opened: test from the first candle and say so, never report a span with no data
         start = candles[0].ts
         notes.append(f"{spec.market} history starts {start:%Y-%m-%d}, so the test runs from there")
+    observed_end = candles[-1].ts + dt.timedelta(seconds=BAR_SECONDS[bar])
+    if observed_end < end:
+        end = observed_end
+        notes.append(f"history coverage: available candles end {end.isoformat()}; the result stops there, not at the requested {requested_end.isoformat()}")
+    coverage = {"bar": bar, "requested_start": requested_start.isoformat(), "requested_end": requested_end.isoformat(),
+                "start": start.isoformat(), "end": end.isoformat(), "complete_requested_window": start == requested_start and end == requested_end,
+                "contiguous": True, "source": "simulated" if notes[0] == SIM_NOTE else "historical"}
     if spec.type == "dip_buy":
         in_window = dip_dates(candles, spec.drop_pct, spec.over_days)
         span = f"{spec.over_days} day{'s' if spec.over_days != 1 else ''}"
@@ -663,6 +694,7 @@ def run_backtest(spec, source: PriceSource, now: dt.datetime | None = None) -> B
         notes.append(f"DCA: {len(buys)} buys deployed ${sum(f.size * f.px for f in buys):,.0f} of the ${spec.starting_equity:,.0f} starting equity; return is on the full starting equity")
     res = _result(spec.label(), spec.market, start, end, bar, spec.starting_equity, book, curve, bench, notes)
     res.stats = stats
+    res.coverage = coverage
     return res
 
 
