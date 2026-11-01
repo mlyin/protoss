@@ -5,6 +5,61 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
 
 import pytest
+
+
+@pytest.mark.parametrize('wallet_review', [False, True])
+def test_episode_research_is_read_only_in_both_chats(client, tmp_path, wallet_review):
+    worker, tg, hid = make_bridge(client, tmp_path)
+    worker.live = True
+    worker.wallet_review = wallet_review
+    calls = []
+    class ResearchOnly:
+        def call(self, method, path, body=None):
+            assert (method, path) == ('POST', '/research/podcast')
+            calls.append(body)
+            return {'kind': 'research', 'reply': 'Episode evidence. No defensible trade from this episode.'}
+    worker.protoss = ResearchOnly()
+    worker.handle(message(300, 333, 'Research Dwarkesh', chat=333))
+    assert 'invited group participants' in tg.sent[-1]['text'] and not calls
+    tg.sent.clear()
+    worker.handle(message(301, 111, 'Research Dwarkesh', chat=111))
+    worker.handle(message(302, 111, 'Research Dwarkesh'))
+    worker.handle(message(302, 111, 'Research Dwarkesh'))
+    worker.handle(message(303, 333, 'Research Dwarkesh'))
+    worker.handle(message(304, 111, 'Research Dwarkesh', chat=-999))
+    worker.handle(message(305, 111, '/idea@another_bot Research Dwarkesh'))
+    assert len(calls) == 2
+    assert [m['chat_id'] for m in tg.sent] == [111, CHAT]
+    assert tg.sent[-1]['reply_parameters']['message_id'] == 302
+    assert all('reply_markup' not in m for m in tg.sent)
+    assert client.get(f'/huddle/{hid}', headers=ADMIN).json()['theses'] == []
+    assert client.get(f'/telegram/huddles/{hid}/connections', headers=ADMIN).json() == []
+
+
+def test_episode_partial_delivery_retries_identical_text(client, tmp_path):
+    worker, tg, hid = make_bridge(client, tmp_path)
+    worker.live = True
+    calls = []
+    long_reply = 'Episode evidence. ' * 350
+    class ResearchOnly:
+        def call(self, method, path, body=None):
+            calls.append(path)
+            return {'reply': long_reply}
+    worker.protoss = ResearchOnly()
+    original = tg.call
+    def fail_second(method, **body):
+        if method == 'sendMessage' and tg.sent:
+            raise bridge.APIError('temporary Telegram error')
+        return original(method, **body)
+    tg.call = fail_second
+    with pytest.raises(bridge.APIError):
+        worker.handle(message(306, 111, 'Research Dwarkesh', chat=111))
+    tg.call = original
+    worker.handle(message(306, 111, 'Research Dwarkesh', chat=111))
+    worker.handle(message(306, 111, 'Research Dwarkesh', chat=111))
+    assert calls == ['/research/podcast']
+    assert ''.join(m['text'] for m in tg.sent).startswith(long_reply)
+    assert 'Automatic episode monitoring is not enabled' in tg.sent[-1]['text']
 from eth_account import Account
 from eth_account.messages import encode_defunct
 from fastapi.testclient import TestClient
@@ -125,7 +180,7 @@ def test_private_research_is_separate_from_group_and_accepts_new_users(client, t
     class ResearchOnly:
         def call(self, method, path, body=None):
             calls.append((method, path, body))
-            assert (method, path) == ("POST", "/lab/chat")
+            assert method == "POST" and path in ("/lab/chat", "/research/podcast")
             return {"kind": "clarify", "reply": "Which holding period should I test?"}
 
     worker.protoss = ResearchOnly()
@@ -313,12 +368,12 @@ def test_group_greeting_replies_without_creating_idea(client, tmp_path):
 def test_dwarkesh_menu_requests_episode_evidence_without_creating_a_trade(client, tmp_path):
     worker, tg, hid = make_bridge(client, tmp_path)
     worker.handle(message(501, 111, "Dwarkesh mentioned NVDA"))
-    assert "specific claim" in tg.sent[-1]["text"]
+    assert "No market or trade has been selected" in tg.sent[-1]["text"]
     assert client.get(f"/huddle/{hid}", headers=ADMIN).json()["theses"] == []
     worker.handle({"update_id": 502, "callback_query": {"id": "d1", "from": {"id": 222},
                   "data": "idea:dwarkesh", "message": {"chat": {"id": CHAT, "type": "supergroup"}}}})
     assert client.get(f"/huddle/{hid}", headers=ADMIN).json()["theses"] == []
-    assert "specific claim" in tg.sent[-1]["text"]
+    assert "No market or trade has been selected" in tg.sent[-1]["text"]
     assert not any("Back this idea" in str(m.get("reply_markup")) for m in tg.sent)
 
 
