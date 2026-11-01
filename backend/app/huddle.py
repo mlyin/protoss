@@ -160,6 +160,7 @@ THESIS_CUE = re.compile(
     r"\b(every ?time|whenever|each time|what if|let'?s (?:buy|sell|short|long|go long|go short|bet|try|back|test)|"
     r"should we (?:buy|sell|short|long)|backtest|test this|thesis|bet (?:on|that)|i think)\b", re.I)
 COPY_BASE = 1000  # per-person copies of an idea are numbered above this, out of the way of the ideas people talk about
+CLOSE_ASK = re.compile(r"^\s*(?:close|exit|sell)\s+(?:my\s+)?(?:copy\s+of\s+)?idea\s+#?(\d+)\s*[.!]*\s*$", re.I)
 EVENTS_ASK = re.compile(r"\b(show|list|see|what (?:are|were)|which (?:are|were))\b.{0,40}\b(events|hacks|episodes)\b", re.I)
 CALL_CUE = re.compile(
     r"\b(injur\w*|injured list|IL|come[s]? off|coming off|return(?:s|ing)? from|win(?:s|ning)?|lose|playoffs?|"
@@ -685,36 +686,61 @@ def score(db: Session, t: Thesis) -> tuple[int, int, float]:
     return len(rows), sum(1 for r in rows if (r.pnl_usd or 0) > 0), sum(r.pnl_usd or 0 for r in rows)
 
 
-def settle(db: Session, ex: ExchangeAdapter, now: dt.datetime | None = None) -> int:
-    """Close every position whose hold is over and post the result with the running score."""
+def _close(db: Session, ex: ExchangeAdapter, t: Thesis, tr: Trigger, now: dt.datetime, why: str) -> bool:
+    """Close one open position with a reduce-only order and post the result. False when the exchange did not fill it."""
     from .router import submit
 
+    agent = db.get(Agent, t.agent_id) if t.agent_id else None
+    if not agent:
+        tr.closed = True
+        return False
+    order, _ = submit(db, ex, agent, tr.market, "sell" if tr.side == "long" else "buy", tr.size, reduce_only=True, reason=f"thesis {t.n}: {why}")
+    if not order.filled_size:
+        return False
+    sign = 1 if tr.side == "long" else -1
+    tr.exit_px, tr.closed = order.fill_px, True
+    tr.pnl_usd = round(sign * (order.fill_px - tr.entry_px) * tr.size - order.exchange_fee_usd - order.builder_fee_usd, 2)
+    pct = sign * (order.fill_px / tr.entry_px - 1) * 100
+    db.flush()
+    n, wins, pnl = score(db, t)
+    h = db.get(Huddle, t.huddle_id)
+    days = max(1, round((now - _aware(tr.opened_at)).total_seconds() / 86400))
+    span = "1 day" if days == 1 else f"{days} days"
+    say(db, h, f"{_name(t)} closed: {tr.market} {pct:+.1f}% over {span}, {_px(tr.size * tr.entry_px)} became {_px(tr.size * tr.entry_px + tr.pnl_usd)} ({_signed_usd(tr.pnl_usd)}). "
+               f"Its record: {wins} of {n} up, {_signed_usd(pnl)}.", "result", t.id)
+    return True
+
+
+def settle(db: Session, ex: ExchangeAdapter, now: dt.datetime | None = None) -> int:
+    """Close every position whose hold is over and post the result with the running score."""
     now = now or _now()
     closed = 0
     for tr in db.scalars(select(Trigger).where(Trigger.closed.is_(False))).all():
         if _aware(tr.exit_at) > now:
             continue
         t = db.get(Thesis, tr.thesis_id)
-        agent = db.get(Agent, t.agent_id) if t and t.agent_id else None
-        if not agent:
+        if t and _close(db, ex, t, tr, now, "hold over"):
+            closed += 1
+        elif not t:
             tr.closed = True
-            continue
-        order, _ = submit(db, ex, agent, tr.market, "sell" if tr.side == "long" else "buy", tr.size, reduce_only=True, reason=f"thesis {t.n}: hold over")
-        if not order.filled_size:
-            continue  # try again next tick
-        sign = 1 if tr.side == "long" else -1
-        tr.exit_px, tr.closed = order.fill_px, True
-        tr.pnl_usd = round(sign * (order.fill_px - tr.entry_px) * tr.size - order.exchange_fee_usd - order.builder_fee_usd, 2)
-        pct = sign * (order.fill_px / tr.entry_px - 1) * 100
-        db.flush()
-        n, wins, pnl = score(db, t)
-        h = db.get(Huddle, t.huddle_id)
-        days = max(1, round((now - _aware(tr.opened_at)).total_seconds() / 86400))
-        span = "1 day" if days == 1 else f"{days} days"
-        say(db, h, f"{_name(t)} closed: {tr.market} {pct:+.1f}% over {span}, {_px(tr.size * tr.entry_px)} became {_px(tr.size * tr.entry_px + tr.pnl_usd)} ({_signed_usd(tr.pnl_usd)}). "
-                   f"Its record: {wins} of {n} up, {_signed_usd(pnl)}.", "result", t.id)
-        closed += 1
     return closed
+
+
+def close_mine(db: Session, ex: ExchangeAdapter, h: Huddle, sender: str, n: int) -> str | None:
+    """'close 2': close the sender's own copy of idea 2 now. Each person closes only their own position."""
+    mine = [t for t in _theses(db, h, ("live",)) if (t.spec or {}).get("_parent_n") == n and (t.spec or {}).get("_telegram_copy_owner") == sender]
+    if not mine:
+        return f"You have no open copy of idea {n} here."
+    now, closed, held = _now(), 0, 0
+    for t in mine:
+        for tr in db.scalars(select(Trigger).where(Trigger.thesis_id == t.id, Trigger.closed.is_(False))).all():
+            held += 1
+            closed += _close(db, ex, t, tr, now, "closed by its owner")
+        if not db.scalar(select(Trigger).where(Trigger.thesis_id == t.id, Trigger.closed.is_(False))):
+            t.status = "closed"  # nothing open and nothing more to fire: this copy is done
+    if not held:
+        return f"Your copy of idea {n} had no open position, so it is stopped: it will not fire again."
+    return None if closed == held else f"The exchange did not fill the close for {held - closed} of your positions on idea {n}. Try again, or close it in Hyperliquid."
 
 
 def report_event(db: Session, ex: ExchangeAdapter, label: str, source: str | None = None, huddle_id: int | None = None, by: str | None = None,
@@ -827,6 +853,10 @@ def command(db: Session, ex: ExchangeAdapter, h: Huddle, sender: str, body: str)
     if low in ("score", "scoreboard", "leaderboard", "who's right", "whos right"):
         say(db, h, _score_board(db, h))
         return True
+    if m := re.fullmatch(r"(?:close|exit|sell)\s+(?:my\s+)?(?:copy\s+of\s+)?(?:idea\s+)?#?(\d+)", low):
+        if (note := close_mine(db, ex, h, sender, int(m.group(1)))) is not None:
+            say(db, h, note)
+        return True
     if m := re.fullmatch(r"back\s+#?(\d+)", low):
         t = _by_n(db, h, int(m.group(1)))
         if not t or t.status != "proposed":
@@ -902,6 +932,8 @@ def ingest(db: Session, ex: ExchangeAdapter, h: Huddle, sender: str, text: str =
 
     addressed = bool(ADDRESS.match(text))
     body = ADDRESS.sub("", text, count=1) if addressed else text
+    if not addressed and (m := CLOSE_ASK.match(text)):  # "close my idea 2"
+        addressed, body = True, f"close {m.group(1)}"
     if not addressed and EVENTS_ASK.search(text):  # "can you show me what the 25 events are"
         addressed, body = True, "events" + (f" {m.group(1)}" if (m := re.search(r"idea\s+#?(\d+)", text, re.I)) else "")
     if addressed and command(db, ex, h, sender, body):

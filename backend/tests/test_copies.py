@@ -341,3 +341,23 @@ def test_hack_fires_each_copy_by_name_closes_and_scores_the_idea_author(live, tm
     assert sum(" copy of idea 1 closed: XMR" in m["text"] for m in tg.sent) == 2
     w.handle(named(5, 111, "Matthew", "protoss score"))
     assert tg.sent[-1]["text"].splitlines()[1].startswith("Matthew: 0 of 2 right") or tg.sent[-1]["text"].splitlines()[1].startswith("Matthew: 2 of 2 right")
+
+
+def test_close_my_idea_closes_only_the_senders_copy(live, tmp_path):
+    client, ex = live
+    h = client.post("/huddle", headers=ADMIN, json={"chat_id": f"telegram:{CHAT}", "title": "protoss beta testing", "quorum": 2}).json()
+    tg = PhotoTelegram()
+    w = bridge.Bridge(tg, LocalAPI(client), bridge.State(tmp_path / "s.json"), CHAT, [111, 222], "ProtossTradingDemoBot", h["id"], live=True)
+    named = lambda uid, user, name, text: {"update_id": uid, "message": {"message_id": uid, "chat": {"id": CHAT, "type": "supergroup"}, "from": {"id": user, "first_name": name}, "text": text}}  # noqa: E731
+    w.handle(named(1, 111, "Matthew", "I think robots are going to take over the world"))
+    w.handle(named(2, 222, "Lando", "in for 11"))
+    w.handle(named(3, 111, "Matthew", "in for 11"))
+    w.handle(named(4, 222, "Lando", "close my idea 1"))
+    closed = [m["text"] for m in tg.sent if " closed: " in m["text"]]
+    assert len(closed) == 1 and closed[0].startswith("Lando's copy of idea 1 closed: xyz:UNITREE")
+    sides = [(e.master, o[1]) for e in FakeExchange.made for o in e.orders]
+    assert (ACC2, False) in sides and (ACC1, False) not in sides  # Lando sold; Matthew's position is untouched
+    w.handle(named(5, 222, "Lando", "/close 1"))
+    assert tg.sent[-1]["text"] == "You have no open copy of idea 1 here."
+    w.handle(named(6, 111, "Matthew", "/status"))
+    assert "Wallet connections" not in tg.sent[-2]["text"] and tg.sent[-1]["text"].startswith("Here's where things stand:")

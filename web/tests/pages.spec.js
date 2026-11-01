@@ -182,7 +182,7 @@ test('four idea previews use exchange quotes and honest event status', async ({ 
 test('historical research shows the ordinary-day baseline', async ({ page }) => {
   await page.route('https://api.hyperliquid.xyz/info', route => route.fulfill({ json: [{ universe: [{ name: 'XMR' }] }, [{ markPx: '200' }]] }))
   await page.route('**/lab/chat', route => route.fulfill({ json: {
-    kind: 'backtest', reply: 'Tested the requested 180-day window.',
+    kind: 'backtest', reply: 'Tested the requested 180-day window.', spec: { type: 'event_buy', event_set: 'major_hacks', market: 'XMR', hold_days: 1 },
     result: { notes: ['baseline: compare the event reaction with the same hold after any day.', 'Internal detail'] }
   } }))
   await page.goto('/')
@@ -190,4 +190,15 @@ test('historical research shows the ordinary-day baseline', async ({ page }) => 
   await expect(page.getByRole('status')).toContainText('180-day window')
   await expect(page.getByRole('status')).toContainText('baseline: compare')
   await expect(page.getByRole('status')).not.toContainText('Internal detail')
+})
+
+
+test('a live answer that is not the idea is not shown as its result', async ({ page }) => {
+  await page.route('https://api.hyperliquid.xyz/info', route => route.fulfill({ json: [{ universe: [{ name: 'xyz:ANT' }] }, [{ markPx: '42' }]] }))
+  await page.route('**/lab/chat', route => route.fulfill({ json: { kind: 'clarify', reply: 'Which idea should I test?' } }))
+  await page.goto('/')
+  await page.getByRole('tab', { name: /Anthropic bubble/ }).click()
+  await page.getByRole('button', { name: 'Run it now' }).click()
+  await expect(page.getByRole('status')).toContainText("The live Lab can't run this idea yet")
+  await expect(page.getByRole('status')).not.toContainText('Which idea should I test?')
 })
