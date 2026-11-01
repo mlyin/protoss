@@ -12,12 +12,11 @@ amount and the order goes out from their own account; the money is never combine
 
 ## Where things are (2026-11-01)
 - Live: https://protoss.trade (Pages, built from `web/` on every push to main; app at `/app/`), https://api.protoss.trade and
-  https://app.protoss.trade (Cloudflare Tunnel to the mini, paper mode). The website reads account data straight from
-  api.hyperliquid.xyz in the browser; the Lab calls api.protoss.trade.
-- Website: Home (four ideas, Open Telegram), Test an idea (the Lab; `#/lab?idea=...&run=1` runs on load), Accounts (lando and
-  second, from `web/src/Accounts.jsx` ACCOUNTS: equity, positions on every perp dex, spot USDC, last 25 fills). Join with card
-  (`Join.jsx`, `PrivyWallet.jsx`, `FundingDemo.jsx`) is kept in the tree but unrouted until real keys exist; bring it back without
-  FundingDemo.
+  https://app.protoss.trade (Cloudflare Tunnel to the mini, paper mode). The website reads marks and positions straight from
+  api.hyperliquid.xyz in the browser; research calls api.protoss.trade.
+- Website (PR #6, `web/src/IdeaChat.jsx`, `AccountWorkspace.jsx`): Home shows the four ideas as chat previews with live
+  Hyperliquid marks and an Open Telegram link; Friends & positions reads a connected wallet's positions on every perp dex. The
+  hacks idea calls `/lab/chat` for its history test; that works once the mini runs main (daily-bar fallback, PR #7).
 - Telegram bot (@ProtossTradingDemoBot): runs on Matthew's MacBook from `~/protoss-demo` in a terminal, live mode, group
   "protoss beta testing". As of 2026-11-01 00:30 it ran commit 505f4ba, which ignores plain chat, and it was a plain member with
   privacy mode on, so Telegram delivered only slash commands. Its links point to 127.0.0.1:8001 (its own local API).
@@ -39,7 +38,7 @@ amount and the order goes out from their own account; the money is never combine
 5. X thread in `brand/x-thread.md`: drafted, his to post.
 
 ## Open threads, in order
-1. Get the bot answering the four ideas in the group (item 1 above), then a real order per participant shows on Accounts.
+1. Get the bot answering the four ideas in the group (item 1 above), then a real order per participant shows on Friends & positions.
 2. Move the bot onto the mini next to the API so its links can be public (`APP_URL`), instead of a laptop terminal.
 3. Mini: merge its uncommitted tree onto main (overlaps `backend/app/backtest.py`, `huddle.py` and the Lab tests).
 4. Lab: refresh `backend/app/data/dwarkesh.csv` (`scripts/podcast_dates.py`) and the candle cache on a schedule.

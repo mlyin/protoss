@@ -16,11 +16,13 @@ if (/^\/(t|h|l)\//.test(location.pathname)) location.replace(apiUrl(location.pat
 // Canonical URLs use /app/#/... so refreshes work on static hosting.
 if (location.pathname === '/app') location.replace('/app/' + location.search + location.hash)
 if (location.pathname.startsWith('/app/') && location.pathname !== '/app/' && location.pathname !== '/app/index.html') {
-  location.replace('/app/#/' + location.pathname.slice(5) + location.search)
+  location.replace('/app/')
 }
-// Preserve old shared hash links while giving the app a stable Pages entrypoint.
+// Retired practice/deep links now enter the real account workspace.
 if (location.pathname === '/' && location.hash && location.hash !== '#/') {
-  location.replace('/app/' + location.search + location.hash)
+  location.replace('/app/')
 }
+
+if (location.pathname.startsWith('/app/') && location.hash) location.replace('/app/')
 
 createRoot(document.getElementById('root')).render(<App />)

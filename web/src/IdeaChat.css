@@ -1,0 +1,37 @@
+.product-home .product-hero { display: block; padding: 44px 0 32px; max-width: 800px; }
+.product-hero h1 { font-size: clamp(38px, 5vw, 64px); }
+.product-home { width: 100%; }
+.product-home .product-description { max-width: 660px; font-size: 18px; }
+.product-home .idea-demo { display: grid; grid-template-columns: minmax(220px, .7fr) minmax(0, 1.3fr); gap: 48px; padding: 20px 0 48px; align-items: start; border: 0; }
+.idea-picker h2 { font: 550 30px/1.2 var(--sans); letter-spacing: -1px; margin: 12px 0 26px; }
+.idea-picker [role=tablist] { display: flex; flex-direction: column; gap: 8px; }
+.idea-picker button { width: 100%; display: flex; align-items: center; gap: 12px; padding: 17px 14px; height: auto; background: transparent; border: 1px solid var(--hair-2); text-align: left; color: var(--text); font-size: 14px; border-radius: 10px; }
+.idea-picker button > span:first-child { font-size: 11px; color: var(--muted); }
+.idea-picker button > span:last-child { margin-left: auto; }
+.idea-picker button[aria-selected=true] { border-color: #739494; background: #e9eeE5; color: #283b40; }
+.idea-picker-note { color: var(--text-2); font-size: 12px; line-height: 1.65; margin: 20px 0; max-width: 300px; }
+.idea-conversation { color-scheme: light; color: #263c45; border: 1px solid #d9e3e3; border-radius: 16px; background: #fff; overflow: hidden; box-shadow: 0 12px 30px #253f3008; }
+.idea-conversation > header { display: flex; align-items: center; gap: 12px; padding: 17px 20px; }
+.idea-conversation > header img { width: 40px; height: 40px; background: #fbf1d6; border-radius: 50%; }
+.idea-conversation > header b { font-size: 14px; display: block; }
+.idea-conversation > header div > span { font-size: 11px; color: #6c8188; display: block; margin-top: 4px; }
+.idea-draft-label { margin-left: auto; font-size: 10px; background: #f3eee1; color: #7d672e; padding: 5px 9px; border-radius: 6px; }
+.idea-chat-body { background: #dce6dc; padding: 24px; display: flex; flex-direction: column; gap: 18px; }
+.idea-user-bubble { align-self: flex-end; max-width: 88%; background: #e8f6db; border-radius: 12px 12px 3px 12px; padding: 12px 15px; font-size: 14px; line-height: 1.6; }
+.idea-bot-bubble { background: #fff; border-radius: 12px 12px 12px 3px; padding: 16px; max-width: 96%; }
+.idea-bot-name { color: #287fa6; font-size: 12px; font-weight: 600; }
+.idea-bot-bubble h3 { font: 600 17px/1.4 var(--sans); margin: 10px 0 8px; letter-spacing: -.3px; }
+.idea-bot-bubble p { font-size: 13px; line-height: 1.7; margin: 8px 0 14px; }
+.idea-quote { background: #f5f8fa; padding: 13px; border-radius: 8px; display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.idea-quote span, .idea-event b { font-size: 10px; color: #69818c; display: block; margin-bottom: 5px; }
+.idea-quote b { font-size: 13px; font-weight: 550; }
+.idea-quote small { grid-column: 1/-1; font-size: 10px; color: #69818c; line-height: 1.6; }
+.idea-event { padding: 12px; margin-top: 12px; border-left: 3px solid #ccad69; background: #faf7ed; }
+.idea-event span { font-size: 12px; display: block; }
+.idea-event small { font-size: 10px; color: #7c745f; display: block; line-height: 1.6; margin-top: 6px; }
+.idea-bot-bubble .idea-risk { font-size: 11px; color: #697a80; }
+.idea-conversation .idea-action { display: block; width: 100%; height: auto; text-align: center; background: #eaf3f9; color: #277da1; border: 0; border-radius: 6px; padding: 11px 8px; font: 12px var(--sans); text-decoration: none; }
+.idea-conversation > footer { display: flex; flex-wrap: wrap; gap: 10px; justify-content: space-between; padding: 14px 20px; font-size: 10px; color: #69818c; }
+.idea-conversation > footer a { color: #277da1; }
+.idea-research { white-space: pre-wrap; }
+@media(max-width:760px) { .product-home .idea-demo { grid-template-columns: minmax(0, 1fr); gap: 20px; } .idea-picker h2 br { display: none; } .idea-picker [role=tablist] { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .idea-picker button { min-width: 0; white-space: normal; font-size: 12px; gap: 8px; padding: 12px 9px; min-height: 65px; } .idea-picker button > span:last-child { display: none; } .idea-picker-note { max-width: none; margin-bottom: 0; } .idea-chat-body { padding: 16px 12px; } .idea-bot-bubble { max-width: 100%; } .product-home .product-hero { padding: 20px 0; } }

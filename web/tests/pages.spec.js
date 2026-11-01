@@ -1,81 +1,162 @@
 import { test, expect } from '@playwright/test'
-const api = process.env.E2E_API_URL || 'http://127.0.0.1:8011'
-const exchangeRequests = new WeakMap()
+const owner = '0x' + '1'.repeat(40)
+const other = '0x' + '2'.repeat(40)
+const attempts = new WeakMap()
 
+// Test fixtures stay in the test bundle. The published app never receives sample accounts or positions.
 test.beforeEach(async ({ page }) => {
-  // Any wallet or exchange execution attempt is a test failure, including accidental auto-connect.
-  await page.addInitScript(() => { window.__walletRequests = []; window.ethereum = { request: args => { window.__walletRequests.push(args.method); throw new Error('Wallet requests forbidden in these tests') } } })
-  exchangeRequests.set(page, [])
-  await page.route('**/exchange', route => { exchangeRequests.get(page).push(route.request().url()); return route.abort() })
+  attempts.set(page, [])
+  await page.route('**/exchange', route => { attempts.get(page).push(route.request().url()); return route.abort() })
+  await page.addInitScript(({ owner }) => {
+    window.__walletRequests = []
+    window.__accountListeners = {}
+    window.ethereum = {
+      request: async args => {
+        window.__walletRequests.push(args.method)
+        if (args.method !== 'eth_requestAccounts') throw new Error('Signing and trading are forbidden')
+        return [owner]
+      },
+      on: (event, handler) => { window.__accountListeners[event] = handler },
+      removeListener: (event, handler) => { if (window.__accountListeners[event] === handler) delete window.__accountListeners[event] },
+    }
+  }, { owner })
 })
-
 test.afterEach(async ({ page }) => {
-  expect(exchangeRequests.get(page)).toEqual([])
-  expect(await page.evaluate(() => window.__walletRequests || [])).toEqual([])
+  expect(attempts.get(page)).toEqual([])
+  expect((await page.evaluate(() => window.__walletRequests || [])).every(method => method === 'eth_requestAccounts')).toBeTruthy()
 })
 
-test('homepage leads to the four ideas, Telegram and the real accounts', async ({ page }) => {
+async function marketData(page, { empty = false, fail = '', delay = 0 } = {}) {
+  const reads = []
+  await page.route('https://api.hyperliquid.xyz/info', async route => {
+    const body = route.request().postDataJSON()
+    reads.push(body)
+    if (body.type === 'metaAndAssetCtxs') return route.fulfill({ json: [{ universe: [{ name: 'XMR' }] }, [{ markPx: '200' }]] })
+    if (body.type === 'perpDexs') return route.fulfill({ json: [null, { name: 'xyz' }] })
+    if (body.type !== 'clearinghouseState') throw new Error('Unexpected data access')
+    if (delay && body.user === other) await new Promise(r => setTimeout(r, delay))
+    if (fail === 'all' || (fail && fail === body.dex)) return route.fulfill({ status: 503, json: {} })
+    const positions = empty || body.user === other ? [] : [{ position: { coin: body.dex ? 'xyz:ANT' : 'BTC', szi: body.dex ? '-0.25' : '0.01', entryPx: '100', positionValue: '25', unrealizedPnl: '-2.50' } }]
+    await route.fulfill({ json: { assetPositions: positions } })
+  })
+  return reads
+}
+
+test('homepage contains the real account entry and no practice navigation', async ({ page }, info) => {
+  const reads = await marketData(page)
   await page.goto('/')
   await expect(page.getByRole('heading', { name: 'Your friends. Your own trade.' })).toBeVisible()
-  await expect(page.getByRole('link', { name: 'Open Telegram' }).first()).toHaveAttribute('href', 'https://t.me/ProtossTradingDemoBot')
-  for (const said of ["Let's buy XMR every time a major company gets hacked", 'I think robots are going to take over the world', 'The Anthropic bubble is going to pop', 'Dwarkesh is always right. Trade every new episode']) {
-    await expect(page.getByRole('heading', { name: `“${said}”` })).toBeVisible()
+  await expect(page.getByRole('tab')).toHaveCount(4)
+  await expect(page.getByRole('link', { name: 'Practice app', exact: true })).toHaveCount(0)
+  await expect(page.getByRole('link', { name: 'Activity', exact: true })).toHaveCount(0)
+  expect(reads.every(r => r.type === 'metaAndAssetCtxs')).toBeTruthy()
+  expect(await page.evaluate(() => window.__walletRequests)).toEqual([])
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBeTruthy()
+  await page.screenshot({ path: `test-results/home-${info.project.name}.png`, fullPage: true })
+  await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Friends & positions', exact: true }).click()
+  await expect(page).toHaveURL(/\/app\/$/)
+  await expect(page.getByRole('heading', { name: 'Connect your account' })).toBeVisible()
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBeTruthy()
+})
+
+test('connection reads actual venue responses and never calls the exchange', async ({ page }, info) => {
+  const reads = await marketData(page)
+  await page.goto('/app/')
+  await page.getByRole('button', { name: 'Connect wallet', exact: true }).click()
+  await expect(page.getByText('BTC', { exact: true })).toBeVisible()
+  await expect(page.getByText('xyz:ANT', { exact: true })).toBeVisible()
+  expect(reads).toEqual([{ type: 'perpDexs' }, { type: 'clearinghouseState', user: owner, dex: '' }, { type: 'clearinghouseState', user: owner, dex: 'xyz' }])
+  await expect(page.getByText('Long', { exact: true })).toBeVisible()
+  await expect(page.getByText('Short', { exact: true })).toBeVisible()
+  await expect(page.getByText('No friends added yet.')).toBeVisible()
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBeTruthy()
+  await page.screenshot({ path: `test-results/account-${info.project.name}.png`, fullPage: true })
+})
+
+test('empty exchange responses render an honest empty state', async ({ page }) => {
+  await marketData(page, { empty: true })
+  await page.goto('/app/')
+  await page.getByRole('button', { name: 'Connect wallet', exact: true }).click()
+  await expect(page.getByText('No open positions.', { exact: true })).toBeVisible()
+  await expect(page.locator('.real-position')).toHaveCount(0)
+})
+
+test('missing markets do not masquerade as a flat account', async ({ page }) => {
+  await marketData(page, { empty: true, fail: 'all' })
+  await page.goto('/app/')
+  await page.getByRole('button', { name: 'Connect wallet', exact: true }).click()
+  await expect(page.getByRole('alert')).toContainText('Positions below may be incomplete')
+  await expect(page.getByText('No open positions.', { exact: true })).toHaveCount(0)
+})
+
+test('wallet change and disconnect immediately clear the previous positions', async ({ page }) => {
+  await marketData(page, { delay: 800 })
+  await page.goto('/app/')
+  await page.getByRole('button', { name: 'Connect wallet', exact: true }).click()
+  await expect(page.getByText('BTC', { exact: true })).toBeVisible()
+  await page.evaluate(other => window.__accountListeners.accountsChanged([other]), other)
+  await expect(page.getByText('BTC', { exact: true })).toHaveCount(0)
+  await expect(page.getByText('No open positions.', { exact: true })).toBeVisible()
+  await page.getByRole('button', { name: 'Disconnect', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'Connect your account' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'My positions', exact: true })).toHaveCount(0)
+})
+
+test('friends are explicitly added contacts scoped to the connected wallet', async ({ page }) => {
+  await marketData(page, { empty: true })
+  await page.goto('/app/')
+  await page.getByRole('button', { name: 'Connect wallet', exact: true }).click()
+  await page.getByRole('button', { name: 'Add friend', exact: true }).click()
+  await page.getByLabel('Name', { exact: true }).fill('Test friend')
+  await page.getByLabel('Telegram username', { exact: true }).fill('test_friend')
+  await page.getByRole('button', { name: 'Save friend', exact: true }).click()
+  await expect(page.getByRole('link', { name: 'Test friend @test_friend' })).toHaveAttribute('href', 'https://t.me/test_friend')
+  await page.evaluate(other => window.__accountListeners.accountsChanged([other]), other)
+  await expect(page.getByRole('link', { name: 'Test friend @test_friend' })).toHaveCount(0)
+  await page.evaluate(owner => window.__accountListeners.accountsChanged([owner]), owner)
+  await expect(page.getByRole('link', { name: 'Test friend @test_friend' })).toBeVisible()
+  await page.getByRole('button', { name: 'Remove Test friend' }).click()
+  await expect(page.getByText('No friends added yet.')).toBeVisible()
+})
+
+test('retired demo and activity links enter the real account screen', async ({ page }) => {
+  for (const path of ['/app/#/huddle/demo', '/app/#/feed', '/#/lab', '/app/lab']) {
+    await page.goto('/')
+    await page.goto(path)
+    await expect(page).toHaveURL(/\/app\/$/)
+    await expect(page.getByRole('heading', { name: 'Connect your account' })).toBeVisible()
   }
-  await expect(page.getByText(/practice/i)).toHaveCount(0)
-  await page.getByRole('link', { name: 'See the accounts' }).click()
-  await expect(page).toHaveURL(/\/app\/#\/accounts$/)
-  await expect(page.getByRole('heading', { name: 'Accounts', exact: true })).toBeVisible()
-  await page.getByRole('link', { name: 'Home', exact: true }).click()
-  await expect(page.getByRole('heading', { name: 'Your friends. Your own trade.' })).toBeVisible()
 })
 
-test('legacy and deep links open the research screen', async ({ page }) => {
-  await page.goto('/#/lab?idea=buy%20BTC')
-  await expect(page).toHaveURL(/\/app\/#\/lab/)
-  await expect(page.getByRole('heading', { name: 'Test your idea' })).toBeVisible()
-  await expect(page.getByRole('textbox', { name: 'Your what-if' })).toHaveValue('buy BTC')
-  await page.goto('/app/lab')
-  await expect(page).toHaveURL(/\/app\/#\/lab/)
-  await page.reload()
-  await expect(page.getByRole('heading', { name: 'Test your idea' })).toBeVisible()
-})
-
-test('research reaches the actual backend and renders the result', async ({ page }) => {
-  await page.goto('/app/#/lab')
-  await page.getByRole('textbox', { name: 'Your what-if' }).fill('I think robots are going to take over the world')
-  const response = page.waitForResponse(r => r.url() === `${api}/lab/chat` && r.request().method() === 'POST')
-  await page.getByRole('button', { name: 'Run', exact: true }).click()
-  const r = await response
-  expect(r.ok()).toBeTruthy()
-  const data = await r.json()
-  expect(['backtest', 'error', 'clarify']).toContain(data.kind)
-  // A data-quality refusal is valid evidence, not a fabricated backtest.
-  await expect(page.locator('.msg.ai').last()).toContainText(data.reply)
+test('missing wallet is explained without invented account data', async ({ page }) => {
+  await page.addInitScript(() => { delete window.ethereum })
+  await page.goto('/app/')
+  await page.getByRole('button', { name: 'Connect wallet', exact: true }).click()
+  await expect(page.getByRole('alert')).toContainText('Open this site in your wallet browser')
+  await expect(page.locator('.real-position')).toHaveCount(0)
 })
 
 
-test('fee approval stays explicit', async ({ page }) => {
-  await page.goto('/app/#/approve')
-  await expect(page.getByRole('button', { name: /connect/i })).toBeVisible()
-})
-
-test('API allows Pages origin, rejects foreign origin and unauthenticated access', async ({ request }) => {
-  const health = await request.get(`${api}/health`, { headers: { Origin: 'https://protoss.trade' } })
-  expect(health.headers()['access-control-allow-origin']).toBe('https://protoss.trade')
-  expect(['paper', 'sim']).toContain((await health.json()).mode)
-  const foreign = await request.fetch(`${api}/health`, { method: 'OPTIONS', headers: { Origin: 'https://untrusted.example', 'Access-Control-Request-Method': 'POST' } })
-  expect(foreign.status()).toBe(400)
-  const protectedData = await request.get(`${api}/v1/orders`)
-  expect([401, 403]).toContain(protectedData.status())
-})
-
-test('accounts come from Hyperliquid, and a failure shows an error instead of invented balances', async ({ page }) => {
-  await page.goto('/app/#/accounts')
-  await expect(page.getByRole('heading', { name: 'lando' })).toBeVisible()
-  await expect(page.getByRole('heading', { name: 'second' })).toBeVisible()
-  await expect(page.getByText('Equity').first()).toBeVisible()
-  await page.route('https://api.hyperliquid.xyz/**', route => route.abort())
-  await page.reload()
-  await expect(page.getByRole('alert')).toContainText('Could not reach Hyperliquid')
-  await expect(page.getByRole('heading', { name: 'lando' })).toHaveCount(0)
+test('four idea previews use exchange quotes and honest event status', async ({ page }) => {
+  const reads = []
+  await page.route('https://api.hyperliquid.xyz/info', async route => {
+    const body = route.request().postDataJSON(); reads.push(body)
+    expect(body.type).toBe('metaAndAssetCtxs')
+    await route.fulfill({ json: [{ universe: [{ name: 'XMR' }, { name: 'xyz:UNITREE' }, { name: 'xyz:ANT' }] }, [{ markPx: '200' }, { markPx: '17.50' }, { markPx: '42' }]] })
+  })
+  await page.route('**/lab/chat', route => route.fulfill({ json: { kind: 'error', reply: 'History is incomplete. No backtest was run.' } }))
+  await page.goto('/')
+  await expect(page.getByRole('tab')).toHaveCount(4)
+  await expect(page.getByText('Long XMR', { exact: true })).toBeVisible()
+  await page.getByRole('button', { name: 'Test the historical rule' }).click()
+  await expect(page.getByRole('status')).toContainText('History is incomplete. No backtest was run.')
+  await page.getByRole('tab', { name: /Robots take over/ }).click()
+  await expect(page.getByText('Long xyz:UNITREE', { exact: true })).toBeVisible()
+  await expect(page.getByText('$17.50', { exact: true })).toBeVisible()
+  await page.getByRole('tab', { name: /Anthropic bubble/ }).click()
+  await expect(page.getByText('Short xyz:ANT', { exact: true })).toBeVisible()
+  await page.getByRole('tab', { name: /Dwarkesh/ }).click()
+  await expect(page.getByText('Episode monitoring is not connected.', { exact: false })).toBeVisible()
+  await expect(page.getByRole('link', { name: /Read an episode/ })).toHaveAttribute('href', 'https://www.dwarkesh.com/podcast')
+  expect(reads.every(body => body.type === 'metaAndAssetCtxs')).toBeTruthy()
 })

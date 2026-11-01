@@ -1,9 +1,9 @@
-import { apiFetch as fetch } from './api.js'
+import { apiFetch as fetch, apiUrl } from './api.js'
 import React, { useEffect, useRef, useState } from 'react'
 import { SkelLines } from './ui.jsx'
-import { IDEAS, TELEGRAM_BOT } from './ideas.js'
+import ResearchIdeas from './ResearchIdeas.jsx'
 
-// The Lab: say an idea in plain English, get a backtest on real Hyperliquid history back.
+// The Lab: ask a what-if in plain English, get a backtest back, deploy it as an agent.
 // Talks to POST /lab/chat (see backend/app/lab.py for the contract).
 
 const fmtUsd = (v) => (v == null ? '—' : '$' + Number(v).toLocaleString(undefined, { maximumFractionDigits: Math.abs(v) < 100 ? 2 : 0 }))
@@ -29,7 +29,10 @@ function Curve({ a, b, w = 640, h = 180 }) {
   )
 }
 
-function Result({ r }) {
+function Result({ r, deployable }) {
+  const [copied, setCopied] = useState(false)
+  const yaml = deployable && `  - name: ${deployable.name}\n    strategy: "${deployable.strategy.replace(/"/g, "'")}"\n    script: agents/${deployable.strategy.toLowerCase().includes('revers') ? 'meanrev' : 'momentum'}.py\n    markets: [${deployable.markets.join(', ')}]\n    limits: { max_leverage: ${deployable.limits.max_leverage}, drawdown_flatten_pct: ${deployable.limits.drawdown_flatten_pct}, daily_loss_pct: ${deployable.limits.daily_loss_pct} }\n`
+  const copy = () => { navigator.clipboard?.writeText(yaml).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1500) }) }
   return (
     <div className="result">
       <div className="result-head">
@@ -55,21 +58,28 @@ function Result({ r }) {
         </details>
       )}
       {r.notes?.length > 0 && <ul className="notes">{r.notes.map((n, i) => <li key={i}>{n}</li>)}</ul>}
+      {deployable && (
+        <div className="deploy">
+          <div><b>Developer configuration</b><div className="sub">Inside hard limits: {deployable.limits.max_leverage}× max · stop at {deployable.limits.drawdown_flatten_pct}% drawdown · {deployable.limits.daily_loss_pct}% daily loss · {deployable.markets.join(', ')} only</div></div>
+          <button onClick={copy}>{copied ? 'Copied' : 'Copy fleet.yaml entry'}</button>
+        </div>
+      )}
     </div>
   )
 }
 
-export default function Lab({ initialPrompt = '', autorun = false }) {
-  const [msgs, setMsgs] = useState([{ role: 'ai', text: 'Say an idea in plain words, or tap one of the four below. The test runs on real Hyperliquid candles with trading fees and slippage. Funding is not modelled, and a past result is not a promise.' }])
+export default function Lab({ initialPrompt = '' }) {
+  const [examples, setExamples] = useState([])
+  const [msgs, setMsgs] = useState([{ role: 'ai', text: 'Describe a rule to test. Results identify the price source and include modeled trading fees and slippage. Funding and liquidation are not modeled. Trend and reversal rules can go long or short. Read the execution assumptions before interpreting results.' }])
   const [q, setQ] = useState(initialPrompt)
   const inputRef = useRef(null)
-  const ran = useRef(false)
   useEffect(() => { setQ(initialPrompt) }, [initialPrompt])
+  const selectIdea = (text) => { setQ(text); inputRef.current?.focus(); inputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }) }
   const [busy, setBusy] = useState(false)
   const endRef = useRef(null)
 
-  useEffect(() => { if (msgs.length > 1) endRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [msgs])
-  useEffect(() => { if (autorun && initialPrompt && !ran.current) { ran.current = true; ask(initialPrompt) } }, [autorun, initialPrompt])
+  useEffect(() => { fetch('/lab/examples').then((r) => r.json()).then((d) => setExamples(d.examples || [])).catch(() => {}) }, [])
+  useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [msgs])
 
   async function ask(text) {
     const t = (text || q).trim()
@@ -80,7 +90,7 @@ export default function Lab({ initialPrompt = '', autorun = false }) {
     try {
       const r = await fetch('/lab/chat', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ message: t }) })
       const j = await r.json()
-      setMsgs((m) => [...m, { role: 'ai', text: j.reply || j.detail || 'No reply', result: j.result, kind: j.kind }])
+      setMsgs((m) => [...m, { role: 'ai', text: j.reply || j.detail || 'No reply', result: j.result, deployable: j.deployable, kind: j.kind }])
     } catch (e) {
       setMsgs((m) => [...m, { role: 'ai', text: `The Lab is unreachable (${e.message}).`, kind: 'error' }])
     } finally {
@@ -92,29 +102,28 @@ export default function Lab({ initialPrompt = '', autorun = false }) {
     <section className="lab narrow">
       <div className="lab-head">
         <h1>Test your idea</h1>
-        <p className="sub">Check an idea against real history before anyone puts money in. Then take it to the group in <a href={TELEGRAM_BOT} target="_blank" rel="noreferrer">Telegram</a>.</p>
+        <p className="sub">Start with a question, choose a rule, then inspect the evidence. Share ideas in the <a href="/app/#/huddle/demo">practice group chat</a>.</p>
       </div>
       <div className="thread">
         {msgs.map((m, i) => (
           <div key={i} className={`msg ${m.role}`}>
             <div className="bubble">
               <div className={m.kind === 'error' ? 'neg' : ''}>{m.text}</div>
-              {m.result && <Result r={m.result} />}
+              {m.result && <Result r={m.result} deployable={m.deployable} />}
             </div>
           </div>
         ))}
         {busy && <div className="msg ai"><div className="bubble"><SkelLines n={3} widths={['45%', '80%', '60%']} /></div></div>}
         <div ref={endRef} />
       </div>
-      <div className="ideas compact">{IDEAS.map((idea) => (
-        <button key={idea.market} className="card idea" onClick={() => ask(idea.said)} disabled={busy}>
-          <b>“{idea.said}”</b><span className="sub">{idea.trade}</span>
-        </button>
-      ))}</div>
+      {examples.length > 0 && msgs.length < 3 && (
+        <div className="examples">{examples.map((e) => <button key={e} onClick={() => selectIdea(e)}>{e}</button>)}</div>
+      )}
       <form className="ask" onSubmit={(e) => { e.preventDefault(); ask() }}>
         <input ref={inputRef} value={q} onChange={(e) => setQ(e.target.value)} placeholder="what if I…" disabled={busy} aria-label="Your what-if" />
         <button className="primary" disabled={busy || !q.trim()}>Run</button>
       </form>
+      <ResearchIdeas onSelect={selectIdea} />
     </section>
   )
 }

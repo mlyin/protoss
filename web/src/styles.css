@@ -854,19 +854,3 @@ details[open] summary::before { transform: rotate(45deg); }
 @media(max-width: 480px) { .header-right .mode { display: inline-flex; font-size: 11px; } .header-in .nav { overflow-x: auto; justify-content: flex-start; } .header-in .nav a { flex-shrink: 0; } }
 
 @media(max-width: 480px) { .header { height: auto; min-height: 94px; } .header-in { height: auto; padding-top: 10px; padding-bottom: 10px; } .header-in .nav { flex-wrap: wrap; overflow: visible; } .header-in .nav a { min-height: 36px; } }
-
-/* the four ideas (homepage, Lab) and the accounts page, 2026-11-01 */
-.ideas-h { font-size: 22px; margin: 8px 0 16px; }
-.ideas { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
-.idea { padding: 24px; display: flex; flex-direction: column; gap: 10px; text-align: left; }
-.idea h3 { font-size: 19px; line-height: 1.35; margin: 0; }
-.idea p { margin: 0; line-height: 1.55; color: var(--text-2); }
-.idea-actions { margin-top: auto; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding-top: 6px; }
-.ideas.compact { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 4px 0 16px; }
-.ideas.compact .idea { height: auto; padding: 14px 16px; gap: 4px; white-space: normal; font-weight: 400; color: var(--text); background: var(--surface); }
-.ideas.compact .idea:hover { border-color: var(--hair-2); background: var(--surface-2); }
-.ideas.compact .idea b { font-weight: 500; font-size: 14px; line-height: 20px; }
-.accounts { display: flex; flex-direction: column; gap: 20px; }
-.acct .cardhead a { text-decoration: underline; text-underline-offset: 3px; }
-@media (max-width: 960px) { .ideas { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 640px) { .ideas, .ideas.compact { grid-template-columns: 1fr; } .header-right .btn { padding: 0 10px; } }

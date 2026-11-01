@@ -17,3 +17,7 @@ Things Matthew corrected once. Do not make him say them twice.
 - 2026-10-31: When he says "the basketball" he means the airless basketball print, not the locker shelf. Confirm the file before slicing.
 - 2026-10-31: Anti-slop on X copy is standing policy, not a one-off (see [[voice]]).
 - 2026-10-31: Builder-code answer he wanted: a *separate* funded account in standard mode, not converting his personal Unified account.
+
+- 2026-11-01: Matthew wants the practice demo to resemble the Telegram group where the product will be used, with the working group chat on the homepage. Use the same conversation component in both places: member avatars, Probe bot messages, inline idea backing, and a message composer. Keep paper status visible and state that browser messages are not sent to Telegram.
+
+- 2026-11-01: No fake balances, positions, activity, or sample friends on the public website. Real positions are private to the connected account view. The Telegram-style practice work was superseded by this correction before publication.
