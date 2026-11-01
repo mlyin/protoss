@@ -4,6 +4,9 @@
 # The token is never an argument: save it once to ~/.protoss/telegram.env (TELEGRAM_BOT_TOKEN=...), mode 600.
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+case "$ROOT" in "$HOME/Documents"*|"$HOME/Desktop"*|"$HOME/Downloads"*)
+  echo "launchd cannot read $ROOT (macOS privacy). Clone to ~/protoss-bot and run this script from there." >&2; exit 1 ;;
+esac
 CHAT="${1:?chat id}"; USERS="${2:?comma-separated Telegram user ids}"
 LABEL=com.protoss.telegram; PLIST="$HOME/Library/LaunchAgents/$LABEL.plist"
 mkdir -p "$HOME/Library/LaunchAgents" "$HOME/.protoss"
