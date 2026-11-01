@@ -24,6 +24,7 @@ SOURCE = SimpleNamespace(name='hyperliquid', markets=lambda: ['BTC'])
 
 @pytest.fixture(autouse=True)
 def reset_research_cache(monkeypatch):
+    monkeypatch.delenv('PODCAST_ANTHROPIC_API_KEY', raising=False)
     monkeypatch.setattr(research, '_analysis_cache', {})
     monkeypatch.setattr(research, '_last_analysis', None)
 
@@ -159,3 +160,18 @@ def test_api_requires_admin_before_any_research(monkeypatch):
         assert calls == [URL]
     finally:
         get_settings.cache_clear()
+
+
+def test_dedicated_provider_key_does_not_enable_lab_provider(monkeypatch):
+    monkeypatch.delenv('ANTHROPIC_API_KEY', raising=False)
+    monkeypatch.setenv('PODCAST_ANTHROPIC_API_KEY', 'test-podcast-provider')
+    seen = []
+    def analyze(source, markets, key):
+        seen.append(key)
+        return ANALYSIS
+    result = research.research(URL, SOURCE, fetch=lambda _: HTML, analyze=analyze)
+    assert result['kind'] == 'research' and seen == ['test-podcast-provider']
+    from app import lab
+    assert not lab.os.environ.get('ANTHROPIC_API_KEY')
+    monkeypatch.setenv('ANTHROPIC_API_KEY', 'test-existing-lab-provider')
+    assert research.provider_key() == 'test-podcast-provider'

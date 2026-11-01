@@ -27,6 +27,10 @@ _analysis_cache = {}
 _last_analysis = None
 
 
+def provider_key():
+    return os.environ.get('PODCAST_ANTHROPIC_API_KEY') or os.environ.get('ANTHROPIC_API_KEY')
+
+
 class ResearchUnavailable(ValueError):
     pass
 
@@ -166,7 +170,7 @@ def model_analysis(source, markets, key):
 
 def research(message, price_source, *, fetch=download, analyze=model_analysis):
     global _last_analysis
-    key = os.environ.get('ANTHROPIC_API_KEY')
+    key = provider_key()
     if not key:
         raise ResearchUnavailable('Episode research is not configured yet. No market or trade has been selected.')
     if price_source.name != 'hyperliquid':
@@ -246,7 +250,7 @@ def research_podcast(body: ResearchIn, x_admin_token: str | None = Header(defaul
     if not _research_lock.acquire(blocking=False):
         return {'kind': 'unavailable', 'reply': 'Another episode is being researched. Try again shortly.'}
     try:
-        if not os.environ.get('ANTHROPIC_API_KEY'):
+        if not provider_key():
             raise ResearchUnavailable('Episode research is not configured yet. No market or trade has been selected.')
         return research(body.message, current_source())
     except ResearchUnavailable as exc:
