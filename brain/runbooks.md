@@ -1,5 +1,7 @@
 # Runbooks
 
+- 2026-11-01: The Hyperliquid account chooser uses EIP-6963 discovery with a legacy provider fallback, without opening any wallet until its named option is selected. Cancel/disconnect invalidates pending responses and old provider callbacks. Email-based Hyperliquid wallet connection remains unsupported: the UI says so rather than connecting a different wallet. Verify both desktop/mobile multi-provider choice and the private Telegram ownership path before publishing changes.
+
 - 2026-11-01: Preserve Telegram's private `/#/telegram/connect?token=...` and `/#/trade?token=...` links. They canonicalize to `/app/#/...`; tokens stay in fragments and authorization headers, never browser storage or query strings. These screens are private entry points, not extra public navigation. Pages uses its configured API origin. An API-hosted/local build without an explicit `VITE_API_ORIGIN` keeps private requests on its issuing origin; URL parameters cannot choose a backend. The bot's `APP_URL` and the frontend's private API must resolve to the same database. Do not point a local bot's links at Pages while its tokens exist only in a local database.
 
 - 2026-11-01: Iterate on a locally rendered preview before publishing, per Matthew. The current preview runs at `http://127.0.0.1:4374/`; its local-only proxy sends `/lab` research requests to the public API. This avoids requiring a deployment for UI feedback. Keep CI as the release check, not the edit-preview loop.

@@ -55,9 +55,11 @@ test('wallet ownership only starts after a click and saves through the private A
     return route.fulfill({ json: connection })
   })
   await page.goto('/app/#/telegram/connect?token=first')
-  await expect(page.getByRole('button', { name: 'Connect wallet and prove ownership' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Connect Hyperliquid wallet' })).toBeVisible()
   expect(await page.evaluate(() => window.__walletCalls)).toEqual([])
-  await page.getByRole('button', { name: 'Connect wallet and prove ownership' }).click()
+  await page.getByRole('button', { name: 'Connect Hyperliquid wallet' }).click()
+  expect(await page.evaluate(() => window.__walletCalls)).toEqual([])
+  await page.getByRole('button', { name: 'Browser wallet', exact: true }).click()
   await expect(page.getByRole('heading', { name: 'Wallet ownership verified' })).toBeVisible()
   expect(posts).toEqual([{ wallet, signature: '0x' + '1'.repeat(130) }])
   expect(await page.evaluate(() => window.__walletCalls)).toEqual(['eth_requestAccounts', 'personal_sign', 'eth_accounts'])
@@ -85,7 +87,7 @@ test('missing and expired private links explain how to recover', async ({ page }
   expect(reads).toEqual([])
   await page.goto('/app/#/telegram/connect?token=expired')
   await expect(page.getByRole('alert')).toContainText('request /join again')
-  await expect(page.getByRole('button', { name: 'Connect wallet and prove ownership' })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Connect Hyperliquid wallet' })).toHaveCount(0)
 })
 
 test('private trade review is reachable without automatic wallet or exchange actions', async ({ page }, info) => {
@@ -162,4 +164,26 @@ test('public Pages links use the configured API and ignore an injected backend U
   expect(requests).toHaveLength(1)
   expect(requests[0].headers().authorization).toBe('Bearer pages-token')
   expect(requests[0].headers().referer).toBeUndefined()
+})
+
+test('cancelling a private wallet request prevents a later ownership signature', async ({ page }) => {
+  const posts = []
+  await page.route('**/telegram/connect', route => {
+    if (route.request().method() === 'POST') posts.push(route.request().postDataJSON())
+    return route.fulfill({ json: connection })
+  })
+  await page.addInitScript(({ wallet }) => {
+    window.ethereum.request = ({ method }) => {
+      window.__walletCalls.push(method)
+      return new Promise(resolve => { window.__finishWallet = () => resolve([wallet]) })
+    }
+  }, { wallet })
+  await page.goto('/app/#/telegram/connect?token=test-private-token')
+  await page.getByRole('button', { name: 'Connect Hyperliquid wallet' }).click()
+  await page.getByRole('button', { name: 'Browser wallet', exact: true }).click()
+  await page.getByRole('button', { name: 'Cancel', exact: true }).click()
+  await page.evaluate(() => window.__finishWallet())
+  await expect(page.getByRole('button', { name: 'Connect Hyperliquid wallet' })).toBeVisible()
+  expect(await page.evaluate(() => window.__walletCalls)).toEqual(['eth_requestAccounts'])
+  expect(posts).toEqual([])
 })

@@ -26,6 +26,11 @@ test.afterEach(async ({ page }) => {
   expect((await page.evaluate(() => window.__walletRequests || [])).every(method => method === 'eth_requestAccounts')).toBeTruthy()
 })
 
+async function connectWallet(page) {
+  await page.getByRole('button', { name: 'Connect Hyperliquid', exact: true }).click()
+  await page.getByRole('button', { name: 'Browser wallet', exact: true }).click()
+}
+
 async function marketData(page, { empty = false, fail = '', delay = 0 } = {}) {
   const reads = []
   await page.route('https://api.hyperliquid.xyz/info', async route => {
@@ -56,14 +61,14 @@ test('homepage contains the real account entry and no practice navigation', asyn
   await page.screenshot({ path: `test-results/home-${info.project.name}.png`, fullPage: true })
   await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Friends & positions', exact: true }).click()
   await expect(page).toHaveURL(/\/app\/$/)
-  await expect(page.getByRole('heading', { name: 'Connect your account' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Connect your Hyperliquid account' })).toBeVisible()
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBeTruthy()
 })
 
 test('disconnected visitors never request or see any account data', async ({ page }) => {
   const reads = await marketData(page)
   await page.goto('/app/')
-  await expect(page.getByRole('heading', { name: 'Connect your account' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Connect your Hyperliquid account' })).toBeVisible()
   await expect(page.locator('.real-position, .group-accounts, .group-fills')).toHaveCount(0)
   await expect(page.getByRole('heading', { name: /Recent fills|The group's accounts|My positions/ })).toHaveCount(0)
   expect(reads).toEqual([])
@@ -73,7 +78,7 @@ test('disconnected visitors never request or see any account data', async ({ pag
 test('connection reads actual venue responses and never calls the exchange', async ({ page }, info) => {
   const reads = await marketData(page)
   await page.goto('/app/')
-  await page.getByRole('button', { name: 'Connect wallet', exact: true }).click()
+  await connectWallet(page)
   await expect(page.getByText('BTC', { exact: true })).toBeVisible()
   await expect(page.getByText('xyz:ANT', { exact: true })).toBeVisible()
   expect(reads).toEqual([{ type: 'perpDexs' }, { type: 'clearinghouseState', user: owner, dex: '' }, { type: 'clearinghouseState', user: owner, dex: 'xyz' }, { type: 'userFills', user: owner }])
@@ -89,7 +94,7 @@ test('connection reads actual venue responses and never calls the exchange', asy
 test('empty exchange responses render an honest empty state', async ({ page }) => {
   await marketData(page, { empty: true })
   await page.goto('/app/')
-  await page.getByRole('button', { name: 'Connect wallet', exact: true }).click()
+  await connectWallet(page)
   await expect(page.getByText('No open positions.', { exact: true })).toBeVisible()
   await expect(page.locator('.real-position')).toHaveCount(0)
 })
@@ -97,7 +102,7 @@ test('empty exchange responses render an honest empty state', async ({ page }) =
 test('missing markets do not masquerade as a flat account', async ({ page }) => {
   await marketData(page, { empty: true, fail: 'all' })
   await page.goto('/app/')
-  await page.getByRole('button', { name: 'Connect wallet', exact: true }).click()
+  await connectWallet(page)
   await expect(page.getByRole('alert')).toContainText('Positions below may be incomplete')
   await expect(page.getByText('No open positions.', { exact: true })).toHaveCount(0)
 })
@@ -105,20 +110,20 @@ test('missing markets do not masquerade as a flat account', async ({ page }) => 
 test('wallet change and disconnect immediately clear the previous positions', async ({ page }) => {
   await marketData(page, { delay: 800 })
   await page.goto('/app/')
-  await page.getByRole('button', { name: 'Connect wallet', exact: true }).click()
+  await connectWallet(page)
   await expect(page.getByText('BTC', { exact: true })).toBeVisible()
   await page.evaluate(other => window.__accountListeners.accountsChanged([other]), other)
   await expect(page.getByText('BTC', { exact: true })).toHaveCount(0)
   await expect(page.getByText('No open positions.', { exact: true })).toBeVisible()
   await page.getByRole('button', { name: 'Disconnect', exact: true }).click()
-  await expect(page.getByRole('heading', { name: 'Connect your account' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Connect your Hyperliquid account' })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'My positions', exact: true })).toHaveCount(0)
 })
 
 test('friends are explicitly added contacts scoped to the connected wallet', async ({ page }) => {
   await marketData(page, { empty: true })
   await page.goto('/app/')
-  await page.getByRole('button', { name: 'Connect wallet', exact: true }).click()
+  await connectWallet(page)
   await page.getByRole('button', { name: 'Add friend', exact: true }).click()
   await page.getByLabel('Name', { exact: true }).fill('Test friend')
   await page.getByLabel('Telegram username', { exact: true }).fill('test_friend')
@@ -137,15 +142,15 @@ test('retired demo and activity links enter the real account screen', async ({ p
     await page.goto('/')
     await page.goto(path)
     await expect(page).toHaveURL(/\/app\/$/)
-    await expect(page.getByRole('heading', { name: 'Connect your account' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Connect your Hyperliquid account' })).toBeVisible()
   }
 })
 
 test('missing wallet is explained without invented account data', async ({ page }) => {
   await page.addInitScript(() => { delete window.ethereum })
   await page.goto('/app/')
-  await page.getByRole('button', { name: 'Connect wallet', exact: true }).click()
-  await expect(page.getByRole('alert')).toContainText('Open this site in your wallet browser')
+  await page.getByRole('button', { name: 'Connect Hyperliquid', exact: true }).click()
+  await expect(page.getByText(/No browser wallet found/)).toBeVisible()
   await expect(page.locator('.real-position')).toHaveCount(0)
 })
 
@@ -240,4 +245,98 @@ test('old snapshots and a failed snapshot request never show invented research o
   await page.reload()
   await expect(page.getByRole('tabpanel')).toContainText('saved test is unavailable')
   await expect(page.getByRole('tabpanel')).not.toContainText('Loading the test')
+})
+
+test('Hyperliquid connection chooses an announced wallet instead of default Phantom', async ({ page }, info) => {
+  const reads = await marketData(page)
+  await page.addInitScript(({ owner }) => {
+    window.__chosenWallets = []
+    const make = name => ({ request: async ({ method }) => {
+      window.__walletRequests.push(method); window.__chosenWallets.push(name)
+      if (method !== 'eth_requestAccounts') throw new Error('No signing allowed')
+      return [owner]
+    } })
+    const phantom = make('Phantom'), metamask = make('MetaMask')
+    phantom.isPhantom = true
+    window.ethereum = phantom
+    window.phantom = { ethereum: phantom }
+    window.addEventListener('eip6963:requestProvider', () => {
+      for (const [name, provider] of [['Phantom', phantom], ['MetaMask', metamask]]) {
+        window.dispatchEvent(new CustomEvent('eip6963:announceProvider', { detail: { info: { name }, provider } }))
+      }
+    })
+  }, { owner })
+  await page.goto('/app/')
+  await page.getByRole('button', { name: 'Connect Hyperliquid', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Phantom', exact: true })).toHaveCount(1)
+  await expect(page.getByRole('button', { name: 'MetaMask', exact: true })).toBeVisible()
+  expect(await page.evaluate(() => window.__chosenWallets)).toEqual([])
+  expect(reads).toEqual([])
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBeTruthy()
+  await page.screenshot({ path: `test-results/wallet-choice-${info.project.name}.png`, fullPage: true })
+  await page.getByRole('button', { name: 'MetaMask', exact: true }).click()
+  await expect(page.getByText('BTC', { exact: true })).toBeVisible()
+  expect(await page.evaluate(() => window.__chosenWallets)).toEqual(['MetaMask'])
+})
+
+test('email account guidance does not silently connect an unrelated wallet', async ({ page }) => {
+  const reads = await marketData(page)
+  await page.goto('/app/')
+  await page.getByRole('button', { name: 'Connect Hyperliquid', exact: true }).click()
+  await page.getByRole('button', { name: 'I use email on Hyperliquid' }).click()
+  await expect(page.getByText(/Direct email-wallet connection is not available here yet/)).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Open Hyperliquid' })).toHaveAttribute('href', 'https://app.hyperliquid.xyz/')
+  expect(await page.evaluate(() => window.__walletRequests)).toEqual([])
+  expect(reads).toEqual([])
+})
+
+test('cancelled wallet selection cannot expose a late account response', async ({ page }) => {
+  const reads = await marketData(page)
+  await page.addInitScript(({ owner }) => {
+    window.ethereum.request = ({ method }) => {
+      window.__walletRequests.push(method)
+      return new Promise(resolve => { window.__finishWallet = () => resolve([owner]) })
+    }
+  }, { owner })
+  await page.goto('/app/')
+  await connectWallet(page)
+  await page.getByRole('button', { name: 'Cancel', exact: true }).click()
+  await page.evaluate(() => window.__finishWallet())
+  await expect(page.getByRole('button', { name: 'Connect Hyperliquid', exact: true })).toBeVisible()
+  expect(reads).toEqual([])
+  await expect(page.locator('.real-position')).toHaveCount(0)
+})
+
+test('old provider events cannot restore an account while another wallet connects', async ({ page }) => {
+  const reads = await marketData(page)
+  await page.addInitScript(({ owner, other }) => {
+    const listeners = {}
+    window.__oldListeners = listeners
+    const a = { request: async ({ method }) => { window.__walletRequests.push(method); return [owner] },
+      on: (event, handler) => { listeners[event] = handler }, removeListener: () => {} }
+    const b = { request: ({ method }) => {
+      window.__walletRequests.push(method)
+      return new Promise(resolve => { window.__finishSecondWallet = () => resolve([other]) })
+    } }
+    window.ethereum = a
+    window.addEventListener('eip6963:requestProvider', () => {
+      for (const [name, provider] of [['Wallet A', a], ['Wallet B', b]])
+        window.dispatchEvent(new CustomEvent('eip6963:announceProvider', { detail: { info: { name }, provider } }))
+    })
+  }, { owner, other })
+  await page.goto('/app/')
+  await page.getByRole('button', { name: 'Connect Hyperliquid', exact: true }).click()
+  await page.getByRole('button', { name: 'Wallet A', exact: true }).click()
+  await expect(page.getByText('BTC', { exact: true })).toBeVisible()
+  await page.evaluate(() => window.__oldListeners.disconnect())
+  await page.getByRole('button', { name: 'Connect Hyperliquid', exact: true }).click()
+  await page.getByRole('button', { name: 'Wallet B', exact: true }).click()
+  const readsBeforeStaleEvent = reads.length
+  await page.evaluate(owner => window.__oldListeners.accountsChanged([owner]), owner)
+  await expect(page.getByRole('status')).toHaveText('Waiting for the wallet you selected…')
+  await expect(page.getByText('BTC', { exact: true })).toHaveCount(0)
+  expect(reads.length).toBe(readsBeforeStaleEvent)
+  await page.evaluate(() => window.__finishSecondWallet())
+  await expect(page.getByText('No open positions.', { exact: true })).toBeVisible()
+  expect(reads.slice(readsBeforeStaleEvent).filter(r => r.user).every(r => r.user === other)).toBeTruthy()
 })

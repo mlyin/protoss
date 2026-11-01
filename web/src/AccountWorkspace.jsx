@@ -1,3 +1,4 @@
+import WalletChooser from './WalletChooser.jsx'
 import React, { useEffect, useRef, useState } from 'react'
 import './AccountWorkspace.css'
 
@@ -109,6 +110,8 @@ function Friends({ address }) {
 export default function AccountWorkspace({ embedded = false }) {
   const [address, setAddress] = useState('')
   const [connecting, setConnecting] = useState(false)
+  const [choosingWallet, setChoosingWallet] = useState(false)
+  const connectLock = useRef(false)
   const [connectError, setConnectError] = useState('')
   const providerRef = useRef(null)
   const cleanupRef = useRef(null)
@@ -118,11 +121,13 @@ export default function AccountWorkspace({ embedded = false }) {
   const disconnect = () => {
     connectionAttempt.current++
     cleanupRef.current?.(); cleanupRef.current = null; providerRef.current = null
-    setAddress(''); setConnectError(''); setConnecting(false)
+    setAddress(''); setConnectError(''); setConnecting(false); setChoosingWallet(false); connectLock.current = false
   }
-  const connect = async () => {
-    const provider = window.ethereum
-    if (!provider?.request) { setConnectError('Open this site in your wallet browser, or enable your browser wallet extension. Connect the wallet that owns your Hyperliquid account.'); return }
+  const connect = async provider => {
+    if (connectLock.current) return
+    connectLock.current = true
+    cleanupRef.current?.(); cleanupRef.current = null; providerRef.current = null
+    setAddress('')
     const attempt = ++connectionAttempt.current
     setConnecting(true); setConnectError('')
     try {
@@ -132,22 +137,31 @@ export default function AccountWorkspace({ embedded = false }) {
       if (!ADDRESS.test(accounts?.[0])) throw new Error('No wallet account was selected.')
       cleanupRef.current?.()
       providerRef.current = provider
-      const changed = accounts => setAddress(ADDRESS.test(accounts?.[0]) ? accounts[0] : '')
-      const lost = () => { setAddress(''); setConnectError('Wallet disconnected. Connect again to view your positions.') }
+      const active = () => providerRef.current === provider && attempt === connectionAttempt.current
+      const lost = () => {
+        if (!active()) return
+        disconnect(); setConnectError('Wallet disconnected. Connect again to view your positions.')
+      }
+      const changed = accounts => {
+        if (!active()) return
+        if (ADDRESS.test(accounts?.[0])) setAddress(accounts[0])
+        else lost()
+      }
       provider.on?.('accountsChanged', changed)
       provider.on?.('disconnect', lost)
       cleanupRef.current = () => { provider.removeListener?.('accountsChanged', changed); provider.removeListener?.('disconnect', lost) }
-      setAddress(accounts[0])
+      setAddress(accounts[0]); setChoosingWallet(false)
     } catch (error) {
       if (attempt === connectionAttempt.current) setConnectError(error.code === 4001 ? 'Connection cancelled. Your wallet was not connected.' : 'Could not connect your wallet. Check the wallet and try again.')
-    } finally { if (attempt === connectionAttempt.current) setConnecting(false) }
+    } finally { if (attempt === connectionAttempt.current) { setConnecting(false); connectLock.current = false } }
   }
   return <section className={`account-workspace ${embedded ? 'embedded' : ''}`} aria-label="Friends and positions">
     <header className="account-header"><img src="/probe/idle.svg" alt="" /><div><h2>Your circle</h2><p>{address ? short(address) : 'Your friends. Your positions.'}</p></div>{address && <button className="account-text-button" onClick={disconnect}>Disconnect</button>}</header>
     {!address ? <div className="account-connect">
       <div className="account-connect-mark"><img src="/probe/idle.svg" alt="Probe" /></div>
-      <h2>Connect your account</h2><p>See your actual Hyperliquid positions and keep your friends close.</p>
-      <button className="btn primary" onClick={connect} disabled={connecting}>{connecting ? 'Connecting…' : 'Connect wallet'}</button>
+      <h2>Connect your Hyperliquid account</h2><p>See your actual Hyperliquid positions and keep your friends close.</p>
+      {choosingWallet ? <WalletChooser onSelect={connect} onCancel={disconnect} busy={connecting} />
+        : <button className="btn primary" onClick={() => { setConnectError(''); setChoosingWallet(true) }}>Connect Hyperliquid</button>}
       <span>Read-only. No trades or signatures.</span>
       {connectError && <p className="account-error" role="alert">{connectError}</p>}
     </div> : <div className="account-content" key={address.toLowerCase()}>

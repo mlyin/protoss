@@ -1,0 +1,9 @@
+.wallet-chooser { width: min(100%, 360px); margin: 16px auto; text-align: left; }
+.wallet-chooser > p { font-size: 14px; line-height: 1.5; }
+.wallet-options { display: grid; gap: 8px; margin: 12px 0; }
+.wallet-options button { width: 100%; text-align: left; padding: 13px 16px; border: 1px solid #cdd9de; border-radius: 8px; background: #fff; color: #253a43; }
+.wallet-options button:hover:not(:disabled) { background: #edf4f5; border-color: #287da1; }
+.wallet-chooser .wallet-help { font-size: 12px; line-height: 1.6; color: #526a75; }
+.wallet-chooser a { color: #236a85; text-decoration: underline; }
+.wallet-help-toggle { display: block; border: 0; background: transparent; color: #236a85; padding: 10px 0; text-align: left; font-size: 12px; }
+.wallet-chooser :is(button, a):focus-visible { outline: 2px solid #287da1; outline-offset: 3px; }

@@ -1,3 +1,4 @@
+import WalletChooser from './WalletChooser.jsx'
 import React, { useEffect, useRef, useState } from 'react'
 import { privateApiFetch } from './api.js'
 import './PrivateAccount.css'
@@ -5,6 +6,8 @@ import './PrivateAccount.css'
 export default function TelegramConnect({ token }) {
   const [connection, setConnection] = useState(null)
   const [busy, setBusy] = useState(false)
+  const [choosingWallet, setChoosingWallet] = useState(false)
+  const attempt = useRef(0)
   const [error, setError] = useState('')
   const alive = useRef(true)
   const lock = useRef(false)
@@ -20,24 +23,23 @@ export default function TelegramConnect({ token }) {
       if (!response.ok) throw new Error(typeof data.detail === 'string' ? data.detail : 'Could not open this connection link.')
       if (alive.current) setConnection(data)
     }).catch(error => { if (alive.current) setError(error.message) })
-    return () => { alive.current = false; controller.abort() }
+    return () => { alive.current = false; attempt.current++; controller.abort() }
   }, [token])
 
-  async function connect() {
+  async function connect(provider) {
     if (lock.current) return
     lock.current = true; setBusy(true); setError('')
+    const currentAttempt = ++attempt.current
     try {
-      const provider = window.protossWallet || window.ethereum
-      if (!provider?.request) throw new Error('Open this link in your wallet browser or enable your browser wallet extension.')
       const accounts = await provider.request({ method: 'eth_requestAccounts' })
-      if (!alive.current) return
+      if (!alive.current || currentAttempt !== attempt.current) return
       const wallet = accounts?.[0]
       if (!/^0x[0-9a-fA-F]{40}$/.test(wallet || '')) throw new Error('No wallet account was selected.')
       const message = '0x' + Array.from(new TextEncoder().encode(connection.challenge), b => b.toString(16).padStart(2, '0')).join('')
       const signature = await provider.request({ method: 'personal_sign', params: [message, wallet] })
-      if (!alive.current) return
+      if (!alive.current || currentAttempt !== attempt.current) return
       const selected = await provider.request({ method: 'eth_accounts' })
-      if (!alive.current) return
+      if (!alive.current || currentAttempt !== attempt.current) return
       if (selected?.[0]?.toLowerCase() !== wallet.toLowerCase()) throw new Error('Wallet selection changed. Connect again with the wallet you want to use.')
       const response = await privateApiFetch('/telegram/connect', {
         method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
@@ -45,12 +47,11 @@ export default function TelegramConnect({ token }) {
       })
       const data = await response.json()
       if (!response.ok) throw new Error(typeof data.detail === 'string' ? data.detail : 'Could not verify wallet ownership.')
-      if (alive.current) setConnection(current => ({ ...current, ...data }))
+      if (alive.current && currentAttempt === attempt.current) { setConnection(current => ({ ...current, ...data })); setChoosingWallet(false) }
     } catch (error) {
-      if (alive.current) setError(error.code === 4001 ? 'Connection cancelled. No ownership signature was saved.' : error.message)
+      if (alive.current && currentAttempt === attempt.current) setError(error.code === 4001 ? 'Connection cancelled. No ownership signature was saved.' : error.message)
     } finally {
-      lock.current = false
-      if (alive.current) setBusy(false)
+      if (currentAttempt === attempt.current) { lock.current = false; if (alive.current) setBusy(false) }
     }
   }
 
@@ -66,7 +67,8 @@ export default function TelegramConnect({ token }) {
         <a className="btn primary" href="/app/">View my positions</a>
       </div> : <>
         <details><summary>Read the ownership message</summary><pre>{connection.challenge}</pre></details>
-        <button className="primary" onClick={connect} disabled={busy}>{busy ? 'Waiting for your wallet…' : 'Connect wallet and prove ownership'}</button>
+        {choosingWallet ? <WalletChooser onSelect={connect} busy={busy} onCancel={() => { attempt.current++; lock.current = false; setBusy(false); setChoosingWallet(false); setError('') }} />
+          : <button className="primary" onClick={() => setChoosingWallet(true)}>Connect Hyperliquid wallet</button>}
       </>}
       <p className="sub">Keep this link private. If it expires, request a new connection link in Telegram.</p>
     </div>}
