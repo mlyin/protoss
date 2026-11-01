@@ -7,10 +7,18 @@ export const TELEGRAM_BOT = 'https://t.me/ProtossTradingDemoBot'
 // Same four sentences, same order, as the Lab (backend/app/lab.py EXAMPLES) and the Telegram bot's /demo menu.
 export const IDEAS = [
   { id: 'hacks', label: 'A company gets hacked', prompt: "Let's buy XMR every time a major company gets hacked", market: 'XMR', dex: '', direction: 'Long', title: 'Hacks → XMR for a day', ask: 'buy XMR after major hacks, hold 1 day, over the last 180 days using hourly candles', days: 180, event: 'A major company gets hacked', when: 'In the Telegram group, someone reports it ("protoss hack: …") and every armed copy buys XMR for one day.', risk: 'A hack does not have to raise demand for XMR. The test above says whether it has.' },
-  { id: 'robots', label: 'Robots take over', prompt: 'I think robots are going to take over the world', market: 'xyz:UNITREE', dex: 'xyz', direction: 'Long', title: 'Robotics → Unitree', risk: 'xyz:UNITREE is a Unitree-linked perpetual, not Unitree shares. It can move away from the company’s value.' },
+  { id: 'robots', label: 'Robots take over', prompt: 'I think robots are going to take over the world', market: 'xyz:UNITREE', dex: 'xyz', direction: 'Long', title: 'Robotics → Unitree', ask: 'buy and hold xyz:UNITREE over the last 80 days', days: 80, risk: 'xyz:UNITREE is a Unitree-linked perpetual, not Unitree shares. It can move away from the company’s value.' },
   { id: 'anthropic', label: 'The Anthropic bubble pops', prompt: 'The Anthropic bubble is going to pop', market: 'xyz:ANT', dex: 'xyz', direction: 'Short', title: 'Anthropic → short', risk: 'xyz:ANT is a perpetual, not Anthropic stock. A short loses money when the price rises.' },
   { id: 'dwarkesh', label: 'A new Dwarkesh episode', prompt: 'Dwarkesh is always right. Trade every new episode', market: 'xyz:NVDA', dex: 'xyz', direction: 'Long', title: 'New episode → NVDA for 7 days', event: 'A new Dwarkesh Podcast episode', when: 'The Telegram bot reads his podcast feed every 10 minutes. A new episode buys NVDA for 7 days in every armed copy.', risk: 'An interview is not a price signal by itself. 33 episodes is a small sample.' },
 ]
+
+// What a live answer must be to count as this idea; anything else (an older Lab, a clarifying question) is not shown as a result.
+const EXPECT = {
+  hacks: spec => spec?.event_set === 'major_hacks' && spec?.market === 'XMR',
+  robots: spec => spec?.market === 'xyz:UNITREE' && spec?.side !== 'short',
+  anthropic: spec => spec?.market === 'xyz:ANT' && spec?.side === 'short',
+  dwarkesh: spec => spec?.event_set === 'dwarkesh' && spec?.market === 'xyz:NVDA',
+}
 
 function useSnapshot() {
   // scripts/idea_snapshots.py: the same backtest and chart the Telegram bot shows, run on Hyperliquid candles
@@ -59,6 +67,10 @@ export default function IdeaChat() {
       const result = await response.json()
       if (!response.ok) throw new Error(typeof result.detail === 'string' ? result.detail : 'Historical research is unavailable.')
       if (typeof result.reply !== 'string') throw new Error('The research service returned no explanation.')
+      if (result.kind !== 'error' && !(result.kind === 'backtest' && EXPECT[idea.id]?.(result.spec))) {
+        const when = snap?.as_of ? new Date(snap.as_of).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : 'earlier'
+        throw new Error(`The live Lab can't run this idea yet; it is being updated. The test above ran on ${when} with the same Hyperliquid prices.`)
+      }
       const baseline = Array.isArray(result.result?.notes) ? result.result.notes.filter(note => typeof note === 'string' && note.startsWith('baseline:')) : []
       setResearch([result.reply, ...baseline].join('\n\n'))
     } catch (e) { setResearch(e.message || 'Historical research is unavailable. No result has been invented.') }
