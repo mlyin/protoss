@@ -119,7 +119,7 @@ def _wrap(draw, text: str, font, width: int, max_lines: int) -> list[str]:
 
 
 def render_card(*, kicker: str, headline: str, stats: list[tuple[str, str, str | None]], foot: str, curve: list[float] | None = None,
-                bench: list[float] | None = None) -> bytes:
+                bench: list[float] | None = None, return_pct: float | None = None, bench_pct: float | None = None) -> bytes:
     """Ink card: kicker, Anton headline, a row of figures over the red rule (the line you drew), optional curve.
     With `bench` (buy and hold over the same window) both lines share one scale and a legend says where each ended."""
     from PIL import Image, ImageDraw
@@ -154,7 +154,7 @@ def render_card(*, kicker: str, headline: str, stats: list[tuple[str, str, str |
         Y = lambda v: y1 - (v - lo) / max(1e-9, hi - lo) * (y1 - y0)  # noqa: E731
         line = lambda vals: [(x0 + i * (x1 - x0) / (len(vals) - 1), Y(v)) for i, v in enumerate(vals)]  # noqa: E731
         d.line([(x0, Y(curve[0])), (x1, Y(curve[0]))], fill="#3a3a35", width=2)
-        color = POS if curve[-1] >= curve[0] else NEG
+        color = POS if (return_pct >= 0 if return_pct is not None else curve[-1] >= curve[0]) else NEG
         if bench:
             d.line(line(bench), fill=MUTED, width=3, joint="curve")
         d.line(line(curve), fill=color, width=4, joint="curve")
@@ -163,7 +163,9 @@ def render_card(*, kicker: str, headline: str, stats: list[tuple[str, str, str |
             for i, (name, vals, fill) in enumerate((("the idea", curve, color), ("buy and hold", bench, MUTED))):
                 ly = y1 + 18 + i * 28
                 d.rectangle([x0, ly + 10, x0 + 18, ly + 13], fill=fill)
-                d.text((x0 + 28, ly), f"{name} {(vals[-1] / vals[0] - 1) * 100:+.1f}%", font=small, fill=fill if fill != MUTED else SECOND)
+                pct = return_pct if name == "the idea" else bench_pct
+                pct = pct if pct is not None else (vals[-1] / vals[0] - 1) * 100
+                d.text((x0 + 28, ly), f"{name} {pct:+.1f}%", font=small, fill=fill if fill != MUTED else SECOND)
     ys = H - 210
     lab, val = _font("Inter-Variable.ttf", 22, "Medium"), _font("JetBrainsMono-Medium.ttf", 44)
     x = pad
@@ -179,7 +181,7 @@ def render_card(*, kicker: str, headline: str, stats: list[tuple[str, str, str |
 
 
 def render_phone_card(*, kicker: str, headline: str, stats: list[tuple[str, str, str | None]], foot: str, curve: list[float] | None = None,
-                      bench: list[float] | None = None) -> bytes:
+                      bench: list[float] | None = None, return_pct: float | None = None, bench_pct: float | None = None) -> bytes:
     """The same card laid out for a phone (1080x1350, 4:5): Telegram shows it about 360 px wide, so every piece of text is at
     least 30 px here and the chart takes the full width."""
     from PIL import Image, ImageDraw
@@ -213,7 +215,7 @@ def render_phone_card(*, kicker: str, headline: str, stats: list[tuple[str, str,
         Y = lambda v: y1 - (v - lo) / max(1e-9, hi - lo) * (y1 - y0)  # noqa: E731
         line = lambda vals: [(x0 + i * (x1 - x0) / (len(vals) - 1), Y(v)) for i, v in enumerate(vals)]  # noqa: E731
         d.line([(x0, Y(curve[0])), (x1, Y(curve[0]))], fill="#3a3a35", width=3)
-        color = POS if curve[-1] >= curve[0] else NEG
+        color = POS if (return_pct >= 0 if return_pct is not None else curve[-1] >= curve[0]) else NEG
         if bench:
             d.line(line(bench), fill=MUTED, width=5, joint="curve")
         d.line(line(curve), fill=color, width=7, joint="curve")
@@ -221,7 +223,9 @@ def render_phone_card(*, kicker: str, headline: str, stats: list[tuple[str, str,
         legend = _font("Inter-Variable.ttf", 36, "Medium")
         for name, vals, fill in (("the idea", curve, color),) + ((("buy and hold", bench, MUTED),) if bench else ()):
             d.rectangle([x0, y + 18, x0 + 30, y + 24], fill=fill)
-            d.text((x0 + 46, y), f"{name} {(vals[-1] / vals[0] - 1) * 100:+.1f}%", font=legend, fill=fill if fill != MUTED else SECOND)
+            pct = return_pct if name == "the idea" else bench_pct
+            pct = pct if pct is not None else (vals[-1] / vals[0] - 1) * 100
+            d.text((x0 + 46, y), f"{name} {pct:+.1f}%", font=legend, fill=fill if fill != MUTED else SECOND)
             y += 50
     ys = max(y + 30, h - 300)
     lab, val = _font("Inter-Variable.ttf", 32, "Medium"), _font("JetBrainsMono-Medium.ttf", 60)
@@ -360,7 +364,8 @@ def card_png(t: dict, phone: bool = False) -> bytes:
     curve = [p[1] for p in s.get("curve") or []] or None
     bench = [p[1] for p in s.get("bench") or []] or None
     kicker = f"idea {t['n']}" if not t.get("author") or t["author"].startswith("tg:") else f"idea {t['n']} from {t['author']}"
-    return (render_phone_card if phone else render_card)(kicker=kicker, headline=t["label"], stats=stats, foot=foot, curve=curve, bench=bench)
+    return (render_phone_card if phone else render_card)(kicker=kicker, headline=t["label"], stats=stats, foot=foot, curve=curve, bench=bench,
+                                                                       return_pct=s.get("return_pct"), bench_pct=s.get("bench_pct"))
 
 
 @router.get("/og/t/{tid}.png")

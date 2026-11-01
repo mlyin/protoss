@@ -6,7 +6,7 @@ export const TELEGRAM_BOT = 'https://t.me/ProtossTradingDemoBot'
 
 // Same four sentences, same order, as the Lab (backend/app/lab.py EXAMPLES) and the Telegram bot's /demo menu.
 export const IDEAS = [
-  { id: 'hacks', label: 'A company gets hacked', prompt: "Let's buy XMR every time a major company gets hacked", market: 'XMR', dex: '', direction: 'Long', title: 'Hacks → XMR for a day', ask: 'buy XMR after major hacks, hold 1 day, over the last 180 days using hourly candles', days: 180, event: 'A major company gets hacked', when: 'In the Telegram group, someone reports it ("protoss hack: …") and every armed copy buys XMR for one day.', risk: 'A hack does not have to raise demand for XMR. The test above says whether it has.' },
+  { id: 'hacks', label: 'A company gets hacked', prompt: "Let's buy XMR every time a major company gets hacked", market: 'XMR', dex: '', direction: 'Long', title: 'Hacks → XMR for a day', ask: 'buy XMR after major hacks, hold 1 day, over the last 180 days using hourly candles', days: 180, event: 'A major company gets hacked', when: 'In the Telegram group, someone reports it ("protoss hack: …") and every armed copy buys XMR for one day.', risk: 'A hack does not have to raise demand for XMR. An event-date comparison cannot establish what caused a price move.' },
   { id: 'robots', label: 'Robots take over', prompt: 'I think robots are going to take over the world', market: 'xyz:UNITREE', dex: 'xyz', direction: 'Long', title: 'Robotics → Unitree', ask: 'buy and hold xyz:UNITREE over the last 80 days', days: 80, risk: 'xyz:UNITREE is a Unitree-linked perpetual, not Unitree shares. It can move away from the company’s value.' },
   { id: 'anthropic', label: 'The Anthropic bubble pops', prompt: 'The Anthropic bubble is going to pop', market: 'xyz:ANT', dex: 'xyz', direction: 'Short', title: 'Anthropic → short', risk: 'xyz:ANT is a perpetual, not Anthropic stock. A short loses money when the price rises.' },
   { id: 'dwarkesh', label: 'A new Dwarkesh episode', prompt: 'Research each new Dwarkesh episode and propose a trade', researchOnly: true, title: 'An episode → a researched idea', event: 'A new Dwarkesh Podcast episode', when: 'Read the episode, check its claims against sources, then propose a relevant trade for each person to review.', risk: 'A new episode alone does not choose a market or direction. The research may find no trade worth proposing.' },
@@ -17,6 +17,19 @@ const EXPECT = {
   hacks: spec => spec?.event_set === 'major_hacks' && spec?.market === 'XMR',
   robots: spec => spec?.market === 'xyz:UNITREE' && spec?.side !== 'short',
   anthropic: spec => spec?.market === 'xyz:ANT' && spec?.side === 'short',
+}
+
+function verifiedHistory(result, eventStudy = false) {
+  const coverage = result?.coverage
+  return coverage?.source === 'historical' && coverage.contiguous === true &&
+    Number.isFinite(Date.parse(coverage.start)) && Number.isFinite(Date.parse(coverage.end)) &&
+    (!eventStudy || (Array.isArray(result?.observations || result?.stats?.observations) && (result.observations || result.stats.observations).length > 0))
+}
+
+function researchNotes(notes) {
+  return Array.isArray(notes) ? notes.filter(note => typeof note === 'string' &&
+    (note.startsWith('baseline:') || note.startsWith('event dataset:') || note.startsWith('event timing:') ||
+      note.startsWith('history coverage:') || note.includes('cached in the repo'))) : []
 }
 
 function useSnapshot() {
@@ -57,21 +70,21 @@ export default function IdeaChat() {
   const [busy, setBusy] = useState(false)
   const idea = IDEAS.find(i => i.id === selected)
   const snap = useSnapshot()
-  const tested = !idea.researchOnly && snap?.ideas?.find(i => i.id === selected)
+  const saved = !idea.researchOnly && snap?.ideas?.find(i => i.id === selected)
+  const tested = snap?.methodology === 2 && saved && verifiedHistory(saved, idea.id === 'hacks') ? saved : null
   const testHistory = async () => {
     setBusy(true); setResearch(null)
     try {
-      // the hacks test asks for 180 days on hourly candles, which the public API can always serve (PR #10)
       const response = await apiFetch('/lab/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: idea.ask || idea.prompt, ...(idea.days ? { days: idea.days } : {}) }) })
       const result = await response.json()
       if (!response.ok) throw new Error(typeof result.detail === 'string' ? result.detail : 'Historical research is unavailable.')
       if (typeof result.reply !== 'string') throw new Error('The research service returned no explanation.')
       if (result.kind !== 'error' && !(result.kind === 'backtest' && EXPECT[idea.id]?.(result.spec))) {
-        const when = snap?.as_of ? new Date(snap.as_of).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : 'earlier'
-        throw new Error(`The live Lab can't run this idea yet; it is being updated. The test above ran on ${when} with the same Hyperliquid prices.`)
+        throw new Error(`The live Lab can't run this idea yet. ${tested ? 'The dated historical study remains above.' : 'No verified result is available.'}`)
       }
-      const baseline = Array.isArray(result.result?.notes) ? result.result.notes.filter(note => typeof note === 'string' && note.startsWith('baseline:')) : []
-      setResearch([result.reply, ...baseline].join('\n\n'))
+      if (result.kind === 'backtest' && !verifiedHistory(result.result, idea.id === 'hacks')) throw new Error(`The research service update is pending. ${tested ? 'The dated historical study remains above.' : 'No verified result is available.'}`)
+      const notes = researchNotes(result.result?.notes).filter(note => !result.reply.includes(note))
+      setResearch([result.reply, ...notes].join('\n\n'))
     } catch (e) { setResearch(e.message || 'Historical research is unavailable. No result has been invented.') }
     finally { setBusy(false) }
   }
@@ -86,9 +99,9 @@ export default function IdeaChat() {
         <div className="idea-user-bubble">{idea.prompt}</div>
         <div className="idea-bot-bubble"><span className="idea-bot-name">Probe</span><h3>{idea.title}</h3>
           {tested?.why && <p>{tested.why}</p>}
-          {tested && <picture><source media="(max-width: 600px)" srcSet={`/ideas/${idea.id}-phone.png`} width="1080" height="1350" />
-            <img className="idea-card" src={`/ideas/${idea.id}.png`} alt={`${tested.label}: backtest chart against buy and hold`} width="1200" height="630" /></picture>}
-          {!idea.researchOnly && (tested ? <div className="idea-verdict">{tested.verdict.map((line, i) => <p key={i}>{line}</p>)}<small>Tested on Hyperliquid candles, fees and slippage included, funding not · {new Date(snap.as_of).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</small></div>
+          {tested && <picture><source media="(max-width: 600px)" srcSet={`/ideas/${tested.images.phone}`} width="1080" height="1350" />
+            <img className="idea-card" src={`/ideas/${tested.images.desktop}`} alt={`${tested.label}: backtest chart against buy and hold`} width="1200" height="630" /></picture>}
+          {!idea.researchOnly && (tested ? <div className="idea-verdict">{tested.verdict.map((line, i) => <p key={i}>{line}</p>)}{researchNotes(tested.notes).map((note, i) => <p className="idea-risk" key={`note-${i}`}>{note}</p>)}<small>Tested on Hyperliquid candles, fees and slippage included, funding not · {new Date(snap.as_of).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</small></div>
             : <p className="idea-risk">{snap === undefined ? 'Loading the test…' : 'The saved test is unavailable. Run it now for a fresh one.'}</p>)}
           {idea.researchOnly && <p className="idea-risk" role="status">Episode monitoring and transcript research are not connected yet. Share an episode and a specific claim in Telegram to start the discussion. No market or trade has been selected.</p>}
           {tested?.events?.length > 0 && <details className="idea-events"><summary>The {tested.events.length} {idea.id === 'hacks' ? 'hacks' : 'episodes'} it was tested on</summary>
