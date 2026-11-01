@@ -744,6 +744,8 @@ def settle(db: Session, ex: ExchangeAdapter, now: dt.datetime | None = None) -> 
     return closed
 
 
+PRIVATE_ACCOUNT_NOTICE = "An account update is available privately. Connect your own wallet to view your positions: https://protoss.trade/app/"
+
 PRIVATE_POSITIONS_NOTICE = "Your positions are private. Connect your own wallet to view them: https://protoss.trade/app/"
 
 
@@ -791,6 +793,8 @@ def _status(db: Session, h: Huddle, ex: ExchangeAdapter | None = None) -> str:
     rows = [t for t in _theses(db, h) if t.status != "dropped" and not (t.spec or {}).get("_telegram_copy_owner")]
     if not rows:
         return "Nothing yet. Say an idea, or tap /demo for the four."
+    if is_copy_chat(h):
+        return "Here's where things stand:\n" + "\n".join(f"{t.n}. {t.label[:80]}: {t.status}." for t in rows[-6:]) + "\n" + PRIVATE_POSITIONS_NOTICE
     out = []
     for t in rows[-6:]:
         bs = backers(db, t)
@@ -847,6 +851,8 @@ def _events(db: Session, h: Huddle, n: int | None) -> str:
 
 
 def _score_board(db: Session, h: Huddle) -> str:
+    if is_copy_chat(h):
+        return PRIVATE_POSITIONS_NOTICE
     people: dict[str, list[float]] = {}
     for t in _theses(db, h):
         if t.status == "dropped":
@@ -1144,10 +1150,19 @@ def _guard(h: Huddle, token: str | None) -> None:
     _require_admin(token)
 
 
-def _msg_out(m: HuddleMessage) -> dict:
-    text = PRIVATE_POSITIONS_NOTICE if m.kind == "mine" else m.text
+def _msg_out(db: Session, m: HuddleMessage) -> dict:
+    text, kind = m.text, m.kind
+    if m.from_bot:
+        t = db.get(Thesis, m.thesis_id) if m.thesis_id else None
+        h = db.get(Huddle, m.huddle_id)
+        if t and (t.spec or {}).get("_telegram_copy_owner"):
+            text, kind = PRIVATE_ACCOUNT_NOTICE, "private_account"
+        elif m.kind == "mine":
+            text = PRIVATE_POSITIONS_NOTICE
+        elif is_copy_chat(h) and re.search(r"^(?:Here's where things stand:|Score, by whose idea it was:)", m.text, re.M):
+            text, kind = _status(db, h), "status"
     return {"id": m.id, "ts": _aware(m.ts).isoformat(), "guid": m.guid, "sender": m.sender, "text": text, "from_bot": m.from_bot,
-            "kind": m.kind, "reaction": m.reaction, "target_guid": m.target_guid, "thesis_id": m.thesis_id}
+            "kind": kind, "reaction": m.reaction, "target_guid": m.target_guid, "thesis_id": m.thesis_id}
 
 
 def thesis_out(db: Session, t: Thesis) -> dict:
@@ -1158,6 +1173,7 @@ def thesis_out(db: Session, t: Thesis) -> dict:
     holdings = spec.get("holdings") or ([{"market": spec["market"], "weight": 1.0}] if spec.get("market") else [])
     return {
         "id": t.id, "n": t.n, "author": t.author, "text": t.text, "kind": t.kind, "label": t.label, "status": t.status, "outcome": t.outcome,
+        "private_account": bool(spec.get("_telegram_copy_owner")),
         "each_usd": t.each_usd, "agent_id": t.agent_id, "test": t.test, "created_at": _aware(t.created_at).isoformat(),
         "backers": [{"who": b.who, "approved": b.approved, "pledge_usd": b.pledge_usd} for b in bs],
         "pledged_usd": round(_pledged(bs), 2), "record": {"closed": n, "up": wins, "pnl_usd": round(pnl, 2)},
@@ -1172,7 +1188,7 @@ def huddle_out(db: Session, h: Huddle, limit: int = 200) -> dict:
     people = sorted({m.sender for m in db.scalars(select(HuddleMessage).where(HuddleMessage.huddle_id == h.id, HuddleMessage.from_bot.is_(False))).all()})
     return {"id": h.id, "chat_id": h.chat_id if h.is_web else ("telegram" if h.chat_id.startswith("telegram:") else "imessage"), "title": h.title, "org_slug": h.org_slug, "quorum": h.quorum,
             "mode": get_settings().arena_mode,
-            "people": people, "messages": [_msg_out(m) for m in reversed(msgs)], "theses": [thesis_out(db, t) for t in _theses(db, h)]}
+            "people": people, "messages": [_msg_out(db, m) for m in reversed(msgs)], "theses": [thesis_out(db, t) for t in _theses(db, h)]}
 
 
 class HuddleIn(BaseModel):
@@ -1247,7 +1263,7 @@ def outbox(hid: int, x_admin_token: str | None = Header(default=None), db: Sessi
     _require_admin(x_admin_token)
     rows = db.scalars(select(HuddleMessage).where(HuddleMessage.huddle_id == hid, HuddleMessage.from_bot.is_(True), HuddleMessage.delivered.is_(False))
                       .order_by(HuddleMessage.id)).all()
-    return [_msg_out(m) for m in rows]
+    return [_msg_out(db, m) for m in rows]
 
 
 class DeliveredIn(BaseModel):

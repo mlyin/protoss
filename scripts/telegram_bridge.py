@@ -352,25 +352,26 @@ class Bridge:
         theses = {t["id"]: t for t in huddle["theses"]}
         for row in rows:
             thesis = theses.get(row.get("thesis_id"))
+            private_account = row["kind"] == "private_account" or bool(thesis and (thesis.get("private_account") or thesis.get("n", 0) > 1000))
+            legacy_status = row["kind"] != "status" and bool(re.search(r"^(?:Here's where things stand:|Score, by whose idea it was:)", row["text"], re.M))
+            private_notice = private_account or legacy_status or row["kind"] == "mine"
             keyboard = None
             if row["kind"] == "card" and thesis and thesis["status"] == "proposed":
                 keyboard = [[{"text": "Back this idea", "callback_data": f"back:{thesis['n']}"}]]
                 if ((thesis.get("test") or {}).get("events") or {}).get("per_event"):
                     keyboard[0].append({"text": "Show the events", "callback_data": f"events:{thesis['n']}"})
                 keyboard.append([{"text": f"I'm in for ${amount}", "callback_data": f"in:{thesis['n']}:{amount}"} for amount in (10, 20, 50)])
-            elif row["kind"] == "result" and re.search(r"order filled| fired on ", row["text"]):
-                keyboard = [[{"text": "My position", "callback_data": "mine"}]]
-            elif row["kind"] == "mine":
+            if private_notice:
                 keyboard = [[{"text": "My positions", "url": "https://protoss.trade/app/"}]]
-            # Older backends may still have private position details queued as
-            # shared `mine` rows. Never relay those details into the group.
-            shared_text = ("Your positions are private. Connect your own wallet to view them: https://protoss.trade/app/"
-                           if row["kind"] == "mine" else row["text"])
-            text = shared_text if row["kind"] == "mine" else tidy(friendly(shared_text), self.state.data.get("names"))
+            # Redact legacy queued fills/status too, even before the API is upgraded.
+            shared_text = ("An account update is available privately. Connect your own wallet to view your positions: https://protoss.trade/app/"
+                           if private_account else "Your positions are private. Connect your own wallet to view them: https://protoss.trade/app/"
+                           if private_notice else row["text"])
+            text = shared_text if private_notice or row["kind"] == "status" else tidy(friendly(shared_text), self.state.data.get("names"))
             if not self.wallet_review and huddle.get("mode") in ("sim", "paper"):
                 text = "Paper demo. No real funds.\n" + text
             png = None
-            if row["kind"] == "card" and thesis and hasattr(self.telegram, "upload"):
+            if row["kind"] == "card" and thesis and not private_notice and hasattr(self.telegram, "upload"):
                 try:
                     png = self.protoss.get_bytes(f"/og/t/{thesis['id']}.png?format=phone")
                 except (APIError, AttributeError):
@@ -495,10 +496,6 @@ class Bridge:
                           [[{"text": "Connect my wallet privately", "url": url}]])
                 return
             if command == "status":
-                if not self.live:  # live accounts come from wallets.json, not /join, so this block would only confuse
-                    connections = self.protoss.call("GET", f"/telegram/huddles/{self.hid}/connections")
-                    lines = [f"tg:{r['telegram_user_id']}: wallet ownership verified ({r['wallet'][:8]}…{r['wallet'][-4:]}). Deposit not checked." for r in connections]
-                    self.send(self.chat, "Wallet connections\n" + ("\n".join(lines) or "No verified wallets yet. Each participant can use /join."), key)
                 text = "protoss status"
             elif command == "mine":
                 text = "protoss mine"
@@ -568,13 +565,8 @@ class Bridge:
                       "No order has been placed by this message. Open your private link, then press Start.", key,
                       [[{"text": "Review my trade privately", "url": f"https://t.me/{self.username}?start=trade_{intent['id']}"}]])
         elif command == "status":
-            self.protoss.call("POST", f"/live/groups/{self.hid}/verify", {})
-            ideas = self.protoss.call("GET", f"/live/groups/{self.hid}")
-            labels = {"draft": "waiting for wallet review", "prepared": "awaiting exchange verification", "filled": "fill verified", "partial": "partial fill verified"}
-            lines = [f"Idea {i['id']} · {i['market']}: " + ("; ".join(
-                f"{p['participant']} (tg:{p['telegram_user_id']}), up to ${p['budget']}: {labels.get(p['status'], p['status'])}"
-                for p in i['participants']) or "waiting for participants") for i in ideas]
-            self.send(self.chat, "Real-trade requests\n" + ("\n".join(lines) or "No requests yet."), key)
+            self.send(self.chat, "Your positions are private. Connect your own wallet to view them: https://protoss.trade/app/", key,
+                      [[{"text": "My positions", "url": "https://protoss.trade/app/"}]])
             self.drain()
         else:
             self.send(self.chat, "Protoss · individual wallet approvals\n/idea buy and hold ANT\n/pledge 20 (each person chooses their own amount)\n/status\n"
