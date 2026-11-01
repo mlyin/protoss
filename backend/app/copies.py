@@ -66,6 +66,9 @@ def _key(w: dict) -> str | None:
     return w.get("agent_key") or (os.environ.get(w["agent_key_env"]) if w.get("agent_key_env") else None)
 
 
+HL_MIN_ORDER_USD = 10.0  # Hyperliquid rejects smaller orders ("Order must have minimum value of $10")
+
+
 class CopiesExchange(TestnetExchange):
     """Mainnet, one API wallet per participant. Reuses the testnet adapter's price feed and order plumbing."""
 
@@ -155,6 +158,12 @@ class CopiesExchange(TestnetExchange):
         if size <= 0:
             raise RuntimeError(f"size rounds to zero at {market}'s step")
         mark = self.mark(market)
+        if not reduce_only and size * mark < HL_MIN_ORDER_USD:
+            # Hyperliquid refuses orders under $10. Never round up past what the person put in: say what works instead.
+            step = 10 ** -int((self.market_meta(market) or {}).get("szDecimals", 2))
+            need = math.ceil(math.ceil(HL_MIN_ORDER_USD / mark / step) * step * mark + 0.5)
+            raise RuntimeError(f"Hyperliquid's minimum order is ${HL_MIN_ORDER_USD:.0f}, and this amount buys only ${size * mark:.2f} of {market} "
+                               f"after rounding to its step. Use ${need} or more.")
         if not reduce_only and size * mark > self.max_usd + 0.01:
             raise RuntimeError(f"order {size * mark:.2f} USD is above the per-order cap of {self.max_usd:.0f} USD (COPIES_MAX_USD)")
         ex = self._exchange_for(agent)
