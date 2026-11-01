@@ -158,7 +158,7 @@ A proposal is optional: return null when there is no defensible trade. Never def
 Markets must come from the supplied current list and are perpetual contracts, not company shares.
 Direction is long or short. Explain the causal link and a concrete reason it could fail.
 The user sees a compact trade card, not an episode recap.
-Write reasoning and risk as one short sentence each, aiming below 160 characters per field.
+Write reasoning as one short sentence of at most 10 words. Keep risk concise.
 Put the single most important pre-trade check first in missing_evidence, aiming below 120 characters.
 Focus on a specific tradable implication. Do not force a market link from a general-interest episode.
 No allocation, size, leverage, order, performance prediction, invented price, or trading instruction.
@@ -263,15 +263,11 @@ def research(message, price_source, *, fetch=download, analyze=model_analysis):
         raise ResearchUnavailable('Episode research is unavailable right now. No trade was proposed.') from None
     # Keep the validated report in analysis; Telegram gets only the decision card.
     compact = lambda text: ' '.join(text.split())
-    coverage = 'Partial public text' if source['truncated'] else 'Public text'
+    source_line = ('Partial source: ' if source['truncated'] else 'Source: ') + source['url']
     if p := analysis.proposal:
-        lines = [f'Idea: {p.direction.upper()} {p.market} perpetual',
-                 f'Why: {compact(p.reasoning)}',
-                 f'Risk: {compact(p.risk)}',
-                 f'Before trading: {compact(analysis.missing_evidence[0])}',
-                 f'{coverage}. Unverified idea; no order placed.', source['url']]
+        lines = [f'Idea: {p.direction.upper()} {p.market} perp. {compact(p.reasoning)}', source_line]
     else:
-        lines = [f'No clear trade from this episode’s {coverage.lower()}.', source['url']]
+        lines = ['No trade.', source_line]
     return {'kind': 'research', 'reply': '\n'.join(lines), 'source': {k: v for k, v in source.items() if k != 'text'},
             'analysis': analysis.model_dump(), 'spec': None, 'deployable': None, 'result': None}
 
