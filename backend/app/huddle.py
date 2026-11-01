@@ -28,6 +28,7 @@ import secrets
 import time
 import xml.etree.ElementTree as ET
 from email.utils import parsedate_to_datetime
+from urllib.parse import urlsplit
 
 import httpx
 from fastapi import APIRouter, Depends, Header, HTTPException
@@ -130,6 +131,7 @@ class HuddleEvent(Base):
     source: Mapped[str | None] = mapped_column(String(400), nullable=True)
     huddle_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     reported_by: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    # For verified feed episodes this is publication time; manual reports use report time.
     created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
 
@@ -654,13 +656,19 @@ EVENT_SETS = {"hack": "major_hacks", "podcast": "dwarkesh"}  # event kind -> the
 
 def fire(db: Session, ex: ExchangeAdapter, ev: HuddleEvent) -> int:
     """Run every live event rule this event reaches (hack rules on hacks, Dwarkesh rules on new episodes). Returns how many opened a position."""
+    if ev.kind == "podcast" and ev.reported_by == "feed":
+        return 0  # Legacy feed rows retained ingestion time, not verified publication time.
+    event_time = _aware(ev.created_at)
+    if event_time is None or event_time > _now():
+        return 0
     q = select(Thesis).where(Thesis.status == "live", Thesis.kind == "rule")
     if ev.huddle_id is not None:
         q = q.where(Thesis.huddle_id == ev.huddle_id)
     opened = 0
     for t in db.scalars(q).all():
         spec = t.spec or {}
-        if spec.get("type") != "event_buy" or spec.get("event_set") != EVENT_SETS.get(ev.kind) or _aware(t.armed_at) > _aware(ev.created_at):
+        if (spec.get("type") != "event_buy" or spec.get("event_set") != EVENT_SETS.get(ev.kind)
+                or t.armed_at is None or _aware(t.armed_at) > event_time):
             continue
         if db.scalar(select(Trigger).where(Trigger.thesis_id == t.id, Trigger.event_id == ev.id)):
             continue
@@ -772,8 +780,13 @@ def close_mine(db: Session, ex: ExchangeAdapter, h: Huddle, sender: str, n: int)
 
 
 def report_event(db: Session, ex: ExchangeAdapter, label: str, source: str | None = None, huddle_id: int | None = None, by: str | None = None,
-                 kind: str = "hack") -> HuddleEvent:
+                 kind: str = "hack", *, published_at: dt.datetime | None = None) -> HuddleEvent:
     ev = HuddleEvent(kind=kind, label=label.strip()[:200], source=(source or None), huddle_id=huddle_id, reported_by=by)
+    if kind == "podcast" and by == "feed":
+        if published_at is None or published_at.tzinfo is None or published_at > _now():
+            raise ValueError("A feed episode needs a timezone-aware publication time no later than now")
+        ev.created_at = published_at.astimezone(UTC)
+        ev.reported_by = "feed:published"
     db.add(ev)
     db.flush()
     if kind in EVENT_SETS:
@@ -1038,7 +1051,8 @@ def parse_feed(xml_text: str) -> list[dict]:
         if not link:
             el = it.find(f"{atom}link")
             link = el.get("href", "") if el is not None else ""
-        when = it.findtext("pubDate") or it.findtext(f"{atom}updated") or it.findtext(f"{atom}published")
+        published = it.findtext("pubDate") or it.findtext(f"{atom}published")
+        when = published or it.findtext(f"{atom}updated")
         ts = None
         if when:
             try:
@@ -1046,7 +1060,18 @@ def parse_feed(xml_text: str) -> list[dict]:
             except (TypeError, ValueError):
                 ts = None
         if title:
-            out.append({"title": title, "link": link, "ts": ts})
+            enclosures = list(it.findall("enclosure")) + [el for el in it.findall(f"{atom}link") if el.get("rel") == "enclosure"]
+            audio = False
+            for enclosure in enclosures:
+                mime = (enclosure.get("type") or "").split(";", 1)[0].strip().lower()
+                try:
+                    path = urlsplit(enclosure.get("url") or enclosure.get("href") or "").path.lower()
+                except ValueError:
+                    continue
+                if mime.startswith("audio/") or (not mime and path.endswith((".mp3", ".m4a", ".aac", ".ogg", ".oga", ".opus", ".wav", ".flac"))):
+                    audio = True
+                    break
+            out.append({"title": title, "link": link, "ts": ts, "published_at": ts if published else None, "audio": audio})
     return out
 
 
@@ -1085,12 +1110,15 @@ def poll_podcasts(db: Session, ex: ExchangeAdapter, fetch=None) -> int:
             log.warning("podcast feed %s failed: %s", url, e)
             continue
         for it in parse_feed(body):
-            if not it["ts"] or _aware(it["ts"]) < _now() - dt.timedelta(days=2):
+            published = it["published_at"]
+            now = _now()
+            if (not it["audio"] or published is None or published.tzinfo is None
+                    or not now - dt.timedelta(days=2) <= published <= now):
                 continue
             key = it["link"] or it["title"]
             if db.scalar(select(HuddleEvent).where(HuddleEvent.kind == "podcast", HuddleEvent.source == key)):
                 continue
-            report_event(db, ex, f"New Dwarkesh Podcast episode: {it['title']}", key, None, "feed", kind="podcast")
+            report_event(db, ex, f"New Dwarkesh Podcast episode: {it['title']}", key, None, "feed", kind="podcast", published_at=published)
             added += 1
     return added
 
