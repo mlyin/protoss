@@ -174,10 +174,10 @@ HELP = ("Protoss practice demo\n/demo (choose one of the four ideas)\n/idea I th
         "/pledge 20 (your own paper pledge)\n/status\n/join (private wallet connection)\n"
         "Wallet ownership is checked with a signature. Chat backing never authorizes spending.")
 HELP_LIVE = ("Protoss listens to this chat.\n"
-             "Say an idea, or tap /demo for the four: XMR on every hack, robots (Unitree), the Anthropic bubble (short ANT), and research from each Dwarkesh episode.\n"
-             "Back it: thumbs up the card, or say \"in\". Stake: \"in for 11\" or \"$11 each\".\n"
-             "Each stake is a real order from your own Hyperliquid account through the API wallet you authorized. Nothing is pooled; close a position yourself any time.\n"
-             "Commands still work: /idea, /back 1, /pledge 11, /status, /join.")
+             "Say an idea, or tap /demo for the four: XMR on every hack, robots (Unitree), the Anthropic bubble (short ANT), NVDA on each new Dwarkesh episode.\n"
+             "Back it: thumbs up the card, or say \"in\". Then each of you says \"in for 11\" with your own amount.\n"
+             "Each amount is a real order from your own Hyperliquid account, through the API wallet you authorized. Nothing is pooled; close a position yourself any time.\n"
+             "Also: \"show the events\", \"protoss status\", \"protoss score\", \"protoss hack: <what happened>\".")
 
 
 # this bot's own links: anything on the local API, and Protoss page shapes (/t/1, /h/x, /l/x, /#/feed) anywhere.
@@ -422,7 +422,8 @@ class Bridge:
                 self.send(self.chat, self.help, key)
                 return
             if command == "demo":
-                intro = ("Choose an idea. You and your friend each confirm your own amount with /pledge; each order leaves your own account. Perpetual markets, not coin ownership."
+                intro = ("Pick one of the four. I'll post the backtest; thumbs up to back it, then each of you says \"in for 20\" with your own amount. "
+                         "Each order leaves your own account. These are perpetual markets, not coins or shares."
                          if self.live else
                          "Choose a practice idea. You and your friend each choose your own amount. No real money moves. These examples use perpetual markets, not coin ownership.")
                 self.send(self.chat, intro, key, [[{"text": label, "callback_data": data}] for label, data, _ in IDEAS])
