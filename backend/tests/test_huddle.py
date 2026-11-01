@@ -87,7 +87,7 @@ def test_thesis_to_result_in_a_web_huddle(client):
     # someone reports a hack in the chat: the rule buys XMR with the pot, through the sandbox
     say(client, hid, "Sam", "protoss hack: Example Exchange drained for $40M https://example.com/x")
     msg = bot(client, hid)[-1]["text"]
-    assert msg.startswith("Thesis 1 fired. Example Exchange drained for $40M (https://example.com/x)") and "XMR" in msg
+    assert msg.startswith("Idea 1 fired on Example Exchange drained for $40M (https://example.com/x): bought") and "XMR" in msg
     t = client.get(f"/huddle/{hid}").json()["theses"][0]
     assert len(t["triggers"]) == 1 and not t["triggers"][0]["closed"]
     fills = [f for f in client.get("/feed?limit=20").json() if f["kind"] == "fill" and f.get("market") == "XMR"]
@@ -102,7 +102,7 @@ def test_thesis_to_result_in_a_web_huddle(client):
         assert HD.settle(db, ex) == 0
         assert HD.settle(db, ex, now=dt.datetime.now(dt.timezone.utc) + dt.timedelta(days=8)) == 1
     last = bot(client, hid)[-1]["text"]
-    assert last.startswith("Thesis 1 closed. XMR") and "Record: " in last
+    assert last.startswith("Idea 1 closed: XMR") and "Its record: " in last
     say(client, hid, "Lee", "protoss score")
     assert bot(client, hid)[-1]["text"].startswith("Score, by whose idea it was:\nMatthew:")
 
@@ -206,7 +206,7 @@ def test_dwarkesh_rule_fires_on_a_new_episode(client):
         assert HD.poll_podcasts(db, hl.get_exchange(), fetch=lambda url: rss) == 1  # the 30-day-old episode is not news
         assert HD.poll_podcasts(db, hl.get_exchange(), fetch=lambda url: rss) == 0  # each episode fires once
     msg = bot(client, hid)[-1]["text"]
-    assert msg.startswith("Thesis 1 fired. New Dwarkesh Podcast episode: Someone new on AI") and "Bought" in msg and "xyz:NVDA" in msg
+    assert msg.startswith("Idea 1 fired on New Dwarkesh Podcast episode: Someone new on AI") and "bought" in msg and "xyz:NVDA" in msg
     # a hack does not fire a podcast rule
     say(client, hid, "Ana", "protoss hack: Example Exchange drained")
     assert len(client.get(f"/huddle/{hid}").json()["theses"][0]["triggers"]) == 1

@@ -584,8 +584,20 @@ def main():
                 bridge.drain()
                 updates = telegram.call("getUpdates", offset=state.data["offset"], timeout=20, allowed_updates=["message", "callback_query", "message_reaction"])
                 for update in updates:
-                    bridge.handle(update)
+                    try:
+                        bridge.handle(update)
+                    except APIError as exc:
+                        # retry a failing update a few times, then skip it: one bad message must not freeze the chat
+                        tries = state.data.setdefault("failures", {})
+                        key = str(update["update_id"])
+                        tries[key] = tries.get(key, 0) + 1
+                        state.save()
+                        if tries[key] < 3:
+                            raise
+                        print(f"skipping update {key} after 3 failures: {exc}", flush=True)
+                        bridge.send(args.chat, "That one failed on my side, so I skipped it. Try again in a minute.", f"skip:{key}")
                     state.data["offset"] = update["update_id"] + 1
+                    state.data.get("failures", {}).pop(str(update["update_id"]), None)
                     state.save()
             except APIError as exc:
                 print(f"{exc}; retrying in 3 seconds", flush=True)
