@@ -144,11 +144,17 @@ test('four idea previews use exchange quotes and honest event status', async ({ 
     expect(body.type).toBe('metaAndAssetCtxs')
     await route.fulfill({ json: [{ universe: [{ name: 'XMR' }, { name: 'xyz:UNITREE' }, { name: 'xyz:ANT' }] }, [{ markPx: '200' }, { markPx: '17.50' }, { markPx: '42' }]] })
   })
-  await page.route('**/lab/chat', route => route.fulfill({ json: { kind: 'error', reply: 'History is incomplete. No backtest was run.' } }))
+  await page.route('**/lab/chat', route => {
+    const body = route.request().postDataJSON()
+    expect(body.days).toBe(180)
+    expect(body.message).toContain('hold 1 day')
+    expect(body.message).toContain('over the last 180 days using hourly candles')
+    return route.fulfill({ json: { kind: 'error', reply: 'History is incomplete. No backtest was run.' } })
+  })
   await page.goto('/')
   await expect(page.getByRole('tab')).toHaveCount(4)
   await expect(page.getByText('Long XMR', { exact: true })).toBeVisible()
-  await page.getByRole('button', { name: 'Test the historical rule' }).click()
+  await page.getByRole('button', { name: 'Test the last 180 days' }).click()
   await expect(page.getByRole('status')).toContainText('History is incomplete. No backtest was run.')
   await page.getByRole('tab', { name: /Robots take over/ }).click()
   await expect(page.getByText('Long xyz:UNITREE', { exact: true })).toBeVisible()
@@ -159,4 +165,18 @@ test('four idea previews use exchange quotes and honest event status', async ({ 
   await expect(page.getByText('Episode monitoring is not connected.', { exact: false })).toBeVisible()
   await expect(page.getByRole('link', { name: /Read an episode/ })).toHaveAttribute('href', 'https://www.dwarkesh.com/podcast')
   expect(reads.every(body => body.type === 'metaAndAssetCtxs')).toBeTruthy()
+})
+
+
+test('historical research shows the ordinary-day baseline', async ({ page }) => {
+  await page.route('https://api.hyperliquid.xyz/info', route => route.fulfill({ json: [{ universe: [{ name: 'XMR' }] }, [{ markPx: '200' }]] }))
+  await page.route('**/lab/chat', route => route.fulfill({ json: {
+    kind: 'backtest', reply: 'Tested the requested 180-day window.',
+    result: { notes: ['baseline: compare the event reaction with the same hold after any day.', 'Internal detail'] }
+  } }))
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Test the last 180 days' }).click()
+  await expect(page.getByRole('status')).toContainText('180-day window')
+  await expect(page.getByRole('status')).toContainText('baseline: compare')
+  await expect(page.getByRole('status')).not.toContainText('Internal detail')
 })
