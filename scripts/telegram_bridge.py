@@ -382,7 +382,8 @@ class Bridge:
                 keyboard = [[{"text": "Back this idea", "callback_data": f"back:{thesis['n']}"}]]
                 if ((thesis.get("test") or {}).get("events") or {}).get("per_event"):
                     keyboard[0].append({"text": "Show the events", "callback_data": f"events:{thesis['n']}"})
-                keyboard.append([{"text": f"I'm in for ${amount}", "callback_data": f"in:{thesis['n']}:{amount}"} for amount in (10, 20, 50)])
+                # Hyperliquid's $10 minimum applies after rounding to the market's step, so the smallest button clears it everywhere
+                keyboard.append([{"text": f"I'm in for ${amount}", "callback_data": f"in:{thesis['n']}:{amount}"} for amount in (15, 25, 50)])
             if private_notice:
                 keyboard = [[{"text": "My positions", "url": "https://protoss.trade/app/"}]]
             # Redact legacy queued fills/status too, even before the API is upgraded.
@@ -557,11 +558,16 @@ class Bridge:
             else:
                 self.send(self.chat, self.help, key)
                 return
+        if callback:
+            # Answer the tap before any order goes out: placing orders can take longer than Telegram waits for an answer,
+            # and a late answer fails with HTTP 400, which used to make the whole tap retry and then be skipped.
+            try:
+                self.telegram.call("answerCallbackQuery", callback_query_id=callback["id"], text="Recorded." if self.live else "Demo step recorded. No funds moved.")
+            except APIError:
+                pass
         self.protoss.call("POST", f"/huddle/{self.hid}/messages", {"sender": f"tg:{user_id}", "text": text[:2000],
                           "guid": f"tg-update:{uid}"})
         self.drain(reply_to=message.get("message_id"))  # a command answers under it; a button tap answers under its card
-        if callback:
-            self.telegram.call("answerCallbackQuery", callback_query_id=callback["id"], text="Recorded." if self.live else "Demo step recorded. No funds moved.")
 
     def handle_live(self, update, user, message, private, callback):
         key = f"update:{update['update_id']}"

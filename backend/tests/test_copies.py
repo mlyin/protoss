@@ -335,8 +335,8 @@ def test_hack_fires_each_copy_by_name_closes_and_scores_the_idea_author(live, tm
     w = bridge.Bridge(tg, LocalAPI(client), bridge.State(tmp_path / "s.json"), CHAT, [111, 222], "ProtossTradingDemoBot", h["id"], live=True)
     named = lambda uid, user, name, text: {"update_id": uid, "message": {"message_id": uid, "chat": {"id": CHAT, "type": "supergroup"}, "from": {"id": user, "first_name": name}, "text": text}}  # noqa: E731
     w.handle(named(1, 111, "Matthew", "Let's buy XMR every time a major company gets hacked"))
-    w.handle(named(2, 222, "Lando", "in for 11"))
-    w.handle(named(3, 111, "Matthew", "in for 11"))
+    w.handle(named(2, 222, "Lando", "in for 15"))
+    w.handle(named(3, 111, "Matthew", "in for 15"))
     w.handle(named(4, 111, "Matthew", "protoss hack: Example Exchange drained for $40M"))
     fired = [m["text"] for m in tg.sent if " fired on " in m["text"]]
     assert fired == []
@@ -383,10 +383,10 @@ def test_buttons_and_replies_make_the_chat_interactive(live, tmp_path):
     assert card["reply_parameters"]["message_id"] == 101  # the card answers Matthew's message
     card_mid = tg.sent.index(card) + 1
     buttons = [b["callback_data"] for row in card["reply_markup"]["inline_keyboard"] for b in row]
-    assert buttons == ["back:1", "in:1:10", "in:1:20", "in:1:50"]
-    w.handle(tap(2, 222, "Lando", "in:1:20", card_mid))
-    assert tg.sent[-1]["text"].startswith("Lando is in for $20 on idea 1.") and tg.sent[-1]["reply_parameters"]["message_id"] == card_mid
-    w.handle(tap(3, 111, "Matthew", "in:1:10", card_mid))
+    assert buttons == ["back:1", "in:1:15", "in:1:25", "in:1:50"]
+    w.handle(tap(2, 222, "Lando", "in:1:25", card_mid))
+    assert tg.sent[-1]["text"].startswith("Lando is in for $25 on idea 1.") and tg.sent[-1]["reply_parameters"]["message_id"] == card_mid
+    w.handle(tap(3, 111, "Matthew", "in:1:15", card_mid))
     fills = [m for m in tg.sent if "An account update is available privately" in m["text"]]
     assert len(fills) == 2
     assert all(m["reply_markup"]["inline_keyboard"][0][0]["url"] == "https://protoss.trade/app/" for m in fills)
@@ -415,3 +415,21 @@ def test_a_follow_up_to_episode_research_gets_an_answer_and_ideas_still_pass(liv
     w.handle(named(3, "research a dwarkesh podcast"))
     w.handle(named(4, "I think robots are going to take over the world"))  # a new idea is not swallowed
     assert any("xyz:UNITREE" in t["label"] for t in client.get(f"/huddle/{h['id']}", headers=ADMIN).json()["theses"])
+
+
+
+def test_ten_dollars_each_is_refused_clearly_and_nothing_is_called_live(live, tmp_path):
+    """What happened in the group on 2026-11-01: $10 each on xyz:UNITREE rounds to $9.68, under Hyperliquid's $10 minimum."""
+    client, ex = live
+    h = client.post("/huddle", headers=ADMIN, json={"chat_id": f"telegram:{CHAT}", "title": "protoss beta testing", "quorum": 2}).json()
+    tg = PhotoTelegram()
+    w = bridge.Bridge(tg, LocalAPI(client), bridge.State(tmp_path / "s.json"), CHAT, [111, 222], "ProtossTradingDemoBot", h["id"], live=True)
+    named = lambda uid, user, name, text: {"update_id": uid, "message": {"message_id": 100 + uid, "chat": {"id": CHAT, "type": "supergroup"}, "from": {"id": user, "first_name": name}, "text": text}}  # noqa: E731
+    w.handle(named(1, 111, "Matthew", "I think robots are going to take over the world"))
+    w.handle(named(2, 111, "Matthew", "in for 10"))
+    w.handle(named(3, 222, "Lando", "in for 10"))
+    texts = [m["text"] for m in tg.sent]
+    assert not any(" is live" in t for t in texts) and not FakeExchange.made or all(not e.orders for e in FakeExchange.made)
+    assert any(t.startswith("Idea 1 did not go out: Hyperliquid refused the orders, so nothing was traded.") and "Try $15 each" in t for t in texts)
+    theses = client.get(f"/huddle/{h['id']}", headers=ADMIN).json()["theses"]
+    assert all(t["status"] == "halted" for t in theses)

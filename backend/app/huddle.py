@@ -270,6 +270,15 @@ def _name(t: Thesis) -> str:
     return f"{spec['_telegram_copy_owner']}'s copy of idea {spec['_parent_n']}" if spec.get("_telegram_copy_owner") and spec.get("_parent_n") else f"Idea {t.n}"
 
 
+def _refusal(db: Session, t: Thesis) -> str:
+    """Why the exchange refused a copy's order, from the line _open posted for it. The minimum-order reason is the same for
+    everyone, so it may be said in the group; anything account-specific stays out of shared messages."""
+    text = " ".join(db.scalars(select(HuddleMessage.text).where(HuddleMessage.thesis_id == t.id, HuddleMessage.from_bot.is_(True))).all())
+    if "minimum value of $10" in text or "minimum order" in text:
+        return "Hyperliquid's minimum is $10 per order after rounding to the market's step, so $10 buys a little under that. Try $15 each."
+    return "refused"
+
+
 def _and(names: list[str]) -> str:
     return names[0] if len(names) == 1 else ", ".join(names[:-1]) + " and " + names[-1] if names else "nobody"
 
@@ -543,7 +552,7 @@ def arm(db: Session, ex: ExchangeAdapter, h: Huddle, t: Thesis) -> None:
     if is_copy_chat(h) and not spec.get("_telegram_copy_owner"):
         # Each copy gets its own thesis, agent, positions and risk ledger. Nothing is pooled.
         original_spec = dict(spec)
-        copies = []
+        copies, refused = [], []
         next_n = max([row.n for row in _theses(db, h)] + [COPY_BASE]) + 1  # copies count from 1001 so ideas stay 1, 2, 3
         for backer in bs:
             if (backer.pledge_usd or 0) <= 0:
@@ -562,6 +571,10 @@ def arm(db: Session, ex: ExchangeAdapter, h: Huddle, t: Thesis) -> None:
                 child.status = "halted"
                 say(db, h, f"{backer.who}'s copy did not go out: {e}", "result", child.id)
                 continue
+            if original_spec.get("type") == "buy_hold" and not db.scalar(select(Trigger).where(Trigger.thesis_id == child.id)):
+                child.status = "halted"  # the exchange refused the order: nothing is held and nothing will fire
+                refused.append(_refusal(db, child))
+                continue
             copies.append(child.id)
             for tr in db.scalars(select(Trigger).where(Trigger.thesis_id == child.id)).all():
                 if _real(ex):
@@ -575,9 +588,16 @@ def arm(db: Session, ex: ExchangeAdapter, h: Huddle, t: Thesis) -> None:
                                f"Paper allocation {_usd(backer.pledge_usd)}. Agent {child.agent_id}. No real funds moved.", "result", child.id)
         t.spec = {**original_spec, "type": "telegram_copies", "copy_ids": copies}
         if _real(ex):
+            if not copies:
+                t.status = "halted"
+                why = next((r for r in refused if r != "refused"), "")
+                say(db, h, f"Idea {t.n} did not go out: Hyperliquid refused the orders, so nothing was traded. "
+                           + (why if why else "Each of you can see why in your own account.") + " Back it again with a larger amount to retry.", thesis_id=t.id)
+                return
             filled = any(db.scalar(select(Trigger).where(Trigger.thesis_id == cid)) for cid in copies)
             what = "separate orders, one from each account" if filled else "separate copies armed, one per account; each order goes out from its own account when the rule fires"
-            say(db, h, f"Idea {t.n} is live: {len(copies)} {what}. Each of you owns your position and can close it yourself any time. Nothing is pooled.", thesis_id=t.id)
+            short = f" {len(refused)} other order{'s' if len(refused) != 1 else ''} did not go out." if refused else ""
+            say(db, h, f"Idea {t.n} is live: {len(copies)} {what}.{short} Each of you owns your position and can close it yourself any time. Nothing is pooled.", thesis_id=t.id)
         else:
             say(db, h, f"Thesis {t.n} created {len(copies)} separate paper accounts. Each participant owns their own copy and its result. No shared pot.", thesis_id=t.id)
         return
@@ -613,8 +633,8 @@ def arm(db: Session, ex: ExchangeAdapter, h: Huddle, t: Thesis) -> None:
         waiting = "No live runtime for this rule type yet, so the agent holds the cash and the card keeps the backtest."
     money = "real money" if _real(ex) else "paper money"
     owner, parent = spec.get("_telegram_copy_owner"), spec.get("_parent_n")
-    if owner and spec.get("type") == "buy_hold" and db.scalar(select(Trigger).where(Trigger.thesis_id == t.id)):
-        return  # the fill message already says it went out; one line per person is enough
+    if owner and spec.get("type") == "buy_hold":
+        return  # filled: the fill line says so; refused: the idea's summary says so. Never "armed" for a hold.
     head = f"{owner}'s copy of idea {parent} is armed: {_usd(total)} of {money}" if owner and parent else f"Thesis {t.n} is live{where}. {_usd(total)} in {money} from {_who_line(bs)}"
     say(db, h, " ".join(x for x in [f"{head}, max {int(lim.max_leverage)}x leverage, flattens at -25%.", waiting,
                                      "" if owner else f"Every fill is public: {_link('/#/feed')}"] if x), thesis_id=t.id)
