@@ -1,5 +1,9 @@
 # Runbooks
 
+- 2026-11-01: Telegram private messages now answer greetings, offer the four research ideas, and use the read-only Lab in copies mode. Private research never posts into the group, creates a huddle, backs an idea, or places an order. Private positions link to the connected-wallet website. Ordinary group greetings also receive a reply. Existing group approval commands retain their behavior.
+- 2026-11-01: Promoting the bot upgraded `protoss beta testing` to a supergroup. The bridge supports `--previous-chat <original-group-id>` with `--chat <current-group-id>` and the existing `--state` file to retain its original huddle, participants, delivery receipts, and update offset. Do not start a new room or reset the checkpoint after a Telegram upgrade. Confirm the new group ID from Telegram's migration response. The bot is an administrator with deletion, banning, invitations, video-chat management, and adding admins disabled.
+- 2026-11-01: MacBook runtime: the bridge now runs independently from `~/protoss-demo`, with PID in `~/.protoss/telegram-bridge.pid` and private log `~/.protoss/telegram-bridge.log`. Its existing API on port 8001 was preserved in copies mode. Credentials remain in process memory; no new token file or boot service was installed. This is not an always-on deployment: sleep/reboot can interrupt it. Never launch a second poller against the same bot.
+
 - 2026-10-31: Two-account Telegram and browser demo: `docs/telegram-demo.md`. `scripts/telegram_demo.py`
   starts an isolated sim API and optional Telegram bridge. It forces mainnet execution off. Browser entry: `/#/demo`.
   Each participant gets a separate practice trade. Wallet signatures prove ownership only.

@@ -73,6 +73,16 @@ class State:
         temp.replace(self.path)
 
 
+def bind_identity(state, identity, previous_chat=None):
+    """Permit only an explicit group upgrade; keep the existing update/delivery checkpoint."""
+    old = state.data.get("identity")
+    expected_old = {**identity, "chat": previous_chat}
+    if old is not None and old != identity and (previous_chat is None or old != expected_old):
+        raise APIError("checkpoint belongs to another bot/group/participant pair; use a different --state")
+    state.data["identity"] = identity
+    state.save()
+
+
 def discover_groups(updates):
     """Find actual human senders in groups, never channels, anonymous posts or private chats."""
     groups = {}
@@ -158,6 +168,54 @@ class Bridge:
         self.help = HELP_LIVE if live else HELP
         self.wallet_review = wallet_review
 
+    def private_reply(self, update, user, message, callback):
+        """Private research never reads a group or reaches its approval/order handlers."""
+        key = f"update:{update['update_id']}"
+        chat = user["id"]
+        raw = message.get("text", "").strip()
+        menu = [[{"text": label if data != "idea:dwarkesh" else "Research each new Dwarkesh episode",
+                  "callback_data": data.replace("idea:", "research:")}]
+                for label, data, _ in IDEAS]
+        if callback:
+            self.telegram.call("answerCallbackQuery", callback_query_id=callback["id"], text="Research only. No order placed.")
+            raw = next((said for _, data, said in IDEAS
+                        if data.replace("idea:", "research:") == callback.get("data")), "")
+        command = re.fullmatch(r"/([a-z]+)(?:@([A-Za-z0-9_]+))?(?:\s+([\s\S]*))?", raw)
+        if command and command[2] and command[2].lower() != self.username.lower():
+            return
+        if command and command[1] in ("positions", "status", "join"):
+            self.send(chat, "Connect your own wallet on protoss.trade/app/ to see its real positions. "
+                      "I don't share group members' wallets or positions in this chat.", key,
+                      [[{"text": "My positions", "url": "https://protoss.trade/app/"}]])
+            return
+        if command and command[1] in ("pledge", "back", "buy", "sell", "trade"):
+            self.send(chat, "This private chat is for research. No order was placed and nothing was posted to your group.", key)
+            return
+        if command and command[1] == "idea":
+            raw = (command[3] or "").strip()
+        elif command or raw.lower() in ("", "hi", "hey", "hello", "start", "help", "demo", "yo", "test"):
+            self.send(chat, "I'm here. Choose one of the four ideas or describe a strategy to research. "
+                      "Private messages stay here. Research does not place an order.", key, menu)
+            return
+        if "dwarkesh" in raw.lower():
+            self.send(chat, "For each new Dwarkesh episode: extract its claims, find a related tradable market, "
+                      "and review the evidence before proposing a trade. There is no automatic NVDA purchase. "
+                      "Episode monitoring and transcript analysis are not connected yet. No trade was placed.", key)
+            return
+        # The Lab is read-only. Never create a private huddle against a live copies engine.
+        if not self.live:
+            self.send(chat, "Real-data research is not available on this bot's current backend. "
+                      "You can view live markets on protoss.trade. No simulated result or order was created.", key, menu)
+            return
+        try:
+            result = self.protoss.call("POST", "/lab/chat", {"message": raw[:2000]})
+            reply = result.get("reply") or "Research returned no result. Try a market and holding period."
+            if result.get("kind") == "backtest" and "simulated" in reply.lower():
+                reply = "Real market history is unavailable. I won't substitute a simulated performance result."
+        except APIError:
+            reply = "Research is unavailable right now. Please try again shortly."
+        self.send(chat, reply + "\nResearch only. No order placed and nothing posted to your group.", key)
+
     def send(self, chat, text, key, keyboard=None):
         """Checkpoint every successful chunk. Telegram delivery is at least once across a crash."""
         for index, start in enumerate(range(0, len(text), 3800)):
@@ -218,7 +276,16 @@ class Bridge:
         chat = message.get("chat", {})
         user_id = user.get("id")
         private = chat.get("type") == "private" and chat.get("id") == user_id
-        if user.get("is_bot") or user_id not in self.users:
+        if user.get("is_bot") or not user_id:
+            return
+        # Preserve existing personal wallet-review links for invited users only.
+        raw = message.get("text", "").strip()
+        personal_link = (not callback and user_id in self.users and
+                         (raw == f"/start join_{self.chat}" or
+                          (self.wallet_review and re.fullmatch(r"/start trade_[a-f0-9]{32}", raw))))
+        if private and not personal_link:
+            return self.private_reply(update, user, message, callback)
+        if user_id not in self.users:
             return
         if not private and (chat.get("id") != self.chat or chat.get("type") not in ("group", "supergroup")):
             return
@@ -246,6 +313,10 @@ class Bridge:
                 return
         else:
             raw = message.get("text", "").strip()
+            if raw.lower() in ("hi", "hey", "hello", "yo", "test"):
+                self.send(self.chat, "I'm here. Send /demo for the four ideas, or describe a strategy in this group. "
+                          "You can also message me privately for research.", key)
+                return
             match = re.fullmatch(r"/([a-z]+)(?:@([A-Za-z0-9_]+))?(?:\s+([\s\S]*))?", raw)
             if not match or (match[2] and match[2].lower() != self.username.lower()):
                 # Plain chat. The engine decides whether it is a thesis ("let's buy unitree, robots are taking over"),
@@ -371,6 +442,7 @@ def main():
     run.add_argument("--users", required=True, help="exactly two numeric Telegram user IDs, comma separated")
     run.add_argument("--legion")
     run.add_argument("--state", help="local restart checkpoint; never store this in git")
+    run.add_argument("--previous-chat", type=int, help="original group ID after a Telegram supergroup upgrade; preserve its huddle")
     args = parser.parse_args()
     token = os.environ.get("TELEGRAM_BOT_TOKEN", "")
     if not token:
@@ -400,15 +472,16 @@ def main():
         group = telegram.call("getChat", chat_id=args.chat)
         if group.get("type") not in ("group", "supergroup"):
             parser.error("the selected Telegram chat must be a group")
-        huddle = protoss.call("POST", "/huddle", {"chat_id": f"telegram:{args.chat}", "title": group.get("title", "Protoss demo"), "org_slug": args.legion, "quorum": 2})
+        if args.previous_chat is not None and args.previous_chat >= 0:
+            parser.error("--previous-chat must be the original negative group ID")
+        huddle_chat = args.previous_chat if args.previous_chat is not None else args.chat
+        huddle = protoss.call("POST", "/huddle", {"chat_id": f"telegram:{huddle_chat}", "title": group.get("title", "Protoss demo"), "org_slug": args.legion, "quorum": 2})
         if args.legion and huddle.get("org_slug") != args.legion:
             parser.error("selected legion was not found; create it in Protoss before running")
         path = args.state or str(Path.home() / ".protoss" / f"telegram-{me['id']}-{args.chat}.json")
         state = State(path)
         identity = {"bot": me["id"], "chat": args.chat, "users": sorted(users)}
-        if "identity" in state.data and state.data["identity"] != identity:
-            parser.error("checkpoint belongs to another bot/group/participant pair; use a different --state")
-        state.data["identity"] = identity
+        bind_identity(state, identity, args.previous_chat)
         if state.data["offset"] is None:
             latest = telegram.call("getUpdates", offset=-1, timeout=0, allowed_updates=["message", "callback_query"])
             state.data["offset"] = latest[-1]["update_id"] + 1 if latest else 0
