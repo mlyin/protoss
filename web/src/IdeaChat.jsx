@@ -51,7 +51,7 @@ export default function IdeaChat() {
     finally { setBusy(false) }
   }
   return <section className="idea-demo" aria-label="Four trade ideas">
-    <div className="idea-picker"><p className="sub">Start with an idea</p><h2>Four ways a<br />conversation starts.</h2>
+    <div className="idea-picker"><p className="sub">Start with an idea</p><h2>Four ways a <br />conversation starts.</h2>
       <div role="tablist" aria-label="Trade idea">{IDEAS.map((item, i) => <button id={`tab-${item.id}`} key={item.id} role="tab" aria-controls="idea-conversation" aria-selected={selected === item.id} onClick={() => { setSelected(item.id); setResearch(null) }} disabled={busy}><span>0{i + 1}</span>{item.label}<span aria-hidden="true">↗</span></button>)}</div>
       <p className="idea-picker-note">Idea previews, not executed trades. Your real positions stay in your connected account.</p>
     </div>
