@@ -169,7 +169,8 @@ REACTIONS = {2000: "love", 2001: "like", 2002: "dislike", 2003: "laugh", 2004: "
 BACKING = {"like", "love", "emphasize"}
 HELP = (
     "I turn a trade idea in this chat into a tested rule the group can back.\n"
-    "Say an idea: \"let's buy XMR every time a major company gets hacked\"\n"
+    "Say an idea: \"let's buy XMR every time a major company gets hacked\", \"robots are going to take over the world\",\n"
+    "\"the Anthropic bubble is going to pop\" or \"Dwarkesh is always right\"\n"
     "Back it: thumbs up my card, or say \"in\"\n"
     "Stake: \"$50 each\" or \"in for 80\"\n"
     "Also: protoss status, protoss score, protoss hack: <what happened>, protoss hit 4 / miss 4, protoss drop 4"
@@ -499,7 +500,7 @@ def arm(db: Session, ex: ExchangeAdapter, h: Huddle, t: Thesis) -> None:
         out = create_agent_record(db, ex, body)
     t.agent_id = out["id"]
     where = f" inside {org.name}" if in_org else ""
-    waiting = "Waiting for the next major hack." if spec.get("type") == "event_buy" and spec.get("event_set") == "major_hacks" else ""
+    waiting = {"major_hacks": "Waiting for the next major hack.", "dwarkesh": "Waiting for the next Dwarkesh Podcast episode."}.get(spec.get("event_set"), "") if spec.get("type") == "event_buy" else ""
     if spec.get("type") == "basket_hold":
         # Reserve a small fee/slippage allowance. Each participant keeps their own positions.
         budget = total * 0.998
@@ -579,15 +580,18 @@ def _open(db: Session, ex: ExchangeAdapter, h: Huddle, t: Thesis, ev: HuddleEven
     return tr
 
 
+EVENT_SETS = {"hack": "major_hacks", "podcast": "dwarkesh"}  # event kind -> the event_buy rules it fires
+
+
 def fire(db: Session, ex: ExchangeAdapter, ev: HuddleEvent) -> int:
-    """Run every live hack rule this event reaches. Returns how many opened a position."""
+    """Run every live event rule this event reaches (hack rules on hacks, Dwarkesh rules on new episodes). Returns how many opened a position."""
     q = select(Thesis).where(Thesis.status == "live", Thesis.kind == "rule")
     if ev.huddle_id is not None:
         q = q.where(Thesis.huddle_id == ev.huddle_id)
     opened = 0
     for t in db.scalars(q).all():
         spec = t.spec or {}
-        if spec.get("type") != "event_buy" or spec.get("event_set") != "major_hacks" or _aware(t.armed_at) > _aware(ev.created_at):
+        if spec.get("type") != "event_buy" or spec.get("event_set") != EVENT_SETS.get(ev.kind) or _aware(t.armed_at) > _aware(ev.created_at):
             continue
         if db.scalar(select(Trigger).where(Trigger.thesis_id == t.id, Trigger.event_id == ev.id)):
             continue
@@ -643,7 +647,7 @@ def report_event(db: Session, ex: ExchangeAdapter, label: str, source: str | Non
     ev = HuddleEvent(kind=kind, label=label.strip()[:200], source=(source or None), huddle_id=huddle_id, reported_by=by)
     db.add(ev)
     db.flush()
-    if kind == "hack":
+    if kind in EVENT_SETS:
         fire(db, ex, ev)
     return ev
 
@@ -809,7 +813,9 @@ def ingest(db: Session, ex: ExchangeAdapter, h: Huddle, sender: str, text: str =
         row.thesis_id = live.id
         join_live(db, ex, h, live, sender, _money(m.group(1) or m.group(2)) if m else None)
         return row
-    if addressed or THESIS_CUE.search(body):
+    from .lab import theme  # lab imports nothing from here; resolved lazily like the planner in propose
+
+    if addressed or THESIS_CUE.search(body) or theme(body):  # one of the demo ideas said plainly is a proposal too
         propose(db, h, sender, body, addressed)
         return row
     if addressed:
@@ -873,15 +879,36 @@ def poll_feeds(db: Session, ex: ExchangeAdapter, fetch=None) -> int:
     return added
 
 
+def poll_podcasts(db: Session, ex: ExchangeAdapter, fetch=None) -> int:
+    """Read HUDDLE_PODCAST_FEEDS and report each episode published in the last 2 days once, as a podcast event."""
+    added = 0
+    for url in get_settings().huddle_podcast_feeds:
+        try:
+            body = fetch(url) if fetch else httpx.get(url, timeout=10.0, follow_redirects=True).text
+        except Exception as e:
+            log.warning("podcast feed %s failed: %s", url, e)
+            continue
+        for it in parse_feed(body):
+            if not it["ts"] or _aware(it["ts"]) < _now() - dt.timedelta(days=2):
+                continue
+            key = it["link"] or it["title"]
+            if db.scalar(select(HuddleEvent).where(HuddleEvent.kind == "podcast", HuddleEvent.source == key)):
+                continue
+            report_event(db, ex, f"New Dwarkesh Podcast episode: {it['title']}", key, None, "feed", kind="podcast")
+            added += 1
+    return added
+
+
 def tick(db: Session, ex: ExchangeAdapter) -> dict:
-    """Worker hook: close finished holds, and read the hack feeds every few minutes."""
+    """Worker hook: close finished holds, and read the hack and podcast feeds every few minutes."""
     import time
 
     global _last_feed_poll
     out = {"settled": settle(db, ex), "feed_events": 0}
-    if get_settings().huddle_hack_feeds and time.monotonic() - _last_feed_poll > 600:
+    s = get_settings()
+    if (s.huddle_hack_feeds or (s.huddle_podcast_feeds and s.arena_mode != "sim")) and time.monotonic() - _last_feed_poll > 600:
         _last_feed_poll = time.monotonic()
-        out["feed_events"] = poll_feeds(db, ex)
+        out["feed_events"] = poll_feeds(db, ex) + (poll_podcasts(db, ex) if s.arena_mode != "sim" else 0)
     return out
 
 

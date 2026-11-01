@@ -184,3 +184,29 @@ def test_feed_parser_and_poll(client, monkeypatch):
     with session() as db:
         assert HD.poll_feeds(db, hl.get_exchange(), fetch=lambda url: rss) == 1
         assert HD.poll_feeds(db, hl.get_exchange(), fetch=lambda url: rss) == 0  # deduped
+
+
+def test_dwarkesh_rule_fires_on_a_new_episode(client):
+    from app import huddle as HD
+    from app.db import session
+
+    hid = client.get("/huddle/web/pod").json()["id"]
+    say(client, hid, "Ana", "Dwarkesh is always right. Trade every new episode")
+    t = client.get(f"/huddle/{hid}").json()["theses"][0]
+    assert t["kind"] == "rule" and t["label"].startswith("Buy xyz:NVDA on each new Dwarkesh Podcast episode") and t["proposal"]["holdings"][0]["market"] == "xyz:NVDA"
+    say(client, hid, "Bo", "in for $80")
+    assert client.get(f"/huddle/{hid}").json()["theses"][0]["status"] == "live"
+    assert "Waiting for the next Dwarkesh Podcast episode." in bot(client, hid)[-1]["text"]
+    now = dt.datetime.now(dt.timezone.utc)
+    rss = """<rss><channel>
+      <item><title>Someone new on AI</title><link>https://pod.example/new</link><pubDate>%s</pubDate><enclosure url="x.mp3"/></item>
+      <item><title>An old one</title><link>https://pod.example/old</link><pubDate>%s</pubDate><enclosure url="y.mp3"/></item>
+    </channel></rss>""" % (now.strftime("%a, %d %b %Y %H:%M:%S +0000"), (now - dt.timedelta(days=30)).strftime("%a, %d %b %Y %H:%M:%S +0000"))
+    with session() as db:
+        assert HD.poll_podcasts(db, hl.get_exchange(), fetch=lambda url: rss) == 1  # the 30-day-old episode is not news
+        assert HD.poll_podcasts(db, hl.get_exchange(), fetch=lambda url: rss) == 0  # each episode fires once
+    msg = bot(client, hid)[-1]["text"]
+    assert msg.startswith("Thesis 1 fired. New Dwarkesh Podcast episode: Someone new on AI") and "Bought" in msg and "xyz:NVDA" in msg
+    # a hack does not fire a podcast rule
+    say(client, hid, "Ana", "protoss hack: Example Exchange drained")
+    assert len(client.get(f"/huddle/{hid}").json()["theses"][0]["triggers"]) == 1

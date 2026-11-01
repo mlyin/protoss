@@ -122,11 +122,19 @@ def setup_demo(live=False, wallet_review=False):
         return chat_id, ",".join(str(user) for user in users)
 
 
-HELP = ("Protoss practice demo\n/demo (choose a crypto example)\n/idea buy and hold 60% BTC and 40% ETH\n/back 1 (or tap Back this idea)\n"
+# The four ideas Protoss demos, in order (same sentences as the Lab's examples). Button label, callback, what the chat hears.
+IDEAS = [
+    ("Buy XMR on every major hack", "idea:xmr", "Let's buy XMR every time a major company gets hacked"),
+    ("Robots take over: buy Unitree", "idea:unitree", "I think robots are going to take over the world"),
+    ("Anthropic bubble pops: short ANT", "idea:ant", "The Anthropic bubble is going to pop"),
+    ("Dwarkesh is right: NVDA each episode", "idea:dwarkesh", "Dwarkesh is always right. Trade every new episode"),
+]
+
+HELP = ("Protoss practice demo\n/demo (choose one of the four ideas)\n/idea I think robots are going to take over the world\n/back 1 (or tap Back this idea)\n"
         "/pledge 20 (your own paper pledge)\n/status\n/join (private wallet connection)\n"
         "Wallet ownership is checked with a signature. Chat backing never authorizes spending.")
 HELP_LIVE = ("Protoss listens to this chat.\n"
-             "Say an idea: \"let's buy unitree, robots are taking over\" or \"i think ANT doubles\". I post the card.\n"
+             "Say an idea, or tap /demo for the four: XMR on every hack, robots (Unitree), the Anthropic bubble (short ANT), Dwarkesh (NVDA each episode). I post the card.\n"
              "Back it: thumbs up the card, or say \"in\". Stake: \"in for 11\" or \"$11 each\".\n"
              "Each stake is a real order from your own Hyperliquid account through the API wallet you authorized. Nothing is pooled; close a position yourself any time.\n"
              "Commands still work: /idea, /back 1, /pledge 11, /status, /join.")
@@ -232,8 +240,8 @@ class Bridge:
                 return
             if match:
                 text = f"protoss back {match[1]}"
-            elif payload in ("idea:crypto", "idea:bitcoin", "idea:ant"):
-                text = "protoss buy and hold " + {"idea:crypto": "60% BTC and 40% ETH", "idea:bitcoin": "BTC", "idea:ant": "xyz:ANT"}[payload]
+            elif idea := next((said for _, data, said in IDEAS if data == payload), None):
+                text = "protoss " + idea
             else:
                 return
         else:
@@ -267,10 +275,7 @@ class Bridge:
                 intro = ("Choose an idea. You and your friend each confirm your own amount with /pledge; each order leaves your own account. Perpetual markets, not coin ownership."
                          if self.live else
                          "Choose a practice idea. You and your friend each choose your own amount. No real money moves. These examples use perpetual markets, not coin ownership.")
-                self.send(self.chat, intro, key,
-                    [[{"text": "60% Bitcoin + 40% Ethereum", "callback_data": "idea:crypto"}],
-                     [{"text": "Bitcoin only", "callback_data": "idea:bitcoin"}],
-                     [{"text": "ANT (xyz) only", "callback_data": "idea:ant"}]])
+                self.send(self.chat, intro, key, [[{"text": label, "callback_data": data}] for label, data, _ in IDEAS])
                 return
             if command == "join":
                 url = f"https://t.me/{self.username}?start=join_{self.chat}"

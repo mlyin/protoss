@@ -181,10 +181,7 @@ def test_link_creation_needs_admin_and_a_telegram_group(client):
 
 def test_crypto_basket_has_four_independent_fills(client, tmp_path):
     worker, tg, hid = make_bridge(client, tmp_path)
-    worker.handle(message(1, 111, "/demo"))
-    assert tg.sent[-1]["reply_markup"]["inline_keyboard"][0][0]["callback_data"] == "idea:crypto"
-    worker.handle({"update_id": 2, "callback_query": {"id": "crypto", "from": {"id": 111}, "data": "idea:crypto",
-        "message": {"chat": {"id": CHAT, "type": "supergroup"}}}})
+    worker.handle(message(2, 111, "/idea buy and hold 60% BTC and 40% ETH"))
     worker.handle(message(3, 111, "/pledge 20"))
     worker.handle(message(4, 222, "/pledge 50"))
     worker.handle(message(4, 222, "/pledge 50"))
@@ -261,3 +258,14 @@ def test_guided_setup_keeps_token_out_of_output(monkeypatch, capsys):
     assert token not in capsys.readouterr().out
     # Restore via monkeypatch rather than leaving a token in the process environment.
     monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "")
+
+
+def test_demo_menu_is_the_four_ideas(client, tmp_path):
+    worker, tg, hid = make_bridge(client, tmp_path)
+    worker.handle(message(1, 111, "/demo"))
+    menu = tg.sent[-1]["reply_markup"]["inline_keyboard"]
+    assert [row[0]["callback_data"] for row in menu] == ["idea:xmr", "idea:unitree", "idea:ant", "idea:dwarkesh"]
+    worker.handle({"update_id": 2, "callback_query": {"id": "ant", "from": {"id": 111}, "data": "idea:ant",
+        "message": {"chat": {"id": CHAT, "type": "supergroup"}}}})
+    thesis = client.get(f"/huddle/{hid}", headers=ADMIN).json()["theses"][0]
+    assert thesis["label"].startswith("Short and hold xyz:ANT")
