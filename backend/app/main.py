@@ -8,6 +8,7 @@ from pathlib import Path
 
 from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from sqlalchemy import select
@@ -409,7 +410,15 @@ app.include_router(telegram_router)
 from .live import router as live_router  # noqa: E402
 app.include_router(live_router)
 
-# serve the built web app if present (web/dist)
-_dist = Path(__file__).resolve().parents[2] / "web" / "dist"
-if _dist.exists():
+# Serve the same build used by Pages, with the old build directory as a compatibility fallback.
+_web = Path(__file__).resolve().parents[2] / "web"
+_dist = next((path for path in (_web / "pages-dist", _web / "dist") if (path / "index.html").is_file()), None)
+if _dist is not None:
+    @app.get("/app/", include_in_schema=False)
+    @app.get("/app/index.html", include_in_schema=False)
+    def account_frontend():
+        # Plain Vite builds and the Pages artifact share this entry. No SPA
+        # fallback on API paths: missing account endpoints must remain errors.
+        return FileResponse(_dist / "index.html", headers={"Cache-Control": "no-cache"})
+
     app.mount("/", StaticFiles(directory=str(_dist), html=True), name="web")
