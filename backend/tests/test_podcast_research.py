@@ -131,16 +131,28 @@ def test_model_output_must_have_evidence_and_listed_market(monkeypatch, bad):
         research.research(URL, SOURCE, fetch=lambda _: HTML, analyze=lambda *args: data)
 
 
+@pytest.mark.parametrize('truncated', [False, True])
 @pytest.mark.parametrize('proposal', [None, ANALYSIS['proposal']])
-def test_research_is_sourced_and_non_executable(monkeypatch, proposal):
+def test_research_is_sourced_and_non_executable(monkeypatch, proposal, truncated):
     monkeypatch.setenv('ANTHROPIC_API_KEY', 'test-provider-key')
+    if truncated:
+        monkeypatch.setattr(research, 'MAX_TEXT', 500)
     result = research.research(URL, SOURCE, fetch=lambda _: HTML, analyze=lambda *args: {**ANALYSIS, 'proposal': proposal})
     assert result['kind'] == 'research' and URL in result['reply']
     assert result['spec'] is result['deployable'] is result['result'] is None
     assert 'text' not in result['source']
-    assert 'No order or approval was created' in result['reply'] and 'NVDA' not in result['reply']
+    assert 'NVDA' not in result['reply']
+    assert result['analysis']['claims'] == ANALYSIS['claims']
+    assert ANALYSIS['summary'] not in result['reply'] and QUOTE not in result['reply']
     if proposal is None:
-        assert 'No trade proposed' in result['reply']
+        assert result['reply'].splitlines() == [
+            'No clear trade from this episode’s ' + ('partial public text.' if truncated else 'public text.'), URL]
+    else:
+        assert result['reply'].startswith('Idea: SHORT BTC perpetual\nWhy: ')
+        assert 'Risk: ' + proposal['risk'] in result['reply']
+        assert 'Before trading: ' + ANALYSIS['missing_evidence'][0] in result['reply']
+        assert 'Unverified idea; no order placed.' in result['reply']
+        assert ('Partial public text.' if truncated else 'Public text.') in result['reply']
 
 
 def test_api_requires_admin_before_any_research(monkeypatch):
