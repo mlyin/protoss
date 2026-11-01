@@ -26,6 +26,8 @@ Services `com.protoss.api`, `com.protoss.fleet`; logs in `logs/`. Public URL: `p
   `com.protoss.tunnel` (`cloudflared tunnel run protoss`, config in ~/.cloudflared/config.yml, log logs/com.protoss.tunnel.log).
   `PUBLIC_URL=https://app.protoss.trade` in backend/.env so checkout redirects land on the live app. Recreate on a new
   machine: `cloudflared tunnel login` (Matthew clicks Authorize on protoss.trade), `tunnel create`, `tunnel route dns`.
+- 2026-11-01: `scripts/candles.py` with no arguments now refreshes every market already in `backend/app/data/candles/` plus the
+  defaults. 34 markets cached (top perps by volume, every HIP-3 name in the Lab's alias list), 1.8 MB. xyz:ANT has 6 bars (listed 2026-10-26).
 - 2026-10-31: Refresh the Lab's offline candles with `.venv/bin/python scripts/candles.py [MARKETS]` (default BTC ETH SOL HYPE XMR,
   daily, full history, drops the bar still forming). Lab tests pin their own cache to XMR, so shipping a market does not move them.
 - 2026-10-31: Tail-wallet verified on real fills from the mini: `scripts/lab.py "tail 0x... with $10k over the last 7 days"` replayed 65 fills across 14 markets. Vault addresses like HLP trade through sub-accounts and have no fills of their own, so the Lab synthesizes for them and says so.

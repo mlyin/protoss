@@ -18,5 +18,5 @@ Plain markdown, `[[wikilinks]]`, opens as an Obsidian vault. Dated lines, newest
 How to add: append a dated line (`- 2026-10-31: ...`) to the right page. A new recurring job gets a
 runbook. A correction gets one line in [[corrections]] and, if it changes a rule, the rule page too.
 `python scripts/brain.py remember "..."` appends to corrections with the date; `brain.py decide "..."` to decisions.
-- `brain/handoff.md`: state of the world on 2026-10-31 and the open threads, for a session starting fresh. Read it first after this index.
+- `brain/handoff.md`: state of the world on 2026-11-01 and the open threads, for a session starting fresh. Read it first after this index.
 - 2026-10-31: the group chat (huddle) and the iMessage bridge: [[product]] (The group chat), [[runbooks]] (iMessage group chat), [[decisions]] (iMessage route).
