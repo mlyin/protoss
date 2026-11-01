@@ -118,8 +118,10 @@ def _wrap(draw, text: str, font, width: int, max_lines: int) -> list[str]:
     return lines
 
 
-def render_card(*, kicker: str, headline: str, stats: list[tuple[str, str, str | None]], foot: str, curve: list[float] | None = None) -> bytes:
-    """Ink card: kicker, Anton headline, a row of figures over the red rule (the line you drew), optional curve."""
+def render_card(*, kicker: str, headline: str, stats: list[tuple[str, str, str | None]], foot: str, curve: list[float] | None = None,
+                bench: list[float] | None = None) -> bytes:
+    """Ink card: kicker, Anton headline, a row of figures over the red rule (the line you drew), optional curve.
+    With `bench` (buy and hold over the same window) both lines share one scale and a legend says where each ended."""
     from PIL import Image, ImageDraw
 
     im = Image.new("RGB", (W, H), INK)
@@ -135,19 +137,33 @@ def render_card(*, kicker: str, headline: str, stats: list[tuple[str, str, str |
     d.text((brand_x, 56), "PROTOSS", font=_font("Anton-Regular.ttf", 34), fill=TEXT)
     k = _font("Inter-Variable.ttf", 26, "Medium")
     d.text((W - pad - d.textlength(kicker, font=k), 64), kicker, font=k, fill=SECOND)
-    big = _font("Anton-Regular.ttf", 76)
     y = 140
     right = W - pad - (360 if curve else 0)
-    for line in _wrap(d, headline.upper(), big, right - pad, 3):
+    for size, step in ((76, 88), (58, 68)):  # a long headline gets the smaller size instead of running into the figures
+        big = _font("Anton-Regular.ttf", size)
+        lines = _wrap(d, headline.upper(), big, right - pad, 3)
+        if len(lines) <= 2:
+            break
+    for line in lines:
         d.text((pad, y), line, font=big, fill=TEXT)
-        y += 88
+        y += step
     if curve and len(curve) > 1:
-        x0, x1, y0, y1 = W - pad - 320, W - pad, 150, 330
-        lo, hi = min(curve), max(curve)
-        pts = [(x0 + i * (x1 - x0) / (len(curve) - 1), y1 - (v - lo) / max(1e-9, hi - lo) * (y1 - y0)) for i, v in enumerate(curve)]
-        base = y1 - (curve[0] - lo) / max(1e-9, hi - lo) * (y1 - y0)
-        d.line([(x0, base), (x1, base)], fill="#3a3a35", width=2)
-        d.line(pts, fill=POS if curve[-1] >= curve[0] else NEG, width=4, joint="curve")
+        bench = bench if bench and len(bench) > 1 else None
+        x0, x1, y0, y1 = W - pad - 320, W - pad, 140, 300 if bench else 330
+        lo, hi = min(curve + (bench or [])), max(curve + (bench or []))
+        Y = lambda v: y1 - (v - lo) / max(1e-9, hi - lo) * (y1 - y0)  # noqa: E731
+        line = lambda vals: [(x0 + i * (x1 - x0) / (len(vals) - 1), Y(v)) for i, v in enumerate(vals)]  # noqa: E731
+        d.line([(x0, Y(curve[0])), (x1, Y(curve[0]))], fill="#3a3a35", width=2)
+        color = POS if curve[-1] >= curve[0] else NEG
+        if bench:
+            d.line(line(bench), fill=MUTED, width=3, joint="curve")
+        d.line(line(curve), fill=color, width=4, joint="curve")
+        if bench:
+            small = _font("Inter-Variable.ttf", 20, "Medium")
+            for i, (name, vals, fill) in enumerate((("the idea", curve, color), ("buy and hold", bench, MUTED))):
+                ly = y1 + 18 + i * 28
+                d.rectangle([x0, ly + 10, x0 + 18, ly + 13], fill=fill)
+                d.text((x0 + 28, ly), f"{name} {(vals[-1] / vals[0] - 1) * 100:+.1f}%", font=small, fill=fill if fill != MUTED else SECOND)
     ys = H - 210
     lab, val = _font("Inter-Variable.ttf", 22, "Medium"), _font("JetBrainsMono-Medium.ttf", 44)
     x = pad
@@ -274,8 +290,9 @@ def thesis_card(tid: int, db: Session = DbDep):
     if rec["closed"]:
         stats[-1] = ("Record", f"{rec['up']} of {rec['closed']}", tone(rec["pnl_usd"]))
     curve = [p[1] for p in s.get("curve") or []] or None
-    key = f"t:{tid}:{t['status']}:{t['pledged_usd']}:{rec['closed']}:{t['outcome']}"
-    return _png(key, lambda: render_card(kicker=f"thesis {t['n']} from {t['author']}", headline=t["label"], stats=stats, foot=foot, curve=curve))
+    bench = [p[1] for p in s.get("bench") or []] or None
+    key = f"t:{tid}:{t['label']}:{t['status']}:{t['pledged_usd']}:{rec['closed']}:{t['outcome']}"
+    return _png(key, lambda: render_card(kicker=f"idea {t['n']}" if t["author"].startswith("tg:") else f"idea {t['n']} from {t['author']}", headline=t["label"], stats=stats, foot=foot, curve=curve, bench=bench))
 
 
 # ------------------------------------------------------------------------------------------------ huddle invite

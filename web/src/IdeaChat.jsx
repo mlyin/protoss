@@ -42,7 +42,7 @@ export default function IdeaChat() {
   const testHistory = async () => {
     setBusy(true); setResearch(null)
     try {
-      const response = await apiFetch('/lab/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: 'what if I bought XMR every time a major institution got hacked and held 7 days', days: 730 }) })
+      const response = await apiFetch('/lab/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: 'what if I bought XMR every time a major institution got hacked and held 1 day', days: 730 }) })
       const result = await response.json()
       if (!response.ok) throw new Error(typeof result.detail === 'string' ? result.detail : 'Historical research is unavailable.')
       if (typeof result.reply !== 'string') throw new Error('The research service returned no explanation.')

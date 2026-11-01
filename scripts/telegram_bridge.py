@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import getpass
+import io
 import json
 import os
 import re
@@ -16,6 +17,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+import uuid
 from pathlib import Path
 
 
@@ -48,6 +50,27 @@ class Telegram:
             raise APIError(f"Telegram {method} failed; inspect the bot configuration locally")
         return result["result"]
 
+    def upload(self, method, fields, name, filename, data, mime="image/png"):
+        """multipart/form-data for sendPhoto: the card PNG comes from the local API, which Telegram cannot reach by URL."""
+        boundary = "protoss" + uuid.uuid4().hex
+        out = io.BytesIO()
+        for key, value in fields.items():
+            out.write(f'--{boundary}\r\nContent-Disposition: form-data; name="{key}"\r\n\r\n'.encode())
+            out.write((value if isinstance(value, str) else json.dumps(value)).encode() + b"\r\n")
+        out.write(f'--{boundary}\r\nContent-Disposition: form-data; name="{name}"; filename="{filename}"\r\nContent-Type: {mime}\r\n\r\n'.encode())
+        out.write(data + f"\r\n--{boundary}--\r\n".encode())
+        req = urllib.request.Request(self.base + method, data=out.getvalue(), headers={"Content-Type": f"multipart/form-data; boundary={boundary}"})
+        try:
+            with urllib.request.urlopen(req, timeout=35) as response:
+                result = json.load(response)
+        except urllib.error.HTTPError as exc:
+            raise APIError(f"HTTP {exc.code}; check local credentials, permissions and service status", status=exc.code) from None
+        except (urllib.error.URLError, TimeoutError, ValueError):
+            raise APIError("service unreachable or invalid response") from None
+        if not result.get("ok"):
+            raise APIError(f"Telegram {method} failed; inspect the bot configuration locally")
+        return result["result"]
+
 
 class Protoss:
     def __init__(self, base, token):
@@ -58,6 +81,13 @@ class Protoss:
         if method not in ("GET", "POST"):
             raise ValueError("unsupported method")
         return request(self.base + path, body, self.headers)
+
+    def get_bytes(self, path):
+        try:
+            with urllib.request.urlopen(urllib.request.Request(self.base + path, headers=self.headers), timeout=20) as response:
+                return response.read()
+        except (urllib.error.URLError, TimeoutError):
+            raise APIError("card image unavailable") from None
 
 
 class State:
@@ -150,6 +180,22 @@ HELP_LIVE = ("Protoss listens to this chat.\n"
              "Commands still work: /idea, /back 1, /pledge 11, /status, /join.")
 
 
+# this bot's own links: anything on the local API, and Protoss page shapes (/t/1, /h/x, /l/x, /#/feed) anywhere.
+# Links to news sources (a hack report) stay.
+OWN_LINK = re.compile(r"[ \t]*\(?https?://(?:(?:127\.0\.0\.1|localhost)(?::\d+)?\S*|[^\s/]+/(?:[thl]/|#/)\S*)")
+
+
+def tidy(text, names=None):
+    """Telegram copy: drop links to this bot's own local API (nobody else can open them) and show names, not tg:<id>."""
+    app = os.environ.get("APP_URL", "")
+    if app and not re.match(r"https?://(127\.0\.0\.1|localhost)", app):
+        text = re.sub(r"[ \t]*" + re.escape(app.rstrip("/")) + r"\S*", "", text)
+    text = OWN_LINK.sub("", text)
+    text = text.replace("Every fill is public:", "Every fill is public on Hyperliquid.")
+    text = re.sub(r"\btg:(\d+)", lambda m: (names or {}).get(m.group(1), "a friend"), text)
+    return re.sub(r"\n{3,}", "\n\n", text).strip()
+
+
 def friendly(text):
     # Leave URLs intact, including the existing ?legion= parameter.
     replacements = {"thesis": "idea", "theses": "ideas", "legion": "group", "sandbox": "risk checks", "pledged": "confirmed", "paper money": "practice money"}
@@ -216,6 +262,20 @@ class Bridge:
             reply = "Research is unavailable right now. Please try again shortly."
         self.send(chat, reply + "\nResearch only. No order placed and nothing posted to your group.", key)
 
+    def send_card(self, chat, png, caption, key, keyboard=None):
+        """The card as one photo: the backtest chart with the text as its caption. Falls back to text on any failure."""
+        if f"{key}:0" in self.state.data["sent"]:
+            return
+        fields = {"chat_id": str(chat), "caption": caption}
+        if keyboard:
+            fields["reply_markup"] = {"inline_keyboard": keyboard}
+        try:
+            result = self.telegram.upload("sendPhoto", fields, "photo", "idea.png", png)
+        except APIError:
+            return self.send(chat, caption, key, keyboard)
+        self.state.data["sent"][f"{key}:0"] = result["message_id"]
+        self.state.save()
+
     def send(self, chat, text, key, keyboard=None):
         """Checkpoint every successful chunk. Telegram delivery is at least once across a crash."""
         for index, start in enumerate(range(0, len(text), 3800)):
@@ -255,10 +315,19 @@ class Bridge:
             keyboard = None
             if row["kind"] == "card" and thesis and thesis["status"] == "proposed":
                 keyboard = [[{"text": "Back this idea", "callback_data": f"back:{thesis['n']}"}]]
-            text = friendly(row["text"])
+            text = tidy(friendly(row["text"]), self.state.data.get("names"))
             if not self.wallet_review and huddle.get("mode") in ("sim", "paper"):
                 text = "Paper demo. No real funds.\n" + text
-            self.send(self.chat, text, f"outbox:{row['id']}", keyboard)
+            png = None
+            if row["kind"] == "card" and thesis and len(text) <= 1024 and hasattr(self.telegram, "upload"):
+                try:
+                    png = self.protoss.get_bytes(f"/og/t/{thesis['id']}.png")
+                except (APIError, AttributeError):
+                    png = None
+            if png:
+                self.send_card(self.chat, png, text, f"outbox:{row['id']}", keyboard)
+            else:
+                self.send(self.chat, text, f"outbox:{row['id']}", keyboard)
             if keyboard:
                 mid = self.state.data["sent"].get(f"outbox:{row['id']}:0")
                 if mid:
@@ -287,6 +356,9 @@ class Bridge:
             return self.private_reply(update, user, message, callback)
         if user_id not in self.users:
             return
+        if user.get("first_name") and self.state.data.setdefault("names", {}).get(str(user_id)) != user["first_name"][:40]:
+            self.state.data["names"][str(user_id)] = user["first_name"][:40]  # shown instead of tg:<id>
+            self.state.save()
         if not private and (chat.get("id") != self.chat or chat.get("type") not in ("group", "supergroup")):
             return
         if self.wallet_review:
@@ -493,10 +565,14 @@ def main():
         bridge = Bridge(telegram, protoss, state, args.chat, users, me["username"], huddle["id"], live=live, wallet_review=wallet_review)
         mode_label = "individual wallet approval" if wallet_review else health["mode"]
         print(f"Protoss Telegram bridge running in {mode_label} mode. Send fresh commands in the selected group. Ctrl-C stops it.")
+        last_tick = 0.0
         while True:
             try:
                 if wallet_review:
                     protoss.call("POST", f"/live/groups/{huddle['id']}/verify", {})
+                if time.monotonic() - last_tick > 60:  # close finished holds, fire rules on new hacks and episodes
+                    last_tick = time.monotonic()
+                    protoss.call("POST", "/huddle/tick")
                 bridge.drain()
                 updates = telegram.call("getUpdates", offset=state.data["offset"], timeout=20, allowed_updates=["message", "callback_query", "message_reaction"])
                 for update in updates:

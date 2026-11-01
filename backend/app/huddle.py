@@ -25,6 +25,7 @@ import datetime as dt
 import logging
 import re
 import secrets
+import time
 import xml.etree.ElementTree as ET
 from email.utils import parsedate_to_datetime
 
@@ -275,6 +276,14 @@ def _real(ex: ExchangeAdapter) -> bool:
 
 # ------------------------------------------------------------------------------------------------ the card
 
+def _thin(points: list, n: int = 60) -> list:
+    """About n points for the card chart, always ending on the last one so the chart ends where the result does."""
+    kept = list(points[:: max(1, len(points) // n)])
+    if points and kept[-1] is not points[-1]:
+        kept.append(points[-1])
+    return [[p[0].isoformat(), round(p[1], 2)] for p in kept]
+
+
 def _test_summary(spec, res) -> dict:
     out = {
         "label": res.label, "market": res.market, "start": res.start.date().isoformat(), "end": res.end.date().isoformat(),
@@ -282,7 +291,8 @@ def _test_summary(spec, res) -> dict:
         "bench_pct": round(res.benchmark_curve[-1][1] / res.starting_equity * 100 - 100, 2) if res.benchmark_curve else None,
         "real": not any("simulated" in n for n in res.notes),
         "source": res.notes[0] if res.notes else "",
-        "curve": [[p[0].isoformat(), round(p[1], 2)] for p in res.equity_curve[:: max(1, len(res.equity_curve) // 60)]],
+        "curve": _thin(res.equity_curve),
+        "bench": _thin(res.benchmark_curve or []),
     }
     if res.stats:
         out["events"] = res.stats
@@ -1047,6 +1057,14 @@ def delivered(hid: int, body: DeliveredIn, x_admin_token: str | None = Header(de
         m.delivered = True
         n += 1
     return {"delivered": n}
+
+
+@router.post("/huddle/tick")
+def huddle_tick_route(x_admin_token: str | None = Header(default=None), db: Session = DbDep, ex: ExchangeAdapter = Depends(exchange)):
+    """Close holds whose time is up and read the event feeds. Only this, so a bridge can drive it without the full
+    worker (which also marks and snapshots every agent)."""
+    _require_admin(x_admin_token)
+    return tick(db, ex)
 
 
 @router.post("/huddle/events", status_code=201)
