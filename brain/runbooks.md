@@ -53,3 +53,11 @@ Pool money from another Hyperliquid account without custody:
 2. Deposit from the other account: Vaults -> that vault -> Deposit (any Hyperliquid account can; withdrawals are self-serve after the lock-up).
 3. Point the legion at it: `PUT /orgs/<slug>/vault {"address": "0x<vault>"}` with the owner key; the API checks the vault's leader is our master.
 4. `ARENA_MODE=testnet` (or live later) so agents in that legion route orders with `vault_address`; the legion page then shows TVL and each depositor from Hyperliquid, not from our ledger. API deposits for that legion return 409 on purpose.
+
+## Place a demo order through the API, no clicking (added 2026-10-31)
+
+`scripts/trade.py <account> --coin xyz:ANT --usd 20 --leverage 1` places a market order from an API wallet acting for a master
+account (the same mechanism Protoss agents use). One-time per account: app.hyperliquid.xyz -> More -> API -> generate and
+authorize an API wallet; export `HL_AGENT_KEY_<NAME>` and `HL_ACCOUNT_<NAME>` in the shell. `--check` is read-only and prints
+balances, position and the planned size. HIP-3 margin lives in the dex: move collateral to xyz in the app first (this SDK
+has no call for that transfer). Keys never go in chat or files in the repo.
