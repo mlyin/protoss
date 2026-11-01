@@ -40,33 +40,33 @@ export default function NewLegion({ me, setMe }) {
     return (
       <section className="one">
         <h1>{done.name} is open</h1>
-        <p className="sub">Send the link to your friends. Your group admin key is below; it is the only thing that can add agents or change the mandate, and it is shown once.</p>
+        <p className="sub">Send the link to your friends. Your org key is below; it is the only thing that can add agents or change the mandate, and it is shown once.</p>
         <div className="card pad list">
           <div className="kv"><span>Invite link</span><span><a href={`#/p/${done.slug}`}>{link}</a></span></div>
-          <div className="kv"><span>Group admin key</span><span style={{ wordBreak: 'break-all' }}>{done.org_key}</span></div>
+          <div className="kv"><span>Org key</span><span style={{ wordBreak: 'break-all' }}>{done.org_key}</span></div>
           <div className="kv"><span>Pool</span><span>${done.pool_cash} from {done.depositors} depositor</span></div>
         </div>
         <div className="actions">
           <button className="primary" onClick={() => navigator.clipboard?.writeText(link)}>Copy invite link</button>
-          <a className="btn" href={`#/p/${done.slug}`}>Open the group</a>
+          <a className="btn" href={`#/p/${done.slug}`}>Open the legion</a>
         </div>
-        <p className="sub">Your group is ready. Share the invite link so friends can review the plan. Keep your admin key private.</p>
+        <p className="sub">Next: give an agent a slice of the pool with <code>POST /orgs/{done.slug}/agents</code> (org key as bearer) or add it under <code>orgs:</code> in <code>fleet.yaml</code>.</p>
       </section>
     )
   }
 
   return (
     <section className="one">
-      <div><h1>Start a group</h1><p className="sub" style={{ marginTop: 8 }}>Give your group a name, explain the plan and choose its spending limits. This is the shared-vault setup. Use the demo for separate trade copies.</p></div>
+      <div><h1>Start a legion</h1><p className="sub" style={{ marginTop: 8 }}>Write the mandate your friends are signing up for, draw the lines no agent can cross, put in the first money.</p></div>
       <form className="card pad form" onSubmit={submit}>
-        <label>Name<input value={form.name} onChange={set('name')} placeholder="Lee's trading group" required minLength={2} maxLength={64} /></label>
-        <label>Your name<input value={form.leader} onChange={set('leader')} placeholder="lee" required /></label>
-        <label>Your trading plan<textarea value={form.mandate} onChange={set('mandate')} rows={3} placeholder="Memory and AI chips are mispriced vs demand. Trade NVDA and SP500 perps plus BTC as a hedge. Never above 3x. Stop everything at 12% drawdown." required minLength={10} maxLength={1000} /></label>
+        <label>Name<input value={form.name} onChange={set('name')} placeholder="Lee's Semis Legion" required minLength={2} maxLength={64} /></label>
+        <label>Your handle<input value={form.leader} onChange={set('leader')} placeholder="lee" required /></label>
+        <label>Mandate<textarea value={form.mandate} onChange={set('mandate')} rows={3} placeholder="Memory and AI chips are mispriced vs demand. Trade NVDA and SP500 perps plus BTC as a hedge. Never above 3x. Stop everything at 12% drawdown." required minLength={10} maxLength={1000} /></label>
         <div className="grid4">
-          <label>Maximum borrowing multiplier<input type="number" min="1" max="50" step="0.5" value={form.max_leverage} onChange={set('max_leverage')} /></label>
-          <label>Stop after total loss %<input type="number" min="1" max="100" step="1" value={form.drawdown_flatten_pct} onChange={set('drawdown_flatten_pct')} /></label>
+          <label>Max leverage<input type="number" min="1" max="50" step="0.5" value={form.max_leverage} onChange={set('max_leverage')} /></label>
+          <label>Stop at drawdown %<input type="number" min="1" max="100" step="1" value={form.drawdown_flatten_pct} onChange={set('drawdown_flatten_pct')} /></label>
           <label>Daily loss %<input type="number" min="0.5" max="100" step="0.5" value={form.daily_loss_pct} onChange={set('daily_loss_pct')} /></label>
-          <label>Maximum trade value $<input type="number" min="100" step="100" value={form.max_notional_usd} onChange={set('max_notional_usd')} /></label>
+          <label>Max notional $<input type="number" min="100" step="100" value={form.max_notional_usd} onChange={set('max_notional_usd')} /></label>
         </div>
         <div>
           <div className="sub" style={{ marginBottom: 8 }}>Markets agents may touch (none selected = defaults)</div>
@@ -77,7 +77,7 @@ export default function NewLegion({ me, setMe }) {
           <label>Your cut of profits %<input type="number" min="0" max="50" step="1" value={form.profit_share_pct} onChange={set('profit_share_pct')} /></label>
         </div>
         {err && <div className="err">{err}</div>}
-        <div className="actions" style={{ margin: 0 }}><button className="primary" disabled={busy}>{busy ? 'Starting…' : 'Start the group'}</button></div>
+        <div className="actions" style={{ margin: 0 }}><button className="primary" disabled={busy}>{busy ? 'Starting…' : 'Start the legion'}</button></div>
       </form>
     </section>
   )
