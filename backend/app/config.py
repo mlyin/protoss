@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     arena_mode: Literal["sim", "paper", "testnet"] = "sim"
     database_url: str = "sqlite:///./arena.db"
     admin_token: str = "change-me"
+    redirect_legacy_frontend: bool = False  # enable only after Pages /app/ is verified
 
     # Hyperliquid
     hl_master_private_key: str | None = None

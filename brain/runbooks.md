@@ -61,3 +61,6 @@ account (the same mechanism Protoss agents use). One-time per account: app.hyper
 authorize an API wallet; export `HL_AGENT_KEY_<NAME>` and `HL_ACCOUNT_<NAME>` in the shell. `--check` is read-only and prints
 balances, position and the planned size. HIP-3 margin lives in the dex: move collateral to xyz in the app first (this SDK
 has no call for that transfer). Keys never go in chat or files in the repo.
+
+## Unified Pages frontend (2026-11-01)
+See `brain/pages-deployment-2026-11-01.md`. The current frontend release source is `web/`, built by GitHub Actions, with `/app/` on the apex and a separate `api.protoss.trade` tunnel. This supersedes older apex-to-tunnel and frozen-docs deployment instructions. Do not restart or replace the fleet to publish the frontend.

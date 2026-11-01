@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 320" class="probe working" role="img" aria-labelledby="title">
+  <title id="title">Protoss Probe, working</title>
+  <defs>
+    <linearGradient id="gold" x2=".8" y2="1"><stop stop-color="#fff0b2"/><stop offset=".45" stop-color="#edbd51"/><stop offset="1" stop-color="#a66b23"/></linearGradient>
+    <linearGradient id="ivory" x2=".8" y2="1"><stop stop-color="#fffdf0"/><stop offset="1" stop-color="#d8caa3"/></linearGradient>
+    <radialGradient id="crystal" cx=".3" cy=".25"><stop stop-color="#e5ffff"/><stop offset=".4" stop-color="#5ae7ff"/><stop offset="1" stop-color="#087fbc"/></radialGradient>
+    <linearGradient id="beam" x2="0" y2="1"><stop stop-color="#59dfff" stop-opacity=".6"/><stop offset="1" stop-color="#59dfff" stop-opacity="0"/></linearGradient>
+  </defs>
+  <style>
+    .outline{stroke:#453221;stroke-width:4;stroke-linejoin:round;stroke-linecap:round}
+    .float{transform-origin:160px 150px;animation:hover 4s ease-in-out infinite}
+    .shadow{transform-origin:160px 285px;animation:shadow 4s ease-in-out infinite}
+    .thinking-effects,.talking-effects,.working-effects,.success-effects{display:none}
+    .thinking .thinking-effects,.working .working-effects,.success .success-effects{display:inline}
+    .talking .talking-effects{display:inline}.talking .float{animation:ponder 2.4s ease-in-out infinite}
+    .talking .speech-dot{animation:thought 1.5s ease-in-out infinite}.talking .speech-dot.two{animation-delay:.25s}.talking .speech-dot.three{animation-delay:.5s}
+    .thinking .float{animation:ponder 3s ease-in-out infinite}
+    .thinking .thought{animation:thought 1.8s ease-in-out infinite}
+    .thinking .thought.second{animation-delay:.25s}.thinking .thought.third{animation-delay:.5s}
+    .working .float{animation:work 1.8s ease-in-out infinite}
+    .working .build-ring{transform-origin:160px 277px;animation:spin 4s linear infinite}
+    .working .spark{animation:thought 1s ease-in-out infinite}
+    .success .check{stroke-dasharray:50;stroke-dashoffset:50;animation:draw .6s ease-out forwards}
+    @keyframes hover{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+    @keyframes shadow{0%,100%{transform:scaleX(1);opacity:.13}50%{transform:scaleX(.85);opacity:.08}}
+    @keyframes ponder{0%,100%{transform:translateY(-3px) rotate(-3deg)}50%{transform:translateY(-7px) rotate(3deg)}}
+    @keyframes thought{0%,100%{opacity:.35;transform:translateY(0)}50%{opacity:1;transform:translateY(-4px)}}
+    @keyframes work{0%,100%{transform:translateY(-3px)}50%{transform:translateY(1px)}}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    @keyframes draw{to{stroke-dashoffset:0}}
+    @media(prefers-reduced-motion:reduce){.float,.shadow,.thought,.speech-dot,.build-ring,.spark,.check{animation:none!important}.check{stroke-dashoffset:0}}
+  </style>
+  <ellipse class="shadow" cx="160" cy="285" rx="65" ry="11" fill="#453221" opacity=".13"/>
+  <g class="working-effects">
+    <path d="M146 220 119 277H201L174 220Z" fill="url(#beam)"/>
+    <g class="build-ring" fill="none" stroke="#31c8ed" stroke-width="3"><path d="m160 258 20 10v18l-20 10-20-10v-18Z"/><path d="m140 268 20 10 20-10m-20 10v18"/></g>
+    <path class="spark" d="M110 251v12m-6-6h12m94-9v10m-5-5h10" fill="none" stroke="#31c8ed" stroke-width="3" stroke-linecap="round"/>
+  </g>
+  <g class="float">
+    <path class="outline" d="M146 105Q133 67 142 31Q177 52 185 102Z" fill="url(#gold)"/>
+    <path d="m146 53 10 35 10-3Z" fill="#56e4ff"/>
+    <path class="outline" d="M92 107Q58 151 81 205L124 235 193 231 242 174 229 115 170 82Z" fill="#755126"/>
+    <path class="outline" d="M100 100Q141 73 188 91Q220 104 227 133L176 181 101 162Z" fill="url(#ivory)"/>
+    <path class="outline" d="M113 93Q117 121 144 130L184 92 198 103 156 147 119 136 96 111Z" fill="url(#gold)"/>
+    <path class="outline" d="M91 134Q124 120 154 144L172 197 128 228 89 199Q72 168 91 134Z" fill="url(#ivory)"/>
+    <path class="outline" d="M118 154Q136 128 169 128L221 145 230 190 196 228 158 244 126 210Z" fill="url(#gold)"/>
+    <path class="outline" d="M147 157 172 142 211 154 215 188 186 220 160 230 140 204Z" fill="url(#ivory)"/>
+    <ellipse class="outline" cx="178" cy="180" rx="36" ry="43" transform="rotate(23 178 180)" fill="#976726"/>
+    <ellipse cx="178" cy="180" rx="29" ry="36" transform="rotate(23 178 180)" fill="url(#crystal)" stroke="#123b52" stroke-width="4"/>
+    <path d="m175 149-18 28 15 28 24-22Z" fill="#b8fbff" opacity=".62"/>
+    <path d="m175 149 5 29 16 5m-39-6 23 1-8 27" fill="none" stroke="#e7ffff" stroke-width="2" opacity=".6"/>
+    <ellipse cx="169" cy="157" rx="6" ry="9" transform="rotate(25 169 157)" fill="#fff" opacity=".85"/>
+    <ellipse class="outline" cx="101" cy="168" rx="21" ry="28" transform="rotate(18 101 168)" fill="url(#gold)"/>
+    <ellipse cx="102" cy="168" rx="11" ry="18" transform="rotate(18 102 168)" fill="url(#crystal)" stroke="#123b52" stroke-width="3"/>
+    <path class="outline" d="M91 98Q39 122 37 184Q36 222 65 247Q47 204 65 171Q73 156 86 145Z" fill="url(#gold)"/>
+    <path d="M73 129Q46 161 48 194L58 168Z" fill="#5de8ff" stroke="#267b91" stroke-width="2"/>
+    <path class="outline" d="M234 106Q278 132 281 181Q282 221 251 253Q266 213 249 188L227 167Z" fill="url(#gold)"/>
+    <path d="M254 143Q273 165 269 199L260 174Z" fill="#5de8ff" stroke="#267b91" stroke-width="2"/>
+    <path class="outline" d="m139 229 17-9 25 13-5 17-18 7-22-12Z" fill="url(#gold)"/>
+    <ellipse cx="158" cy="244" rx="14" ry="6" fill="#56e4ff" stroke="#123b52" stroke-width="3"/>
+    <path d="m158 248 10 10-10 15-10-15Z" fill="url(#crystal)" stroke="#8ff2ff" stroke-width="2"/>
+  </g>
+  <g class="thinking-effects" fill="#69dff6" stroke="#205063" stroke-width="2">
+    <circle class="thought" cx="234" cy="76" r="5"/><circle class="thought second" cx="254" cy="58" r="8"/>
+    <g class="thought third"><path d="M261 27Q274 15 287 27Q299 40 286 51Q276 59 263 49Q251 40 261 27Z" fill="#e1fbff"/><path d="M266 37h18" stroke-width="3" stroke-dasharray="1 7" stroke-linecap="round"/></g>
+  </g>
+  <g class="success-effects"><circle cx="254" cy="66" r="26" fill="#dbf8e9" stroke="#2f8a65" stroke-width="3"/><path class="check" d="m242 66 8 8 16-18" fill="none" stroke="#2f8a65" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/></g>
+  <g class="talking-effects"><path d="M218 25h64q15 0 15 15v22q0 15-15 15h-29l-18 15 3-15h-20q-15 0-15-15V40q0-15 15-15Z" fill="#e1fbff" stroke="#205063" stroke-width="3"/>
+    <g fill="#168db2"><circle class="speech-dot" cx="230" cy="51" r="4"/><circle class="speech-dot two" cx="250" cy="51" r="4"/><circle class="speech-dot three" cx="270" cy="51" r="4"/></g></g>
+</svg>

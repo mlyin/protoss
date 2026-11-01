@@ -17,3 +17,7 @@ harness/runs/
 node_modules/
 web/dist/
 web/node_modules
+
+web/pages-dist/
+web/test-results/
+web/playwright-report/

@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="25 20 270 270" class="probe-icon" role="img" aria-labelledby="title">
+  <title id="title">Protoss Probe</title>
+  <defs>
+    <linearGradient id="gold" x2=".8" y2="1"><stop stop-color="#fff0b2" /><stop offset=".45" stop-color="#edbd51" /><stop offset="1" stop-color="#a66b23" /></linearGradient>
+    <linearGradient id="ivory" x2=".8" y2="1"><stop stop-color="#fffdf0" /><stop offset="1" stop-color="#d8caa3" /></linearGradient>
+    <radialGradient id="crystal" cx=".3" cy=".25"><stop stop-color="#e5ffff" /><stop offset=".4" stop-color="#5ae7ff" /><stop offset="1" stop-color="#087fbc" /></radialGradient>
+    <linearGradient id="beam" x2="0" y2="1"><stop stop-color="#59dfff" stop-opacity=".6" /><stop offset="1" stop-color="#59dfff" stop-opacity="0" /></linearGradient>
+  </defs>
+  <ellipse class="shadow" cx="160" cy="285" rx="65" ry="11" fill="#453221" opacity=".13" />
+  <g class="float">
+    <path class="outline" d="M146 105Q133 67 142 31Q177 52 185 102Z" fill="url(#gold)" stroke="#453221" stroke-width="4" stroke-linejoin="round" stroke-linecap="round" />
+    <path d="m146 53 10 35 10-3Z" fill="#56e4ff" />
+    <path class="outline" d="M92 107Q58 151 81 205L124 235 193 231 242 174 229 115 170 82Z" fill="#755126" stroke="#453221" stroke-width="4" stroke-linejoin="round" stroke-linecap="round" />
+    <path class="outline" d="M100 100Q141 73 188 91Q220 104 227 133L176 181 101 162Z" fill="url(#ivory)" stroke="#453221" stroke-width="4" stroke-linejoin="round" stroke-linecap="round" />
+    <path class="outline" d="M113 93Q117 121 144 130L184 92 198 103 156 147 119 136 96 111Z" fill="url(#gold)" stroke="#453221" stroke-width="4" stroke-linejoin="round" stroke-linecap="round" />
+    <path class="outline" d="M91 134Q124 120 154 144L172 197 128 228 89 199Q72 168 91 134Z" fill="url(#ivory)" stroke="#453221" stroke-width="4" stroke-linejoin="round" stroke-linecap="round" />
+    <path class="outline" d="M118 154Q136 128 169 128L221 145 230 190 196 228 158 244 126 210Z" fill="url(#gold)" stroke="#453221" stroke-width="4" stroke-linejoin="round" stroke-linecap="round" />
+    <path class="outline" d="M147 157 172 142 211 154 215 188 186 220 160 230 140 204Z" fill="url(#ivory)" stroke="#453221" stroke-width="4" stroke-linejoin="round" stroke-linecap="round" />
+    <ellipse class="outline" cx="178" cy="180" rx="36" ry="43" transform="rotate(23 178 180)" fill="#976726" stroke="#453221" stroke-width="4" stroke-linejoin="round" stroke-linecap="round" />
+    <ellipse cx="178" cy="180" rx="29" ry="36" transform="rotate(23 178 180)" fill="url(#crystal)" stroke="#123b52" stroke-width="4" />
+    <path d="m175 149-18 28 15 28 24-22Z" fill="#b8fbff" opacity=".62" />
+    <path d="m175 149 5 29 16 5m-39-6 23 1-8 27" fill="none" stroke="#e7ffff" stroke-width="2" opacity=".6" />
+    <ellipse cx="169" cy="157" rx="6" ry="9" transform="rotate(25 169 157)" fill="#fff" opacity=".85" />
+    <ellipse class="outline" cx="101" cy="168" rx="21" ry="28" transform="rotate(18 101 168)" fill="url(#gold)" stroke="#453221" stroke-width="4" stroke-linejoin="round" stroke-linecap="round" />
+    <ellipse cx="102" cy="168" rx="11" ry="18" transform="rotate(18 102 168)" fill="url(#crystal)" stroke="#123b52" stroke-width="3" />
+    <path class="outline" d="M91 98Q39 122 37 184Q36 222 65 247Q47 204 65 171Q73 156 86 145Z" fill="url(#gold)" stroke="#453221" stroke-width="4" stroke-linejoin="round" stroke-linecap="round" />
+    <path d="M73 129Q46 161 48 194L58 168Z" fill="#5de8ff" stroke="#267b91" stroke-width="2" />
+    <path class="outline" d="M234 106Q278 132 281 181Q282 221 251 253Q266 213 249 188L227 167Z" fill="url(#gold)" stroke="#453221" stroke-width="4" stroke-linejoin="round" stroke-linecap="round" />
+    <path d="M254 143Q273 165 269 199L260 174Z" fill="#5de8ff" stroke="#267b91" stroke-width="2" />
+    <path class="outline" d="m139 229 17-9 25 13-5 17-18 7-22-12Z" fill="url(#gold)" stroke="#453221" stroke-width="4" stroke-linejoin="round" stroke-linecap="round" />
+    <ellipse cx="158" cy="244" rx="14" ry="6" fill="#56e4ff" stroke="#123b52" stroke-width="3" />
+    <path d="m158 248 10 10-10 15-10-15Z" fill="url(#crystal)" stroke="#8ff2ff" stroke-width="2" />
+  </g>
+  </svg>
