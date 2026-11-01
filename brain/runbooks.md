@@ -111,6 +111,15 @@ See docs/telegram-demo.md, section "Live copies". Short form: per participant `s
 `scripts/telegram_demo.py --live --chat <group> --users <id1>,<id2>` and type LIVE. Receipts come from Hyperliquid fill history.
 Matthew's rule: the only thing a participant should touch is Telegram; the one-time authorization is the exception because it is their signature.
 
+## Run the live Telegram bot on the MacBook (added 2026-11-01)
+1. Once: Matthew saves the bot token to `~/.protoss/telegram.env` (mode 600) himself. Agents never read that file.
+2. Once: clone the dev checkout to `~/protoss-bot` (launchd cannot read ~/Documents), then run
+   `~/protoss-bot/deploy/macbook/install_telegram.sh <chat id> <user id>,<user id>`.
+3. After a change in `~/Documents/protoss2`: commit, then `deploy/macbook/update_bot.sh` (local fetch, restart). No push needed.
+4. Watch `~/.protoss/telegram-live.log`. Stop: `launchctl bootout gui/$(id -u)/com.protoss.telegram`.
+5. Before shipping chat changes, drive the flow with fake Telegram and exchange (`backend/tests/test_copies.py` has the
+   pattern) and read every message the group would see.
+
 ## Place a demo order through the API, no clicking (added 2026-10-31)
 
 `scripts/trade.py <account> --coin xyz:ANT --usd 20 --leverage 1` places a market order from an API wallet acting for a master
