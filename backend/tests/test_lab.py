@@ -182,6 +182,7 @@ def test_the_four_ideas(client):
 
     hacks, robots, bubble, dwarkesh = (chat(client, q) for q in EXAMPLES)
     assert hacks["kind"] == "backtest" and hacks["spec"]["market"] == "XMR" and hacks["spec"]["event_set"] == "major_hacks"
+    assert hacks["spec"]["hold_days"] == 1  # the demo idea holds a day; "held 7 days" still means 7
     assert robots["kind"] == "backtest" and robots["spec"]["market"] == "xyz:UNITREE" and robots["spec"]["side"] == "long"
     assert robots["reply"].startswith("Robots taking over: Unitree")
     assert bubble["kind"] == "backtest" and bubble["spec"]["market"] == "xyz:ANT" and bubble["spec"]["side"] == "short"

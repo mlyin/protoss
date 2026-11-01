@@ -155,6 +155,11 @@ class LocalAPI:
         assert r.is_success, r.text
         return r.json()
 
+    def get_bytes(self, path):
+        r = self.client.get(path, headers=ADMIN)
+        assert r.is_success, r.text
+        return r.content
+
 
 class FakeTelegram:
     def __init__(self):
@@ -213,7 +218,7 @@ def test_unauthorized_wallet_refuses_only_that_copy(live, tmp_path):
     w.handle(msg(4, 222, "/pledge 20"))
     texts = [m["text"] for m in tg.sent]
     assert sum("Real order, real money" in t for t in texts) == 1
-    assert any("tg:222's copy did not go out" in t and "not authorized" in t for t in texts)
+    assert any("P's copy did not go out" in t and "not authorized" in t for t in texts)  # names, not tg:<id>
     assert {e.master for e in FakeExchange.made} == {ACC1}
 
 
@@ -291,3 +296,22 @@ def test_plain_chat_thesis_thumbs_up_and_in_for_sends_two_real_orders(live, tmp_
     before = len(tg.sent)
     w.handle(msg(5, 111, "lol"))
     assert len(tg.sent) == before
+
+
+class PhotoTelegram(FakeTelegram):
+    def upload(self, method, fields, name, filename, data, mime="image/png"):
+        self.sent.append({"method": method, "text": fields["caption"], "photo": data, **{k: v for k, v in fields.items() if k != "caption"}})
+        return {"message_id": len(self.sent)}
+
+
+def test_cards_go_out_as_a_chart_with_no_local_links(live, tmp_path):
+    client, ex = live
+    h = client.post("/huddle", headers=ADMIN, json={"chat_id": f"telegram:{CHAT}", "title": "protoss beta testing", "quorum": 2}).json()
+    tg = PhotoTelegram()
+    w = bridge.Bridge(tg, LocalAPI(client), bridge.State(tmp_path / "s.json"), CHAT, [111, 222], "ProtossTradingDemoBot", h["id"], live=True)
+    w.handle(msg(1, 111, "/idea buy and hold xyz:ANT"))
+    card = next(m for m in tg.sent if m.get("method") == "sendPhoto")
+    assert card["photo"][:8] == b"\x89PNG\r\n\x1a\n" and card["reply_markup"]["inline_keyboard"][0][0]["text"] == "Back this idea"
+    assert "http" not in card["text"] and "tg:111" not in card["text"] and "from P" in card["text"]
+    # a thumbs up on the photo backs the idea like it did on the text card
+    assert w.state.data["cards"][str(tg.sent.index(card) + 1)] == 1

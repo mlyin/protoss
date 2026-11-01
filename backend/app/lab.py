@@ -400,6 +400,8 @@ def plan_rules(message: str, starting_equity: float, days: int, known: set[str],
         if m := HOLD_RE.search(low_nd):
             n, unit = next((g, u) for g, u in zip(m.groups()[::2], m.groups()[1::2]) if g)
             extra["hold_days"] = int(n) * (7 if unit == "week" else 1)
+        elif extra.get("event_set", "major_hacks") == "major_hacks":
+            extra["hold_days"] = 1  # the demo idea holds a day after a hack (Matthew, 2026-11-01)
         if re.search(r"\bshort(?:ed|ing)?\b", low):
             extra["side"] = "short"
         if m := re.search(r"(\d+(?:\.\d+)?)\s*%\s*of", low_nd):
