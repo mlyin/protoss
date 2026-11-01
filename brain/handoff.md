@@ -1,79 +1,43 @@
-# Handoff (written 2026-11-01, for the session that picks this up next)
+# Protoss handoff, 2026-11-01
 
-## Update, 2026-11-01
+This page replaces the older runtime checklist. Do not stop the fleet, reset databases, submit acceptance trades, or ask for the Telegram token again. The latest observed runtime state below supersedes earlier token-missing notes.
 
-Latest user clarification: fourth idea = "Research each episode and propose a trade." This supersedes all fixed NVDA wording below. Episode analysis is not connected; do not present release-date backtests as transcript research. Preserve existing runtime rules, trading settings, fleet, databases and checkpoints. Do not stop the fleet or run real stakes as acceptance tests; those older checklist items below are not authorized.
+## Product and authorization
 
+The homepage has four Telegram-style research ideas: XMR after hacks, robotics/Unitree, Anthropic downside, and research each new Dwarkesh episode. Matthew explicitly chose episode-specific research and a proposed trade, not a fixed NVDA release-date rule. No defensible trade is a valid research result. Do not imply Unitree or Anthropic perpetuals are company shares, or claim a backtest predicts returns.
 
-Private account route repair: the simplified frontend had discarded the connection and trade-review links still issued by Telegram. The two private screens are restored without adding public navigation. Browser fixtures cover link preservation/reload, ownership click gating, owner changes, missing/expired links, public API destination, prepared-trade reloads and leaving during preparation. An isolated running API/database trace confirms actual issued links render the correct private records. No real wallet was connected and no trade was signed or submitted. Live acceptance still needs the bot and its issuing API available together; local-only links do not work for remote participants.
+The account workspace reads real connected-owner positions when a wallet is connected. Personal wallet addresses, balances, fills and positions must not appear on the public site or in shared Telegram summaries. Keep participant identities separate. No fabricated balances, activity, friends or practice-dashboard filler. The Probe branding remains; the decorative unit gallery and download controls are not product requirements.
 
-Goal audit: at the start of the 12-hour product goal the MacBook bot and its API on port 8001 were stopped after the separate Telegram-card deployment. No token was present in the remaining test API process or this shell. Restoring the bot needs private token entry; never print credentials or reset its databases/checkpoints. The homepage preview runs at port 4374; private account screens are previewed at port 4375. The other session installed `com.protoss.telegram`, but it is stopped with exit 126 and repeated macOS operation-not-permitted errors; its private token file is absent. Do not start a competing poller. PRs #10 and #11 are merged; the public XMR request completes, while the newer backend code still needs deployment. A subsequent research audit found date-only event timestamps can cause entries before publication; study validity is not established and needs correction.
+Matthew authorized review and publishing, coordinating with the other session, necessary bot/API restarts, branding and routing corrections. Preserve uncommitted work, secrets, databases, checkpoints, trading settings and existing fleet. No trades, wallet signatures, fund transfers or enabling live execution. Real trading acceptance is separate.
 
-The older runtime checklist below is historical. PR #8 is merged; the user confirmed replies in both private Telegram messages and the group. The bot is now an administrator of the upgraded supergroup. Do not repeat the admin setup or reset the delivery checkpoint.
+## Verified releases and runtime
 
-The fourth idea is research from an episode or specific claim, not a default NVDA purchase. The correction asks for that evidence before a trade card is created. Explicit market/direction release-date backtests remain available and are labeled as release-date studies, not transcript analysis. Podcast monitoring and transcript analysis are still not connected.
+- PRs #26-#32 are merged. #31 reconciles the other session's fourth-idea decision with Matthew's correction; #32 adds read-only episode research. They retain research caveats through Telegram delivery, remove the automatic fourth-idea NVDA choice, regenerate three dated studies with coverage evidence, redact shared financial updates, and restore the approved Probe PNG required by the avatar script.
+- Public website: https://protoss.trade serves the Pages build. https://app.protoss.trade redirects to https://protoss.trade/app/. The homepage's three historical studies use methodology version 2 and a 2026-11-01T16:30UTC snapshot. The fourth idea is research-only. The XMR event list remains illustrative/unverified; do not market the result as a proven edge.
+- Public API: a browser request to https://api.protoss.trade/health returned ok=true, paper mode. Command-line urllib received a Cloudflare 403; that alone is not evidence the API is down. The Mini API is older than main and has not been updated by this MacBook session.
+- MacBook bot: launchd com.protoss.telegram runs from /Users/mlyin/protoss-bot. Its clean main checkout was fast-forwarded to 04ee4de2423932ab5d25897217386d747e8e9ff5. Exactly one bot poller was observed after restart. Its API on 127.0.0.1:8001 reported copies mode with telegram_live_enabled=false before and after; these settings were preserved. The Mini fleet was untouched.
+- The bot's origin remote points to the other local checkout, /Users/mlyin/Documents/protoss2, which can be stale. Fetch GitHub explicitly, inspect status and fast-forward only. Do not blindly use update_bot.sh, which resets its branch. Preserve the original service plist and runtime parameters.
+- Runtime build: npm ci failed for lack of disk space. Only the incomplete new node_modules was removed. The approved Pages artifact was built in an isolated worktree and copied to runtime web/pages-dist. Do not claim npm ci succeeded or assume runtime node_modules exists.
+- Before the restart, SQLite and Telegram checkpoints were backed up privately under ~/.protoss/backups/before-reviewed-bot-20261101-*. No original database/checkpoint was reset. Credentials remain outside Git and chat.
+- Telegram avatar: the existing script successfully set the approved gold/cyan Probe image on @ProtossTradingDemoBot. The current Telegram profile image was fetched and visually checked at /tmp/protoss-telegram-avatar-verified.jpg.
+- Matthew confirmed the updated bot replied correctly to the Dwarkesh research prompt both privately and in "protoss beta testing". This confirms replies and the corrected product direction, not a completed provider-backed episode analysis.
 
-Before the later stop, the MacBook bot ran from `~/protoss-demo` under `scripts/telegram_demo.py` with its API on port 8001. A separate session restarted this wrapper after the independent bridge setup described in the runbook. The observed API reports copies mode with `telegram_live_enabled=false`; no runtime or trading settings were changed for this research correction. Inspect the live processes and checkpoint before any restart. PR #9 (`bot-visual`) has merged; preserve its chart cards, link changes, and one-day XMR hold. The Mac mini API is still older than main and has not been updated from this MacBook.
+## Evidence and limits
 
-Read `CLAUDE.md` and `brain/INDEX.md` first. This page is the state of the repo today. Memory about Matthew himself lives in
-his Claude memory and follows him.
+The final episode-research release passed 218 backend tests and the full repository harness; independent review approved it after fixing provider-call admission/caching and excluding delisted markets. GitHub CI passed, including its PostgreSQL suite. The actual runtime research endpoint returned unavailable because ANTHROPIC_API_KEY is not configured. The source fetch was independently verified, but no provider-backed hypothesis has been produced. The deployed Pages site passed 46 desktop/mobile browser checks, including private-link routes and owner isolation. Account/API fixtures isolate those browser checks; they are not real connected-wallet or trade acceptance. No test messages were sent through the actual Telegram account by this agent, and no wallet was connected or signed.
 
-## What Protoss is
-Friends say a trading idea in a Telegram group. Protoss tests it on real Hyperliquid history, then each person picks their own
-amount and the order goes out from their own account; the money is never combined. The demo is **four ideas** (see
-[[decisions]] 2026-11-01): XMR on hacks, robots to Unitree, short the Anthropic bubble, research each new Dwarkesh episode.
-**Nothing on the website is simulated** (see [[corrections]]). Revenue: a builder code on every fill. The pooled **legion**
-(code says `org`; do not rename) and vault-backed legions still exist in the backend but are not on the website.
+Source, publication-timing, coverage and cached-data caveats remain visible. Historical studies must not turn into claims of forward performance. The public API can still reject unavailable histories; the website keeps the last verified dated snapshot and shows the failure.
 
-## Where things are (2026-11-01)
-- Live: https://protoss.trade (Pages, built from `web/` on every push to main; app at `/app/`), https://api.protoss.trade and
-  https://app.protoss.trade (Cloudflare Tunnel to the mini, paper mode). The website reads marks and positions straight from
-  api.hyperliquid.xyz in the browser; research calls api.protoss.trade.
-- Website (`web/src/IdeaChat.jsx`, `AccountWorkspace.jsx`): Home shows the four ideas; each shows its backtest card, verdict and
-  events from `web/public/ideas` (written by `scripts/idea_snapshots.py` on live candles, dated; rerun it to refresh), with
-  Run it now (live Lab) and Trade it in Telegram. Friends & positions shows only the visitor's own connected wallet: owner-only
-  privacy, Matthew's choice (see [[corrections]]; #15 removed the public group panel). Run it now on protoss.trade calls the
-  mini's Lab, which still runs old code: it works once the mini runs main.
-- Telegram bot (@ProtossTradingDemoBot): a launchd agent on Matthew's MacBook, `com.protoss.telegram`, running from its own clone
-  `~/protoss-bot` (launchd cannot read `~/Documents`: exit 126 "Operation not permitted"). Put a dev commit on it with
-  `deploy/macbook/update_bot.sh` from `~/Documents/protoss2` (local fetch, copies `web/dist`, restarts). It waits for
-  `~/.protoss/telegram.env` (TELEGRAM_BOT_TOKEN, mode 600, written by Matthew; never read it). Group "protoss beta testing"
-  became a supergroup when the bot was made admin (new chat id; it is in the launchd plist, not in the repo). Log: `~/.protoss/telegram-live.log`. Python comes
-  from `~/protoss-demo/.venv`.
-  In the chat: every answer is a Telegram reply to what caused it; cards are a phone-size chart image with a plain verdict and
-  buttons (Back, Show the events, I'm in for $10/$20/$50); My position links to the owner-only account view and posts no
-  balances in the group (#23); "close idea N" closes only your own copy; status shows live P&L; copies are numbered from 1001; one bad
-  message is skipped after 3 failures; the bot calls `POST /huddle/tick` every minute (closes holds, reads the hack and
-  Dwarkesh feeds). Hyperliquid rejects orders under $10, so amount buttons start at $10.
-- Mac mini (user `aaaa`): API and fleet under launchd from `/Users/aaaa/protoss` on `claude/project-thread-495i0w` with a large
-  uncommitted tree (huddle, onboarding, a data-quality gate that refuses incomplete history, iOS). On no remote. The live Lab
-  runs that code, so it still fails long windows until the mini runs main.
-- MacBook clone: `~/Documents/protoss2`. Node there is 18; run Playwright with a temporary Node 20
-  (`npx -y -p node@20 -c 'command -v node'`, then that node on `node_modules/@playwright/test/cli.js test`), built and pointed
-  the way CI does: `VITE_API_ORIGIN=https://api.protoss.trade npm run build:pages`, `E2E_API_URL=https://api.protoss.trade`,
-  `E2E_BASE_URL=http://127.0.0.1:4173` with the preview running. A build against a local API fails the private-link test.
-- Supabase project `koinon` (ref hgegigtdjkkclexqnuoy): migrations 0001 to 0004 applied, RLS on.
+## Remaining work
 
-## Waiting on Matthew
-1. Save the bot token once, in a real terminal on the MacBook (a chat `!` command cannot take typed input):
-   `~/Documents/protoss2/deploy/macbook/save_token.sh`. The launchd agent starts the bot within 5 seconds. As of 2026-11-01
-   11:20 it was still not saved, so the bot has never run on the new code and the group flow is unproven live.
-2. Mac mini: on the mini, `git -C ~/protoss fetch && git -C ~/protoss show origin/main:deploy/macmini/to_main.sh > /tmp/to_main.sh &&
-   bash /tmp/to_main.sh --dry-run`, then without `--dry-run`. It saves the dirty tree to a pushed `mini/wip-*` branch (never
-   .env, wallets.json or key files), switches to main and runs bootstrap.sh, so the live Lab gets main's fixes. Then stop the
-   demo fleet (`protossctl`); nothing shows it any more.
-3. Builder wallet: a separate standard-mode Hyperliquid account with >= 100 USDC; address in `HL_BUILDER_ADDRESS`.
-4. Keys when ready: `PRIVY_APP_ID`, `ONRAMP_MOONPAY_KEY/SECRET/WEBHOOK_KEY`, `ONRAMP_COINBASE_APP_ID`.
-5. X thread in `brand/x-thread.md`: drafted, his to post.
+1. Episode research is merged as PR #32 and deployed to the MacBook bot at 04ee4de. It is an admin-authenticated read-only pipeline, with invited Telegram users, public-source restrictions, evidence validation, fresh non-delisted markets, provider-call limits and delivery checkpoints. It covers a supplied public episode URL or the latest published audio episode, with at most 30,000 text characters and explicit partial-coverage disclosure. No automated episode monitor is implemented. The provider credential is the current blocker; a user question asks only for an existing local credential location, never its value. Do not search unrelated credential stores or claim analysis works before a real response succeeds.
+2. Verify one real provider-backed episode analysis on the running API after ANTHROPIC_API_KEY is privately configured in its process environment. Do not request or print the key in chat. State partial transcript coverage and missing corroboration. Never invent a proposal to hide unavailable configuration.
+3. Implement a separate research-only episode monitor with durable publication deduplication if continuing the fourth idea. Do not repurpose the existing explicit release-date trading rules or change runtime trading settings.
+4. Reach the production Mini and inspect its dirty checkout and service paths before updating its API. SSH to the documented Tailscale address returned "No route to host" from this MacBook. Do not overwrite its changes or restart the fleet. Public API health is available through the browser despite this access blocker. PR #33 added deploy/macmini/to_main.sh; inspect it before use. Its default bootstrap reloads services and its automatic staging/push is not an audited secret-preservation guarantee. Do not run it blindly on the dirty production checkout; preserve and review the exact changes, then restart only the necessary API service.
+5. Verify owner-linked private account flows on the actual issuing API and a user-controlled wallet, without signing or trading on the user's behalf. Localhost-issued links cannot serve remote participants; route them to the correct reachable issuing service when that service is available.
 
-## Open threads, in order
-1. With the token saved: run the four ideas in the group from a phone, one real stake per account, and check the fills show in the chat and on Friends & positions.
-2. Move the bot onto the mini next to the API so its links can be public (`APP_URL`), instead of a laptop terminal.
-3. Mini: merge its uncommitted tree onto main (overlaps `backend/app/backtest.py`, `huddle.py` and the Lab tests).
-4. Lab: refresh `backend/app/data/dwarkesh.csv` (`scripts/podcast_dates.py`) and the candle cache on a schedule.
-5. agent-desktop (Chris Tate) evaluation on the minis; harness loop for routine tasks (`harness/README.md`).
+## Local workspace
 
-## Rules that do not change
-Shell and files only, never his screen. Never move money or sign with his keys. Keys never in chat, commits or the brain.
-Copy follows `brain/voice.md`; UI follows `brain/design.md`. GREEN before done, and test what the site offers against the live
-API. Commits end with the attribution trailer.
+Task worktrees live under /Users/mlyin/Documents/ChatGPT/protoss2. Another session uses /Users/mlyin/Documents/protoss2; do not overwrite it or kill its preview. Use Node 22 at ~/.nvm/versions/node/v22.23.2/bin and Python at ~/protoss-demo/.venv/bin/python. Run pytest from the target worktree's backend directory so the editable environment cannot import an older checkout. Preview locally before publishing; CI is the release gate, not the UI iteration loop.
+
+The unmodified earlier configuration and business notes remain in Git history. Consult brain/corrections.md and brain/runbooks.md, and verify current state before repeating any deployment action.
