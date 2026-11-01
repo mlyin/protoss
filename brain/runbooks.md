@@ -117,6 +117,7 @@ Matthew's rule: the only thing a participant should touch is Telegram; the one-t
    `~/protoss-bot/deploy/macbook/install_telegram.sh <chat id> <user id>,<user id>`.
 3. After a change in `~/Documents/protoss2`: commit, then `deploy/macbook/update_bot.sh` (local fetch, restart). No push needed.
 4. Watch `~/.protoss/telegram-live.log`. Stop: `launchctl bootout gui/$(id -u)/com.protoss.telegram`.
+   Anything off: `deploy/macbook/doctor.sh` (read-only; token file, service, polling, awake hold, admin, webhook, public API).
 5. Before shipping chat changes, drive the flow with fake Telegram and exchange (`backend/tests/test_copies.py` has the
    pattern) and read every message the group would see.
 
