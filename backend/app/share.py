@@ -20,7 +20,7 @@ import re
 import time
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -295,14 +295,16 @@ def legion_card(slug: str, db: Session = DbDep, ex: ExchangeAdapter = Depends(ex
 
 # ------------------------------------------------------------------------------------------------ thesis
 
-def _thesis(db: Session, tid: int) -> dict:
-    from .huddle import Huddle, Thesis, thesis_out
+def _thesis(db: Session, tid: int, token: str | None = None) -> dict:
+    from .huddle import Huddle, Thesis, _guard, thesis_out
 
     t = db.get(Thesis, tid)
     if not t:
         raise HTTPException(404, "no such thesis")
     h = db.get(Huddle, t.huddle_id)
-    return thesis_out(db, t) | {"huddle_title": h.title, "web": h.chat_id.split(":", 1)[1] if h.is_web else None, "org_slug": h.org_slug}
+    _guard(h, token)
+    private = not (h.is_web and get_settings().arena_mode in ('sim', 'paper'))
+    return thesis_out(db, t) | {"huddle_title": h.title, "web": h.chat_id.split(":", 1)[1] if h.is_web else None, "org_slug": h.org_slug, "private": private}
 
 
 def thesis_blurb(t: dict) -> str:
@@ -321,12 +323,15 @@ def thesis_blurb(t: dict) -> str:
 
 
 @router.get("/t/{tid}", response_class=HTMLResponse)
-def thesis_link(tid: int, request: Request, db: Session = DbDep):
-    t = _thesis(db, tid)
+def thesis_link(tid: int, request: Request, x_admin_token: str | None = Header(default=None), db: Session = DbDep):
+    t = _thesis(db, tid, x_admin_token)
     base = _base(request)
     to = f"/#/huddle/{t['web']}" if t["web"] else (f"/#/p/{t['org_slug']}" if t["org_slug"] else "/#/lab")
-    return page(title=f"Thesis {t['n']} from {t['author']}: {t['label']}", description=thesis_blurb(t), image=f"{base}/og/t/{tid}.png",
-                url=f"{base}/t/{tid}", to=to)
+    response = page(title=f"Thesis {t['n']} from {t['author']}: {t['label']}", description=thesis_blurb(t), image=f"{base}/og/t/{tid}.png",
+                    url=f"{base}/t/{tid}", to=to)
+    if t['private']:
+        response.headers['Cache-Control'] = 'private, no-store'
+    return response
 
 
 def card_png(t: dict, phone: bool = False) -> bytes:
@@ -359,12 +364,15 @@ def card_png(t: dict, phone: bool = False) -> bytes:
 
 
 @router.get("/og/t/{tid}.png")
-def thesis_card(tid: int, format: str = Query(default="og", pattern="^(og|phone)$"), db: Session = DbDep):
+def thesis_card(tid: int, format: str = Query(default="og", pattern="^(og|phone)$"), x_admin_token: str | None = Header(default=None), db: Session = DbDep):
     """format=og is the 1200x630 link preview; format=phone is the tall card the Telegram bot posts."""
-    t = _thesis(db, tid)
+    t = _thesis(db, tid, x_admin_token)
     rec = t["record"]
     key = f"t:{tid}:{format}:{t['label']}:{t['status']}:{t['pledged_usd']}:{rec['closed']}:{t['outcome']}"
-    return _png(key, lambda: card_png(t, phone=format == "phone"))
+    response = _png(key, lambda: card_png(t, phone=format == "phone"))
+    if t['private']:
+        response.headers['Cache-Control'] = 'private, no-store'
+    return response
 
 
 # ------------------------------------------------------------------------------------------------ huddle invite

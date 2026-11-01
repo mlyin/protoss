@@ -384,9 +384,9 @@ def test_buttons_and_replies_make_the_chat_interactive(live, tmp_path):
     assert all(m["reply_markup"]["inline_keyboard"][0][0]["callback_data"] == "mine" for m in fills)
     w.handle(tap(4, 222, "Lando", "mine", card_mid))
     mine = tg.sent[-1]
-    assert mine["text"].startswith("Lando's positions:\nIdea 1: long ") and "xyz:UNITREE" in mine["text"] and "Matthew" not in mine["text"]
-    assert mine["reply_markup"]["inline_keyboard"][0][0] == {"text": "Close idea 1", "callback_data": "close:1"}
+    assert mine["text"].startswith("Your positions are private.") and "xyz:UNITREE" not in mine["text"] and "Matthew" not in mine["text"]
+    assert mine["reply_markup"]["inline_keyboard"][0][0] == {"text": "My positions", "url": "https://protoss.trade/app/"}
     w.handle(tap(5, 222, "Lando", "close:1", card_mid))
     assert tg.sent[-1]["text"].startswith("Lando's copy of idea 1 closed: xyz:UNITREE")
     w.handle(named(6, 111, "Matthew", "what's my position?"))
-    assert tg.sent[-1]["text"].startswith("Matthew's positions:\nIdea 1: long ") and tg.sent[-1]["reply_parameters"]["message_id"] == 106
+    assert tg.sent[-1]["text"].startswith("Your positions are private.") and tg.sent[-1]["reply_parameters"]["message_id"] == 106

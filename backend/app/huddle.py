@@ -31,7 +31,7 @@ from email.utils import parsedate_to_datetime
 from urllib.parse import urlsplit
 
 import httpx
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException, Response
 from pydantic import BaseModel, Field
 from sqlalchemy import JSON, Boolean, DateTime, Float, ForeignKey, Index, Integer, String, Text, UniqueConstraint, select
 from sqlalchemy.orm import Mapped, Session, mapped_column
@@ -739,31 +739,12 @@ def settle(db: Session, ex: ExchangeAdapter, now: dt.datetime | None = None) -> 
     return closed
 
 
+PRIVATE_POSITIONS_NOTICE = "Your positions are private. Connect your own wallet to view them: https://protoss.trade/app/"
+
+
 def _mine(db: Session, ex: ExchangeAdapter, h: Huddle, sender: str) -> str:
-    """The sender's own copies only: what is open, what it is worth now, what is armed and waiting."""
-    mine = [t for t in _theses(db, h, ("live",)) if (t.spec or {}).get("_telegram_copy_owner") == sender]
-    if not mine:
-        return f"{sender}, you have nothing open here. Back an idea and say \"in for 20\"."
-    lines = []
-    for t in mine:
-        spec = t.spec or {}
-        n = spec.get("_parent_n") or t.n
-        held = db.scalars(select(Trigger).where(Trigger.thesis_id == t.id, Trigger.closed.is_(False))).all()
-        for tr in held:
-            try:
-                mark = ex.mark(tr.market)
-            except Exception:  # no price right now: say so rather than guess
-                lines.append(f"Idea {n}: {tr.side} {tr.size:.6g} {tr.market} from {_px(tr.entry_px)}, price unavailable right now.")
-                continue
-            sign = 1 if tr.side == "long" else -1
-            pnl = sign * (mark - tr.entry_px) * tr.size
-            lines.append(f"Idea {n}: {tr.side} {tr.size:.6g} {tr.market} from {_px(tr.entry_px)}, now {_px(mark)}: {_signed_usd(pnl)} ({sign * (mark / tr.entry_px - 1) * 100:+.1f}%).")
-        if not held:
-            ev = {"major_hacks": "the next hack", "dwarkesh": "the next episode"}.get(spec.get("event_set"), "its signal")
-            lines.append(f"Idea {n}: {_usd(_pledged(backers(db, t)))} armed, waiting for {ev}.")
-    acct = getattr(ex, "wallets", {}).get(sender, {}).get("address", "") if hasattr(ex, "wallets") else ""
-    foot = f"\nAll from your own account {acct[:6]}...{acct[-4:]}." if acct else ""
-    return f"{sender}'s positions:\n" + "\n".join(lines) + foot
+    """A shared chat must not query or publish an owner's account details."""
+    return PRIVATE_POSITIONS_NOTICE
 
 
 def close_mine(db: Session, ex: ExchangeAdapter, h: Huddle, sender: str, n: int) -> str | None:
@@ -1159,7 +1140,8 @@ def _guard(h: Huddle, token: str | None) -> None:
 
 
 def _msg_out(m: HuddleMessage) -> dict:
-    return {"id": m.id, "ts": _aware(m.ts).isoformat(), "guid": m.guid, "sender": m.sender, "text": m.text, "from_bot": m.from_bot,
+    text = PRIVATE_POSITIONS_NOTICE if m.kind == "mine" else m.text
+    return {"id": m.id, "ts": _aware(m.ts).isoformat(), "guid": m.guid, "sender": m.sender, "text": text, "from_bot": m.from_bot,
             "kind": m.kind, "reaction": m.reaction, "target_guid": m.target_guid, "thesis_id": m.thesis_id}
 
 
@@ -1293,9 +1275,11 @@ def post_event(body: EventIn, x_admin_token: str | None = Header(default=None), 
 
 
 @router.get("/theses/{tid}")
-def get_thesis(tid: int, db: Session = DbDep):
+def get_thesis(tid: int, response: Response, x_admin_token: str | None = Header(default=None), db: Session = DbDep):
     t = db.get(Thesis, tid)
     if not t:
         raise HTTPException(404, "no such thesis")
     h = db.get(Huddle, t.huddle_id)
+    _guard(h, x_admin_token)
+    response.headers['Cache-Control'] = 'private, no-store'
     return thesis_out(db, t) | {"huddle": {"id": h.id, "title": h.title, "web": h.chat_id.split(":", 1)[1] if h.is_web else None, "org_slug": h.org_slug}}

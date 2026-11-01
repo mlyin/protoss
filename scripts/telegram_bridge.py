@@ -354,9 +354,12 @@ class Bridge:
             elif row["kind"] == "result" and re.search(r"order filled| fired on ", row["text"]):
                 keyboard = [[{"text": "My position", "callback_data": "mine"}]]
             elif row["kind"] == "mine":
-                ideas = sorted(set(re.findall(r"^Idea (\d+): (?:long|short) .* now ", row["text"], re.M)), key=int)
-                keyboard = [[{"text": f"Close idea {n}", "callback_data": f"close:{n}"} for n in ideas]] if ideas else None
-            text = tidy(friendly(row["text"]), self.state.data.get("names"))
+                keyboard = [[{"text": "My positions", "url": "https://protoss.trade/app/"}]]
+            # Older backends may still have private position details queued as
+            # shared `mine` rows. Never relay those details into the group.
+            shared_text = ("Your positions are private. Connect your own wallet to view them: https://protoss.trade/app/"
+                           if row["kind"] == "mine" else row["text"])
+            text = shared_text if row["kind"] == "mine" else tidy(friendly(shared_text), self.state.data.get("names"))
             if not self.wallet_review and huddle.get("mode") in ("sim", "paper"):
                 text = "Paper demo. No real funds.\n" + text
             png = None
