@@ -2,12 +2,22 @@ import React, { useEffect, useState } from 'react'
 import { apiFetch } from './api.js'
 import './IdeaChat.css'
 
+export const TELEGRAM_BOT = 'https://t.me/ProtossTradingDemoBot'
+
+// Same four sentences, same order, as the Lab (backend/app/lab.py EXAMPLES) and the Telegram bot's /demo menu.
 export const IDEAS = [
-  { id: 'hacks', label: 'A company gets hacked', prompt: 'Let’s buy XMR every time a major company gets hacked.', market: 'XMR', dex: '', direction: 'Long', title: 'Hacks → XMR', detail: 'The idea: after a confirmed major-company hack, consider a long XMR position. First check whether the historical reaction beats buying on an ordinary day.', risk: 'A hack does not necessarily increase demand for XMR. Define the event, entry window, and exit before trading.', event: 'Confirmed company hack', next: 'Test the historical rule' },
-  { id: 'robots', label: 'Robots take over', prompt: 'I think robots are going to take over the world.', market: 'xyz:UNITREE', dex: 'xyz', direction: 'Long', title: 'Robotics → Unitree', detail: 'One market to research for that thesis is xyz:UNITREE. The proposed direction is long: your idea is that expectations for robotics companies will rise.', risk: 'This is a Unitree-linked perpetual, not Unitree shares. Its pricing can diverge from the company’s underlying value.', next: 'Review the Unitree market' },
-  { id: 'anthropic', label: 'The Anthropic bubble pops', prompt: 'The Anthropic bubble is going to pop.', market: 'xyz:ANT', dex: 'xyz', direction: 'Short', title: 'Anthropic → short', detail: 'The market to research is xyz:ANT. A short expresses your view that the Anthropic-linked market price will fall.', risk: 'ANT is a perpetual, not Anthropic stock. A short loses money when the price rises; leverage can lead to liquidation.', next: 'Review the Anthropic market' },
-  { id: 'dwarkesh', label: 'A new Dwarkesh episode', prompt: 'Dwarkesh is always right. Turn each new podcast into a trade idea.', title: 'New episode → trade thesis', detail: 'Use a new episode as a research trigger. Extract a concrete claim, find the related listed market, then decide on a direction, entry, and what would invalidate it. If the episode has no defensible market connection, skip the trade.', risk: 'An interview is evidence to examine, not a trading signal by itself. A persuasive claim may already be priced in.', event: 'New Dwarkesh Podcast episode', next: 'Read an episode' },
+  { id: 'hacks', label: 'A company gets hacked', prompt: "Let's buy XMR every time a major company gets hacked", market: 'XMR', dex: '', direction: 'Long', title: 'Hacks → XMR for a day', event: 'A major company gets hacked', when: 'In the Telegram group, someone reports it ("protoss hack: …") and every armed copy buys XMR for one day.', risk: 'A hack does not have to raise demand for XMR. The test below says whether it has.' },
+  { id: 'robots', label: 'Robots take over', prompt: 'I think robots are going to take over the world', market: 'xyz:UNITREE', dex: 'xyz', direction: 'Long', title: 'Robotics → Unitree', risk: 'xyz:UNITREE is a Unitree-linked perpetual, not Unitree shares. It can move away from the company’s value.' },
+  { id: 'anthropic', label: 'The Anthropic bubble pops', prompt: 'The Anthropic bubble is going to pop', market: 'xyz:ANT', dex: 'xyz', direction: 'Short', title: 'Anthropic → short', risk: 'xyz:ANT is a perpetual, not Anthropic stock. A short loses money when the price rises.' },
+  { id: 'dwarkesh', label: 'A new Dwarkesh episode', prompt: 'Dwarkesh is always right. Trade every new episode', market: 'xyz:NVDA', dex: 'xyz', direction: 'Long', title: 'New episode → NVDA for 7 days', event: 'A new Dwarkesh Podcast episode', when: 'The Telegram bot reads his podcast feed every 10 minutes. A new episode buys NVDA for 7 days in every armed copy.', risk: 'An interview is not a price signal by itself. 33 episodes is a small sample.' },
 ]
+
+function useSnapshot() {
+  // scripts/idea_snapshots.py: the same backtest and chart the Telegram bot shows, run on Hyperliquid candles
+  const [snap, setSnap] = useState(null)
+  useEffect(() => { fetch('/ideas/ideas.json', { credentials: 'omit' }).then(r => (r.ok ? r.json() : null)).then(setSnap).catch(() => setSnap(null)) }, [])
+  return snap
+}
 
 function MarketQuote({ idea }) {
   const [quote, setQuote] = useState(null)
@@ -39,10 +49,12 @@ export default function IdeaChat() {
   const [research, setResearch] = useState(null)
   const [busy, setBusy] = useState(false)
   const idea = IDEAS.find(i => i.id === selected)
+  const snap = useSnapshot()
+  const tested = snap?.ideas?.find(i => i.id === selected)
   const testHistory = async () => {
     setBusy(true); setResearch(null)
     try {
-      const response = await apiFetch('/lab/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: 'what if I bought XMR every time a major institution got hacked and held 1 day', days: 730 }) })
+      const response = await apiFetch('/lab/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: idea.prompt }) })
       const result = await response.json()
       if (!response.ok) throw new Error(typeof result.detail === 'string' ? result.detail : 'Historical research is unavailable.')
       if (typeof result.reply !== 'string') throw new Error('The research service returned no explanation.')
@@ -53,17 +65,23 @@ export default function IdeaChat() {
   return <section className="idea-demo" aria-label="Four trade ideas">
     <div className="idea-picker"><p className="sub">Start with an idea</p><h2>Four ways a <br />conversation starts.</h2>
       <div role="tablist" aria-label="Trade idea">{IDEAS.map((item, i) => <button id={`tab-${item.id}`} key={item.id} role="tab" aria-controls="idea-conversation" aria-selected={selected === item.id} onClick={() => { setSelected(item.id); setResearch(null) }} disabled={busy}><span>0{i + 1}</span>{item.label}<span aria-hidden="true">↗</span></button>)}</div>
-      <p className="idea-picker-note">Idea previews, not executed trades. Your real positions stay in your connected account.</p>
+      <p className="idea-picker-note">Each test runs on real Hyperliquid prices. Trades happen in Telegram, one order from each person's own account.</p>
     </div>
     <div className="idea-conversation" role="tabpanel" id="idea-conversation" aria-labelledby={`tab-${idea.id}`}>
-      <header><img src="/probe/idle.svg" alt="" /><div><b>Protoss</b><span>From a conversation to a trade idea</span></div><span className="idea-draft-label">Draft</span></header>
+      <header><img src="/probe/idle.svg" alt="" /><div><b>Protoss</b><span>From a conversation to a trade idea</span></div></header>
       <div className="idea-chat-body">
         <div className="idea-user-bubble">{idea.prompt}</div>
-        <div className="idea-bot-bubble"><span className="idea-bot-name">Probe</span><h3>{idea.title}</h3><p>{idea.detail}</p>
+        <div className="idea-bot-bubble"><span className="idea-bot-name">Probe</span><h3>{idea.title}</h3>
+          {tested?.why && <p>{tested.why}</p>}
+          {tested && <img className="idea-card" src={`/ideas/${idea.id}.png`} alt={`${tested.label}: backtest chart against buy and hold`} width="1200" height="630" />}
+          {tested ? <div className="idea-verdict">{tested.verdict.map((line, i) => <p key={i}>{line}</p>)}<small>Tested on Hyperliquid candles, fees and slippage included, funding not · {new Date(snap.as_of).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</small></div>
+            : <p className="idea-risk">{snap === null ? 'Loading the test…' : 'The saved test is unavailable. Run it now for a fresh one.'}</p>}
+          {tested?.events?.length > 0 && <details className="idea-events"><summary>The {tested.events.length} {idea.id === 'hacks' ? 'hacks' : 'episodes'} it was tested on</summary>
+            <table><tbody>{tested.events.map(e => <tr key={e.date}><td>{e.date}</td><td className={e.move_pct > 0 ? 'up' : 'down'}>{e.move_pct > 0 ? '+' : ''}{e.move_pct.toFixed(1)}%</td><td>{e.what}</td></tr>)}</tbody></table></details>}
           {idea.market && <MarketQuote key={idea.id} idea={idea} />}
-          {idea.event && <div className="idea-event"><b>Research trigger</b><span>{idea.event}</span><small>{idea.id === 'dwarkesh' ? 'Episode monitoring is not connected. No podcast has been analyzed by this preview.' : 'This preview does not monitor news or place recurring orders.'}</small></div>}
+          {idea.event && <div className="idea-event"><b>What sets it off</b><span>{idea.event}</span><small>{idea.when}</small></div>}
           <p className="idea-risk">{idea.risk}</p>
-          {idea.id === 'hacks' ? <button className="idea-action" onClick={testHistory} disabled={busy}>{busy ? 'Checking history…' : idea.next}</button> : <a className="idea-action" href={idea.market ? `https://app.hyperliquid.xyz/trade/${encodeURIComponent(idea.market)}` : 'https://www.dwarkesh.com/podcast'} target="_blank" rel="noreferrer">{idea.next} ↗</a>}
+          <div className="idea-actions"><button className="idea-action" onClick={testHistory} disabled={busy}>{busy ? 'Running on live prices…' : 'Run it now'}</button><a className="idea-action primary" href={TELEGRAM_BOT} target="_blank" rel="noreferrer">Trade it in Telegram ↗</a></div>
         </div>
         {research && <div className="idea-bot-bubble" role="status"><span className="idea-bot-name">Research response</span><p className="idea-research">{research}</p></div>}
       </div>
