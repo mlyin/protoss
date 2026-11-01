@@ -358,3 +358,80 @@ def test_demo_menu_is_the_four_ideas(client, tmp_path):
         "message": {"chat": {"id": CHAT, "type": "supergroup"}}}})
     thesis = client.get(f"/huddle/{hid}", headers=ADMIN).json()["theses"][0]
     assert thesis["label"].startswith("Short and hold xyz:ANT")
+
+
+def test_group_position_requests_never_lookup_or_publish_positions(client, tmp_path, monkeypatch):
+    from app import huddle as HD
+
+    worker, tg, hid = make_bridge(client, tmp_path)
+
+    def no_financial_lookup(*args, **kwargs):
+        raise AssertionError('shared position request must not fetch account data')
+
+    for method in ('mark', 'positions', 'equity'):
+        monkeypatch.setattr(hl.get_exchange(), method, no_financial_lookup)
+    worker.handle(message(1, 111, '/mine'))
+    worker.handle(message(2, 111, "what's my position?"))
+    worker.handle({'update_id': 3, 'callback_query': {'id': 'mine', 'from': {'id': 222}, 'data': 'mine',
+                   'message': {'chat': {'id': CHAT, 'type': 'supergroup'}}}})
+    assert len(tg.sent) == 3
+    for sent in tg.sent:
+        assert sent['chat_id'] == CHAT
+        assert sent['text'].endswith(HD.PRIVATE_POSITIONS_NOTICE)
+        assert sent['reply_markup']['inline_keyboard'] == [[{'text': 'My positions', 'url': 'https://protoss.trade/app/'}]]
+    rows = client.get(f'/huddle/{hid}', headers=ADMIN).json()['messages']
+    assert all(row['text'] == HD.PRIVATE_POSITIONS_NOTICE for row in rows if row['from_bot'])
+
+
+def test_legacy_position_messages_are_redacted_without_deleting_database_rows(client, tmp_path):
+    from app import huddle as HD
+    from app.db import session
+
+    worker, tg, hid = make_bridge(client, tmp_path)
+    private = "Owner's positions: private-position-sentinel 6.5 XMR from $125. P&L +$900."
+    with session() as db:
+        row = HD.HuddleMessage(huddle_id=hid, sender=HD.BOT, text=private, kind='mine', from_bot=True, delivered=False)
+        db.add(row)
+        db.flush()
+        row_id = row.id
+    for path in [f'/huddle/{hid}', f'/huddle/{hid}/outbox']:
+        response = client.get(path, headers=ADMIN)
+        assert 'private-position-sentinel' not in response.text
+        assert HD.PRIVATE_POSITIONS_NOTICE in response.text
+
+    class OlderAPI(LocalAPI):
+        def call(self, method, path, body=None):
+            if method == 'GET' and path.endswith('/outbox'):
+                return [{'id': row_id, 'kind': 'mine', 'text': private}]
+            return super().call(method, path, body)
+
+    worker.protoss = OlderAPI(client)
+    worker.drain()
+    assert 'private-position-sentinel' not in str(tg.sent)
+    assert tg.sent[-1]['text'].endswith(HD.PRIVATE_POSITIONS_NOTICE)
+    with session() as db:
+        row = db.get(HD.HuddleMessage, row_id)
+        assert row.text == private and row.delivered
+
+
+def test_private_thesis_json_html_and_cards_require_authentication_even_when_cached(client, tmp_path):
+    worker, tg, hid = make_bridge(client, tmp_path)
+    worker.handle(message(1, 111, '/idea buy and hold Anthropic'))
+    thesis = client.get(f'/huddle/{hid}', headers=ADMIN).json()['theses'][0]
+    tid = thesis['id']
+    for path in [f'/theses/{tid}', f'/t/{tid}', f'/og/t/{tid}.png', f'/og/t/{tid}.png?format=phone']:
+        assert client.get(path).status_code == 403
+        assert client.get(path, headers={'x-admin-token': 'wrong'}).status_code == 403
+        authorized = client.get(path, headers=ADMIN)
+        assert authorized.status_code == 200
+        assert authorized.headers['cache-control'] == 'private, no-store'
+        assert client.get(path).status_code == 403  # populated server cache does not bypass authorization
+
+
+def test_public_simulated_web_idea_previews_remain_accessible(client):
+    h = client.get('/huddle/web/public-preview').json()
+    response = client.post(f"/huddle/{h['id']}/messages", json={'sender': 'Test user', 'text': 'protoss buy and hold Anthropic'})
+    assert response.status_code == 201
+    tid = client.get(f"/huddle/{h['id']}").json()['theses'][0]['id']
+    for path in [f'/theses/{tid}', f'/t/{tid}', f'/og/t/{tid}.png']:
+        assert client.get(path).status_code == 200
