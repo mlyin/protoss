@@ -15,6 +15,7 @@ import time
 import zlib
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Callable, Protocol
 
 from .config import Settings
@@ -248,6 +249,17 @@ def cached_candles(source: PriceSource, market: str, bar: str, start: dt.datetim
     return candles
 
 
+DWARKESH_CSV = Path(__file__).resolve().parent / "data" / "dwarkesh.csv"
+DWARKESH_NOTE = "event dataset: every Dwarkesh Podcast episode in his public feed (scripts/podcast_dates.py), release day in UTC"
+
+
+def load_events(event_set: str) -> list[dict]:
+    if event_set == "dwarkesh":
+        with DWARKESH_CSV.open(newline="", encoding="utf-8") as f:
+            return sorted(({**r, "date": dt.date.fromisoformat(r["date"])} for r in csv.DictReader(f) if r.get("date")), key=lambda r: r["date"])
+    return load_hacks()
+
+
 def load_hacks() -> list[dict]:
     with HACKS_CSV.open(newline="", encoding="utf-8") as f:
         rows = [{**r, "date": dt.date.fromisoformat(r["date"])} for r in csv.DictReader(f) if r.get("date")]
@@ -386,9 +398,11 @@ def _weekday(spec, candles: list[Candle], book: Book) -> Step:
 
 
 def _buy_hold(spec, candles: list[Candle], book: Book) -> Step:
+    short = getattr(spec, "side", "long") == "short"
+
     def on_bar(i: int, c: Candle) -> None:
         if i == 0:
-            book.fill(c.ts, spec.market, "buy", book.cash / c.c, c.c, "buy and hold")
+            book.fill(c.ts, spec.market, "sell" if short else "buy", book.cash / c.c, c.c, "short and hold" if short else "buy and hold")
 
     return on_bar
 
@@ -562,6 +576,12 @@ def run_backtest(spec, source: PriceSource, now: dt.datetime | None = None) -> B
     candles = cached_candles(source, spec.market, bar, start, end)
     if len(candles) < 2:
         raise ValueError(f"not enough {bar} candles for {spec.market}")
+    if candles[0].ts > start + dt.timedelta(seconds=2 * BAR_SECONDS[bar]) and not hasattr(spec, "bar") and bar != "1d":
+        # Hyperliquid keeps fewer intraday bars than daily ones: daily may reach back further for the same window
+        daily = cached_candles(source, spec.market, "1d", start, end)
+        if len(daily) >= 2 and daily[0].ts < candles[0].ts - dt.timedelta(days=7):
+            bar, candles = "1d", daily
+            notes[0] = _source_note(source, spec.market, bar)
     if candles[0].ts > start + dt.timedelta(seconds=2 * BAR_SECONDS[bar]):
         # listed after the window opened: test from the first candle and say so, never report a span with no data
         start = candles[0].ts
@@ -573,11 +593,11 @@ def run_backtest(spec, source: PriceSource, now: dt.datetime | None = None) -> B
             raise NoEventsInWindow(f"{spec.market} did not fall {spec.drop_pct:g}% within {span} at any point in the last {spec.days} days")
         notes.append(f"{len(in_window)} closes {spec.drop_pct:g}% or more below the close {span} earlier; each entry is at that close")
     if spec.type == "event_buy":
-        dates = list(spec.custom_dates or []) if spec.event_set == "custom" else [r["date"] for r in load_hacks()]
+        dates = list(spec.custom_dates or []) if spec.event_set == "custom" else [r["date"] for r in load_events(spec.event_set)]
         in_window = [d for d in dates if start.date() <= d <= end.date()]
         if not in_window:
             raise NoEventsInWindow(f"none of the {len(dates)} event dates fall in the last {spec.days} days")
-        notes.append(HACKS_NOTE if spec.event_set == "major_hacks" else f"custom event dates: {len(dates)} supplied")
+        notes.append({"major_hacks": HACKS_NOTE, "dwarkesh": DWARKESH_NOTE}.get(spec.event_set) or f"custom event dates: {len(dates)} supplied")
         notes.append(f"{len(in_window)} of {len(dates)} event dates fall inside the window")
     if spec.type in ("event_buy", "dip_buy"):
         notes.append(_event_baseline(candles, in_window, spec.hold_days, bar, spec.side))
@@ -587,7 +607,8 @@ def run_backtest(spec, source: PriceSource, now: dt.datetime | None = None) -> B
         stats = None
         build = lambda cs, bk: _STRATEGIES[spec.type](spec, cs, bk)  # noqa: E731
     book, curve = _simulate(candles, spec.market, build, spec.starting_equity, spec.fee_bps)
-    _, bench = _simulate(candles, spec.market, lambda cs, bk: _buy_hold(spec, cs, bk), spec.starting_equity, spec.fee_bps)
+    long_hold = SimpleNamespace(market=spec.market, side="long")  # the benchmark is always plain buy and hold
+    _, bench = _simulate(candles, spec.market, lambda cs, bk: _buy_hold(long_hold, cs, bk), spec.starting_equity, spec.fee_bps)
     if spec.type == "dca":
         buys = [f for f in book.fills if f.side == "buy"]
         notes.append(f"DCA: {len(buys)} buys deployed ${sum(f.size * f.px for f in buys):,.0f} of the ${spec.starting_equity:,.0f} starting equity; return is on the full starting equity")

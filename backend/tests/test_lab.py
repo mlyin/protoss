@@ -17,6 +17,7 @@ from app.backtest import load_hacks  # noqa: E402
 from app.config import get_settings  # noqa: E402
 
 HEX40 = "0x" + "ab" * 20
+REAL_CANDLES = B.FileCandles.DIR  # the shipped cache, before the fixture pins its own copy
 
 
 @pytest.fixture()
@@ -48,7 +49,7 @@ def chat(c, message, **body):
 
 def test_examples(client):
     ex = client.get("/lab/examples").json()["examples"]
-    assert len(ex) >= 6 and all(isinstance(e, str) and e for e in ex)
+    assert len(ex) == 4 and all(isinstance(e, str) and e for e in ex)  # the four demo ideas, nothing else
 
 
 def test_hack_events_backtest(client):
@@ -170,3 +171,28 @@ def test_dip_buy_on_cached_history(client):
     assert (weekly["spec"]["over_days"], weekly["spec"]["hold_days"]) == (7, 14)
     never = chat(client, "buy XMR when it drops 80% in a day")
     assert never["kind"] == "clarify" and never["reply"].startswith("XMR did not fall 80%")
+
+
+def test_the_four_ideas(client):
+    # cached real history for the markets the ideas trade, so the sim fixture can answer them
+    for name in ("xyz_UNITREE_1d.csv", "xyz_ANT_1d.csv", "xyz_NVDA_1d.csv"):
+        shutil.copy(REAL_CANDLES / name, B.FileCandles.DIR / name)
+    B._source = None
+    from app.lab import EXAMPLES
+
+    hacks, robots, bubble, dwarkesh = (chat(client, q) for q in EXAMPLES)
+    assert hacks["kind"] == "backtest" and hacks["spec"]["market"] == "XMR" and hacks["spec"]["event_set"] == "major_hacks"
+    assert robots["kind"] == "backtest" and robots["spec"]["market"] == "xyz:UNITREE" and robots["spec"]["side"] == "long"
+    assert robots["reply"].startswith("Robots taking over: Unitree")
+    assert bubble["kind"] == "backtest" and bubble["spec"]["market"] == "xyz:ANT" and bubble["spec"]["side"] == "short"
+    assert bubble["result"]["trades_sample"][0]["side"] == "sell" and "not Anthropic shares" in bubble["reply"]
+    # the benchmark stays plain buy and hold, so a short and its benchmark move in opposite directions
+    b = bubble["result"]
+    assert (b["final_equity"] - b["starting_equity"]) * (b["benchmark_curve"][-1][1] - b["starting_equity"]) <= 0
+    assert dwarkesh["kind"] == "backtest" and dwarkesh["spec"]["event_set"] == "dwarkesh" and dwarkesh["spec"]["market"] == "xyz:NVDA"
+    assert any("Dwarkesh Podcast episode" in n for n in dwarkesh["result"]["notes"]) and dwarkesh["result"]["trades"] > 0
+    episodes = B.load_events("dwarkesh")
+    assert len(episodes) > 100 and episodes[0]["date"] == dt.date(2020, 5, 22)
+    # Matthew's own sentence in the group chat maps to the same trade
+    own = chat(client, "lets buy unitree i think robots are gonna take over the world")
+    assert own["spec"]["market"] == "xyz:UNITREE" and own["spec"]["type"] == "buy_hold"
