@@ -14,7 +14,7 @@ his Claude memory and follows him.
 ## What Protoss is
 Friends say a trading idea in a Telegram group. Protoss tests it on real Hyperliquid history, then each person picks their own
 amount and the order goes out from their own account; the money is never combined. The demo is **four ideas** (see
-[[decisions]] 2026-11-01): XMR on hacks, robots to Unitree, short the Anthropic bubble, research from each Dwarkesh episode.
+[[decisions]] 2026-11-01): XMR on hacks, robots to Unitree, short the Anthropic bubble, NVDA on each new Dwarkesh episode.
 **Nothing on the website is simulated** (see [[corrections]]). Revenue: a builder code on every fill. The pooled **legion**
 (code says `org`; do not rename) and vault-backed legions still exist in the backend but are not on the website.
 
