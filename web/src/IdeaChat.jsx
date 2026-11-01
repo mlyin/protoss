@@ -3,7 +3,7 @@ import { apiFetch } from './api.js'
 import './IdeaChat.css'
 
 export const IDEAS = [
-  { id: 'hacks', label: 'A company gets hacked', prompt: 'Let’s buy XMR every time a major company gets hacked.', market: 'XMR', dex: '', direction: 'Long', title: 'Hacks → XMR', detail: 'The idea: after a confirmed major-company hack, consider a long XMR position. First check whether the historical reaction beats buying on an ordinary day.', risk: 'A hack does not necessarily increase demand for XMR. Define the event, entry window, and exit before trading.', event: 'Confirmed company hack', next: 'Test the historical rule' },
+  { id: 'hacks', label: 'A company gets hacked', prompt: 'Let’s buy XMR every time a major company gets hacked.', market: 'XMR', dex: '', direction: 'Long', title: 'Hacks → XMR', detail: 'The idea: after a confirmed major-company hack, consider a long XMR position. First check whether the historical reaction beats buying on an ordinary day.', risk: 'A hack does not necessarily increase demand for XMR. Define the event, entry window, and exit before trading.', event: 'Confirmed company hack', next: 'Test the last 180 days' },
   { id: 'robots', label: 'Robots take over', prompt: 'I think robots are going to take over the world.', market: 'xyz:UNITREE', dex: 'xyz', direction: 'Long', title: 'Robotics → Unitree', detail: 'One market to research for that thesis is xyz:UNITREE. The proposed direction is long: your idea is that expectations for robotics companies will rise.', risk: 'This is a Unitree-linked perpetual, not Unitree shares. Its pricing can diverge from the company’s underlying value.', next: 'Review the Unitree market' },
   { id: 'anthropic', label: 'The Anthropic bubble pops', prompt: 'The Anthropic bubble is going to pop.', market: 'xyz:ANT', dex: 'xyz', direction: 'Short', title: 'Anthropic → short', detail: 'The market to research is xyz:ANT. A short expresses your view that the Anthropic-linked market price will fall.', risk: 'ANT is a perpetual, not Anthropic stock. A short loses money when the price rises; leverage can lead to liquidation.', next: 'Review the Anthropic market' },
   { id: 'dwarkesh', label: 'A new Dwarkesh episode', prompt: 'Dwarkesh is always right. Turn each new podcast into a trade idea.', title: 'New episode → trade thesis', detail: 'Use a new episode as a research trigger. Extract a concrete claim, find the related listed market, then decide on a direction, entry, and what would invalidate it. If the episode has no defensible market connection, skip the trade.', risk: 'An interview is evidence to examine, not a trading signal by itself. A persuasive claim may already be priced in.', event: 'New Dwarkesh Podcast episode', next: 'Read an episode' },
@@ -42,11 +42,12 @@ export default function IdeaChat() {
   const testHistory = async () => {
     setBusy(true); setResearch(null)
     try {
-      const response = await apiFetch('/lab/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: 'what if I bought XMR every time a major institution got hacked and held 1 day', days: 730 }) })
+      const response = await apiFetch('/lab/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: 'buy XMR after major hacks, hold 1 day, over the last 180 days using hourly candles', days: 180 }) })
       const result = await response.json()
       if (!response.ok) throw new Error(typeof result.detail === 'string' ? result.detail : 'Historical research is unavailable.')
       if (typeof result.reply !== 'string') throw new Error('The research service returned no explanation.')
-      setResearch(result.reply)
+      const baseline = Array.isArray(result.result?.notes) ? result.result.notes.filter(note => typeof note === 'string' && note.startsWith('baseline:')) : []
+      setResearch([result.reply, ...baseline].join('\n\n'))
     } catch (e) { setResearch(e.message || 'Historical research is unavailable. No result has been invented.') }
     finally { setBusy(false) }
   }
