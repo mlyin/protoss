@@ -176,8 +176,11 @@ test('four idea previews use exchange quotes and honest event status', async ({ 
   await page.getByRole('tab', { name: /Anthropic bubble/ }).click()
   await expect(page.getByText('Short xyz:ANT', { exact: true })).toBeVisible()
   await page.getByRole('tab', { name: /Dwarkesh/ }).click()
-  await expect(page.getByText('Long xyz:NVDA', { exact: true })).toBeVisible()
-  await expect(page.getByText('reads his podcast feed every 10 minutes', { exact: false })).toBeVisible()
+  await expect(page.getByRole('tabpanel')).not.toContainText('NVDA')
+  await expect(page.getByRole('tabpanel')).toContainText('Episode monitoring and transcript research are not connected yet')
+  await expect(page.getByRole('tabpanel').getByRole('img', { name: /backtest chart/ })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Run it now' })).toHaveCount(0)
+  await expect(page.getByRole('link', { name: /Discuss an episode in Telegram/ })).toHaveAttribute('href', 'https://t.me/ProtossTradingDemoBot')
   expect(reads.every(body => body.type === 'metaAndAssetCtxs')).toBeTruthy()
 })
 
@@ -204,4 +207,15 @@ test('a live answer that is not the idea is not shown as its result', async ({ p
   await page.getByRole('button', { name: 'Run it now' }).click()
   await expect(page.getByRole('status')).toContainText("The live Lab can't run this idea yet")
   await expect(page.getByRole('status')).not.toContainText('Which idea should I test?')
+})
+
+
+test('an old Dwarkesh snapshot cannot substitute for episode research', async ({ page }) => {
+  await page.route('**/ideas/ideas.json', route => route.fulfill({ json: { as_of: '2026-11-01', ideas: [{ id: 'dwarkesh', why: 'Buy NVDA for 7 days', verdict: ['Invented result'], label: 'NVDA' }] } }))
+  await page.route('https://api.hyperliquid.xyz/info', route => route.fulfill({ json: [{ universe: [{ name: 'XMR' }] }, [{ markPx: '200' }]] }))
+  await page.goto('/')
+  await page.getByRole('tab', { name: /Dwarkesh/ }).click()
+  await expect(page.getByRole('tabpanel')).toContainText('No market or trade has been selected')
+  await expect(page.getByRole('tabpanel')).not.toContainText('NVDA')
+  await expect(page.getByRole('tabpanel')).not.toContainText('Invented result')
 })

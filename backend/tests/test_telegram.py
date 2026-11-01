@@ -310,16 +310,16 @@ def test_group_greeting_replies_without_creating_idea(client, tmp_path):
     assert client.get(f"/huddle/{hid}", headers=ADMIN).json()["theses"] == []
 
 
-def test_dwarkesh_idea_makes_the_nvda_rule_and_a_vague_mention_asks(client, tmp_path):
+def test_dwarkesh_menu_requests_episode_evidence_without_creating_a_trade(client, tmp_path):
     worker, tg, hid = make_bridge(client, tmp_path)
     worker.handle(message(501, 111, "Dwarkesh mentioned NVDA"))
     assert "specific claim" in tg.sent[-1]["text"]
     assert client.get(f"/huddle/{hid}", headers=ADMIN).json()["theses"] == []
     worker.handle({"update_id": 502, "callback_query": {"id": "d1", "from": {"id": 222},
                   "data": "idea:dwarkesh", "message": {"chat": {"id": CHAT, "type": "supergroup"}}}})
-    thesis = client.get(f"/huddle/{hid}", headers=ADMIN).json()["theses"][0]
-    assert thesis["label"].startswith("Buy xyz:NVDA on each new Dwarkesh Podcast episode, hold 7d")
-    assert any("Back this idea" in str(m.get("reply_markup")) for m in tg.sent)
+    assert client.get(f"/huddle/{hid}", headers=ADMIN).json()["theses"] == []
+    assert "specific claim" in tg.sent[-1]["text"]
+    assert not any("Back this idea" in str(m.get("reply_markup")) for m in tg.sent)
 
 
 def private_token(tg):
