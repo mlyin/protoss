@@ -326,7 +326,7 @@ class Bridge:
             png = None
             if row["kind"] == "card" and thesis and len(text) <= 1024 and hasattr(self.telegram, "upload"):
                 try:
-                    png = self.protoss.get_bytes(f"/og/t/{thesis['id']}.png")
+                    png = self.protoss.get_bytes(f"/og/t/{thesis['id']}.png?format=phone")
                 except (APIError, AttributeError):
                     png = None
             if png:

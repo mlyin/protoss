@@ -178,6 +178,66 @@ def render_card(*, kicker: str, headline: str, stats: list[tuple[str, str, str |
     return buf.getvalue()
 
 
+def render_phone_card(*, kicker: str, headline: str, stats: list[tuple[str, str, str | None]], foot: str, curve: list[float] | None = None,
+                      bench: list[float] | None = None) -> bytes:
+    """The same card laid out for a phone (1080x1350, 4:5): Telegram shows it about 360 px wide, so every piece of text is at
+    least 30 px here and the chart takes the full width."""
+    from PIL import Image, ImageDraw
+
+    w, h, pad = 1080, 1350, 64
+    im = Image.new("RGB", (w, h), INK)
+    d = ImageDraw.Draw(im)
+    brand_x = pad
+    if PROBE_PNG.exists():
+        with Image.open(PROBE_PNG) as source:
+            mascot = source.convert("RGBA")
+            mascot.thumbnail((76, 76))
+            im.paste(mascot, (pad - 8, 44), mascot)
+        brand_x += 80
+    d.text((brand_x, 58), "PROTOSS", font=_font("Anton-Regular.ttf", 44), fill=TEXT)
+    k = _font("Inter-Variable.ttf", 34, "Medium")
+    d.text((w - pad - d.textlength(kicker, font=k), 66), kicker, font=k, fill=SECOND)
+    y = 160
+    for size, step in ((88, 100), (70, 80)):
+        big = _font("Anton-Regular.ttf", size)
+        lines = _wrap(d, headline.upper(), big, w - 2 * pad, 3)
+        if len(lines) <= 2:
+            break
+    for line in lines:
+        d.text((pad, y), line, font=big, fill=TEXT)
+        y += step
+    if curve and len(curve) > 1:
+        bench = bench if bench and len(bench) > 1 else None
+        x0, x1, y0, y1 = pad, w - pad, y + 40, y + 440
+        lo, hi = min(curve + (bench or [])), max(curve + (bench or []))
+        Y = lambda v: y1 - (v - lo) / max(1e-9, hi - lo) * (y1 - y0)  # noqa: E731
+        line = lambda vals: [(x0 + i * (x1 - x0) / (len(vals) - 1), Y(v)) for i, v in enumerate(vals)]  # noqa: E731
+        d.line([(x0, Y(curve[0])), (x1, Y(curve[0]))], fill="#3a3a35", width=3)
+        color = POS if curve[-1] >= curve[0] else NEG
+        if bench:
+            d.line(line(bench), fill=MUTED, width=5, joint="curve")
+        d.line(line(curve), fill=color, width=7, joint="curve")
+        y = y1 + 28
+        legend = _font("Inter-Variable.ttf", 36, "Medium")
+        for name, vals, fill in (("the idea", curve, color),) + ((("buy and hold", bench, MUTED),) if bench else ()):
+            d.rectangle([x0, y + 18, x0 + 30, y + 24], fill=fill)
+            d.text((x0 + 46, y), f"{name} {(vals[-1] / vals[0] - 1) * 100:+.1f}%", font=legend, fill=fill if fill != MUTED else SECOND)
+            y += 50
+    ys = max(y + 30, h - 300)
+    lab, val = _font("Inter-Variable.ttf", 32, "Medium"), _font("JetBrainsMono-Medium.ttf", 60)
+    cols = stats[:3]
+    colw = (w - 2 * pad) // max(1, len(cols))
+    for i, (label, value, tone) in enumerate(cols):
+        d.text((pad + i * colw, ys), label, font=lab, fill=MUTED)
+        d.text((pad + i * colw, ys + 42), value, font=val, fill={"pos": POS, "neg": NEG}.get(tone or "", TEXT))
+    d.rectangle([pad, ys + 130, w - pad, ys + 133], fill=RED)  # the line you drew
+    for i, part in enumerate(_wrap(d, foot, _font("Inter-Variable.ttf", 30, "Regular"), w - 2 * pad, 2)):
+        d.text((pad, ys + 156 + i * 40), part, font=_font("Inter-Variable.ttf", 30, "Regular"), fill=SECOND)
+    buf = io.BytesIO()
+    im.save(buf, "PNG", optimize=True)
+    return buf.getvalue()
+
+
 def _png(key: str, build) -> Response:
     hit = _png_cache.get(key)
     if hit and time.monotonic() - hit[0] < 60:
@@ -269,7 +329,7 @@ def thesis_link(tid: int, request: Request, db: Session = DbDep):
                 url=f"{base}/t/{tid}", to=to)
 
 
-def card_png(t: dict) -> bytes:
+def card_png(t: dict, phone: bool = False) -> bytes:
     """The idea card as a PNG, from a thesis dict (thesis_out shape). Used by the link preview and scripts/idea_snapshots.py."""
     s = t.get("test") or {}
     ev = s.get("events") or {}
@@ -295,15 +355,16 @@ def card_png(t: dict) -> bytes:
     curve = [p[1] for p in s.get("curve") or []] or None
     bench = [p[1] for p in s.get("bench") or []] or None
     kicker = f"idea {t['n']}" if not t.get("author") or t["author"].startswith("tg:") else f"idea {t['n']} from {t['author']}"
-    return render_card(kicker=kicker, headline=t["label"], stats=stats, foot=foot, curve=curve, bench=bench)
+    return (render_phone_card if phone else render_card)(kicker=kicker, headline=t["label"], stats=stats, foot=foot, curve=curve, bench=bench)
 
 
 @router.get("/og/t/{tid}.png")
-def thesis_card(tid: int, db: Session = DbDep):
+def thesis_card(tid: int, format: str = Query(default="og", pattern="^(og|phone)$"), db: Session = DbDep):
+    """format=og is the 1200x630 link preview; format=phone is the tall card the Telegram bot posts."""
     t = _thesis(db, tid)
     rec = t["record"]
-    key = f"t:{tid}:{t['label']}:{t['status']}:{t['pledged_usd']}:{rec['closed']}:{t['outcome']}"
-    return _png(key, lambda: card_png(t))
+    key = f"t:{tid}:{format}:{t['label']}:{t['status']}:{t['pledged_usd']}:{rec['closed']}:{t['outcome']}"
+    return _png(key, lambda: card_png(t, phone=format == "phone"))
 
 
 # ------------------------------------------------------------------------------------------------ huddle invite
