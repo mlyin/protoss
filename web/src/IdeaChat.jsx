@@ -26,6 +26,14 @@ function verifiedHistory(result, eventStudy = false) {
     (!eventStudy || (Array.isArray(result?.observations || result?.stats?.observations) && (result.observations || result.stats.observations).length > 0))
 }
 
+// "event dataset: illustrative, …" reads like a log line; the same caveat with a plain label and a capital reads like a note.
+const NOTE_LABELS = { 'baseline:': 'Compared with any day:', 'event dataset:': 'Event list:', 'event timing:': 'Entry timing:', 'history coverage:': 'History:' }
+function readableNote(note) {
+  const prefix = Object.keys(NOTE_LABELS).find(p => note.startsWith(p))
+  const rest = (prefix ? note.slice(prefix.length) : note).trim()
+  return `${prefix ? NOTE_LABELS[prefix] + ' ' : ''}${rest.charAt(0).toUpperCase()}${rest.slice(1)}`
+}
+
 function researchNotes(notes) {
   return Array.isArray(notes) ? notes.filter(note => typeof note === 'string' &&
     (note.startsWith('baseline:') || note.startsWith('event dataset:') || note.startsWith('event timing:') ||
@@ -101,7 +109,7 @@ export default function IdeaChat() {
           {tested?.why && <p>{tested.why}</p>}
           {tested && <picture><source media="(max-width: 600px)" srcSet={`/ideas/${tested.images.phone}`} width="1080" height="1350" />
             <img className="idea-card" src={`/ideas/${tested.images.desktop}`} alt={`${tested.label}: backtest chart against buy and hold`} width="1200" height="630" /></picture>}
-          {!idea.researchOnly && (tested ? <div className="idea-verdict">{tested.verdict.map((line, i) => <p key={i}>{line}</p>)}{researchNotes(tested.notes).map((note, i) => <p className="idea-risk" key={`note-${i}`}>{note}</p>)}<small>Tested on Hyperliquid candles, fees and slippage included, funding not · {new Date(snap.as_of).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</small></div>
+          {!idea.researchOnly && (tested ? <div className="idea-verdict">{tested.verdict.map((line, i) => <p key={i}>{line}</p>)}{researchNotes(tested.notes).length > 0 && <details className="idea-method"><summary>How this was tested</summary>{researchNotes(tested.notes).map((note, i) => <p key={`note-${i}`}>{readableNote(note)}</p>)}</details>}<small>Tested on Hyperliquid candles, fees and slippage included, funding not · {new Date(snap.as_of).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</small></div>
             : <p className="idea-risk">{snap === undefined ? 'Loading the test…' : 'The saved test is unavailable. Run it now for a fresh one.'}</p>)}
           {idea.researchOnly && <p className="idea-risk" role="status">Episode monitoring and transcript research are not connected yet. Share an episode and a specific claim in Telegram to start the discussion. No market or trade has been selected.</p>}
           {tested?.events?.length > 0 && <details className="idea-events"><summary>The {tested.events.length} {idea.id === 'hacks' ? 'hacks' : 'episodes'} it was tested on</summary>

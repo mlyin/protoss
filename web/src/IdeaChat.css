@@ -47,3 +47,6 @@
 .idea-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
 .idea-conversation .idea-action.primary { background: #277da1; color: #fff; }
 @media(max-width:520px) { .idea-actions { grid-template-columns: 1fr; } }
+.idea-method { margin: 4px 0 10px; font-size: 11px; color: #697a80; }
+.idea-method summary { cursor: pointer; color: #277da1; padding: 4px 0; font-size: 12px; }
+.idea-method p { margin: 6px 0; line-height: 1.6; font-size: 11px; }
