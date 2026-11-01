@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Two-account Telegram demo. Long polling; no public webhook or signing keys needed.
 
-Set TELEGRAM_BOT_TOKEN and ADMIN_TOKEN locally. `inspect` prints chat/user IDs only.
+Set TELEGRAM_BOT_TOKEN and ADMIN_TOKEN locally. `inspect` reads bot/webhook status without polling.
 `run --chat -100123 --users 123,456 [--legion demo]` enables replies in that group.
 """
 from __future__ import annotations
@@ -25,6 +25,29 @@ class APIError(RuntimeError):
     def __init__(self, message, status=None):
         super().__init__(message)
         self.status = status
+
+
+def acquire_poller_lock(bot_id, directory=None):
+    """One polling process per bot on this host, even with different checkpoint paths."""
+    directory = Path(directory) if directory is not None else Path.home() / ".protoss"
+    directory.mkdir(parents=True, exist_ok=True)
+    path = directory / f"telegram-{int(bot_id)}.lock"
+    handle = os.fdopen(os.open(path, os.O_RDWR | os.O_CREAT, 0o600), "r+b")
+    try:
+        if os.name == "nt":
+            import msvcrt
+            if path.stat().st_size == 0:
+                handle.write(b"\0")
+                handle.flush()
+            handle.seek(0)
+            msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
+        else:
+            import fcntl
+            fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        handle.close()
+        raise APIError("Another local process is using this bot. Stop that process before starting another poller.") from None
+    return handle  # Closing the handle (including process exit) releases the OS lock.
 
 
 def request(url, body=None, headers=None, timeout=35):
@@ -133,33 +156,34 @@ def setup_demo(live=False, wallet_review=False):
         raise APIError("a bot token is required")
     telegram = Telegram(token)
     me = telegram.call("getMe")
-    if telegram.call("getWebhookInfo").get("url"):
-        raise APIError("use a dedicated demo bot without a webhook")
-    print(f"Add @{me['username']} and both accounts to one private Telegram group.")
-    print(f"Send /help@{me['username']} in that group once from EACH account. Keep privacy mode enabled.")
-    while True:
-        answer = input("Press Enter when both accounts have sent it, or type q to cancel: ").strip()
-        if answer.lower() == "q":
-            raise APIError("setup cancelled")
-        groups = discover_groups(telegram.call("getUpdates", timeout=0, allowed_updates=["message", "callback_query"]))
-        if not groups:
-            print("No group messages found. Check that the bot is a member and both commands mention its exact username.")
-            continue
-        for chat_id, group in groups.items():
-            title = re.sub(r"[\x00-\x1f\x7f]", "", group["title"])
-            print(f"Group {chat_id}: {title}; participant IDs: {','.join(str(user) for user in sorted(group['users']))}")
-        chat_id = next(iter(groups)) if len(groups) == 1 else int(input("Enter the intended group ID: "))
-        if chat_id not in groups:
-            print("That group was not found. Try again.")
-            continue
-        users = sorted(groups[chat_id]["users"])
-        if len(users) != 2:
-            print("The demo needs exactly two human accounts in the pending messages. Use a new private demo group.")
-            continue
-        mode = "Real trades require individual browser wallet approvals." if wallet_review else "Real orders use your authorized API wallets." if live else "Practice trading only."
-        print(f"Using group {chat_id} with participant IDs {users[0]} and {users[1]}. {mode}")
-        os.environ["TELEGRAM_BOT_TOKEN"] = token
-        return chat_id, ",".join(str(user) for user in users)
+    with acquire_poller_lock(me["id"]):
+        if telegram.call("getWebhookInfo").get("url"):
+            raise APIError("use a dedicated demo bot without a webhook")
+        print(f"Add @{me['username']} and both accounts to one private Telegram group.")
+        print(f"Send /help@{me['username']} in that group once from EACH account. Keep privacy mode enabled.")
+        while True:
+            answer = input("Press Enter when both accounts have sent it, or type q to cancel: ").strip()
+            if answer.lower() == "q":
+                raise APIError("setup cancelled")
+            groups = discover_groups(telegram.call("getUpdates", timeout=0, allowed_updates=["message", "callback_query"]))
+            if not groups:
+                print("No group messages found. Check that the bot is a member and both commands mention its exact username.")
+                continue
+            for chat_id, group in groups.items():
+                title = re.sub(r"[\x00-\x1f\x7f]", "", group["title"])
+                print(f"Group {chat_id}: {title}; participant IDs: {','.join(str(user) for user in sorted(group['users']))}")
+            chat_id = next(iter(groups)) if len(groups) == 1 else int(input("Enter the intended group ID: "))
+            if chat_id not in groups:
+                print("That group was not found. Try again.")
+                continue
+            users = sorted(groups[chat_id]["users"])
+            if len(users) != 2:
+                print("The demo needs exactly two human accounts in the pending messages. Use a new private demo group.")
+                continue
+            mode = "Real trades require individual browser wallet approvals." if wallet_review else "Real orders use your authorized API wallets." if live else "Practice trading only."
+            print(f"Using group {chat_id} with participant IDs {users[0]} and {users[1]}. {mode}")
+            os.environ["TELEGRAM_BOT_TOKEN"] = token
+            return chat_id, ",".join(str(user) for user in users)
 
 
 # The four ideas Protoss demos, in order (same sentences as the Lab's examples). Button label, callback, what the chat hears.
@@ -515,7 +539,8 @@ class Bridge:
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
-    sub.add_parser("inspect", help="read bot/webhook status and pending chat/user IDs, without sending")
+    inspect = sub.add_parser("inspect", help="read bot/webhook status without polling or sending")
+    inspect.add_argument("--pending", action="store_true", help="inspect pending chat IDs only while the bot is stopped")
     run = sub.add_parser("run", help="enable the demo bot in one allowlisted group")
     run.add_argument("--chat", required=True, type=int)
     run.add_argument("--users", required=True, help="exactly two numeric Telegram user IDs, comma separated")
@@ -527,15 +552,20 @@ def main():
     if not token:
         parser.error("set TELEGRAM_BOT_TOKEN locally; never paste it into chat")
     telegram = Telegram(token)
+    lock = None
     try:
         me = telegram.call("getMe")
         webhook = telegram.call("getWebhookInfo")
         if args.command == "inspect":
-            updates = telegram.call("getUpdates", timeout=0, allowed_updates=["message", "callback_query"]) if not webhook.get("url") else []
+            updates = []
+            if args.pending and not webhook.get("url"):
+                with acquire_poller_lock(me["id"]):
+                    updates = telegram.call("getUpdates", timeout=0, allowed_updates=["message", "callback_query"])
             print(json.dumps({"bot": me["username"], "webhook_configured": bool(webhook.get("url")),
                 "pending": [{"chat_id": u["message"]["chat"]["id"], "user_id": u["message"].get("from", {}).get("id"),
                              "chat_type": u["message"]["chat"]["type"]} for u in updates if "message" in u]}, indent=2))
             return
+        lock = acquire_poller_lock(me["id"])
         if webhook.get("url"):
             parser.error("this bot has a webhook; use a dedicated demo bot or remove its webhook locally first")
         if not re.fullmatch(r"[1-9][0-9]*,[1-9][0-9]*", args.users):
@@ -587,12 +617,17 @@ def main():
                     state.data["offset"] = update["update_id"] + 1
                     state.save()
             except APIError as exc:
+                if exc.status == 409:
+                    raise APIError("Telegram reports a conflicting bot connection. Stopping this poller; inspect the other running connection.") from None
                 print(f"{exc}; retrying in 3 seconds", flush=True)
                 time.sleep(3)
     except APIError as exc:
         parser.exit(1, str(exc) + "\n")
     except KeyboardInterrupt:
         pass
+    finally:
+        if lock is not None:
+            lock.close()
 
 
 if __name__ == "__main__":
