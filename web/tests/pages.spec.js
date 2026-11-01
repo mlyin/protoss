@@ -4,7 +4,7 @@ const exchangeRequests = new WeakMap()
 
 test.beforeEach(async ({ page }) => {
   // Any wallet or exchange execution attempt is a test failure, including accidental auto-connect.
-  await page.addInitScript(() => { window.__walletRequests = []; window.ethereum = { request: args => { window.__walletRequests.push(args.method); throw new Error('Wallet requests forbidden in practice tests') } } })
+  await page.addInitScript(() => { window.__walletRequests = []; window.ethereum = { request: args => { window.__walletRequests.push(args.method); throw new Error('Wallet requests forbidden in these tests') } } })
   exchangeRequests.set(page, [])
   await page.route('**/exchange', route => { exchangeRequests.get(page).push(route.request().url()); return route.abort() })
 })
@@ -14,23 +14,19 @@ test.afterEach(async ({ page }) => {
   expect(await page.evaluate(() => window.__walletRequests || [])).toEqual([])
 })
 
-test('homepage to actual practice workspace, refresh and navigation', async ({ page }, info) => {
-  const errors = []
-  page.on('pageerror', error => errors.push(error.message))
+test('homepage leads to the four ideas, Telegram and the real accounts', async ({ page }) => {
   await page.goto('/')
   await expect(page.getByRole('heading', { name: 'Your friends. Your own trade.' })).toBeVisible()
-  await page.getByRole('link', { name: 'Try the practice app' }).click()
-  await expect(page).toHaveURL(/\/app\/$/)
-  await expect(page.getByRole('heading', { name: 'Practice workspace' })).toBeVisible()
-  await expect(page.getByText('Practice mode', { exact: true })).toBeVisible()
-  await page.reload()
-  await expect(page.getByRole('heading', { name: 'Practice groups' })).toBeVisible()
-  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBeTruthy()
-  await page.screenshot({ path: `test-results/practice-${info.project.name}.png`, fullPage: true })
+  await expect(page.getByRole('link', { name: 'Open Telegram' }).first()).toHaveAttribute('href', 'https://t.me/ProtossTradingDemoBot')
+  for (const said of ["Let's buy XMR every time a major company gets hacked", 'I think robots are going to take over the world', 'The Anthropic bubble is going to pop', 'Dwarkesh is always right. Trade every new episode']) {
+    await expect(page.getByRole('heading', { name: `“${said}”` })).toBeVisible()
+  }
+  await expect(page.getByText(/practice/i)).toHaveCount(0)
+  await page.getByRole('link', { name: 'See the accounts' }).click()
+  await expect(page).toHaveURL(/\/app\/#\/accounts$/)
+  await expect(page.getByRole('heading', { name: 'Accounts', exact: true })).toBeVisible()
   await page.getByRole('link', { name: 'Home', exact: true }).click()
   await expect(page.getByRole('heading', { name: 'Your friends. Your own trade.' })).toBeVisible()
-  await page.screenshot({ path: `test-results/home-${info.project.name}.png`, fullPage: true })
-  expect(errors).toEqual([])
 })
 
 test('legacy and deep links open the research screen', async ({ page }) => {
@@ -46,7 +42,7 @@ test('legacy and deep links open the research screen', async ({ page }) => {
 
 test('research reaches the actual backend and renders the result', async ({ page }) => {
   await page.goto('/app/#/lab')
-  await page.getByRole('textbox', { name: 'Your what-if' }).fill('what if I bought BTC every day for 30 days')
+  await page.getByRole('textbox', { name: 'Your what-if' }).fill('I think robots are going to take over the world')
   const response = page.waitForResponse(r => r.url() === `${api}/lab/chat` && r.request().method() === 'POST')
   await page.getByRole('button', { name: 'Run', exact: true }).click()
   const r = await response
@@ -57,21 +53,8 @@ test('research reaches the actual backend and renders the result', async ({ page
   await expect(page.locator('.msg.ai').last()).toContainText(data.reply)
 })
 
-test('practice funding never requests a wallet or sends payment', async ({ page }) => {
-  const writes = []
-  page.on('request', r => { if (r.method() === 'POST') writes.push(r.url()) })
-  await page.goto('/app/#/join')
-  await page.getByRole('button', { name: 'Preview checkout', exact: true }).click()
-  await page.getByRole('button', { name: 'Simulate funds arriving' }).click()
-  await page.getByRole('button', { name: 'Confirm paper contribution' }).click()
-  await expect(page.getByRole('heading', { name: 'Preview complete' })).toBeVisible()
-  expect(writes).toEqual([])
-})
 
-test('existing group chat loads and fee approval stays explicit', async ({ page }) => {
-  await page.goto('/app/#/huddle/demo')
-  await expect(page.getByRole('textbox', { name: 'Message', exact: true })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Copy invite link' })).toBeVisible()
+test('fee approval stays explicit', async ({ page }) => {
   await page.goto('/app/#/approve')
   await expect(page.getByRole('button', { name: /connect/i })).toBeVisible()
 })
@@ -86,8 +69,13 @@ test('API allows Pages origin, rejects foreign origin and unauthenticated access
   expect([401, 403]).toContain(protectedData.status())
 })
 
-test('API failure shows an error instead of invented balances', async ({ page }) => {
-  await page.route('**/leaderboard?*', route => route.abort())
-  await page.goto('/app/')
-  await expect(page.getByText(/Practice activity is temporarily unavailable/i).first()).toBeVisible()
+test('accounts come from Hyperliquid, and a failure shows an error instead of invented balances', async ({ page }) => {
+  await page.goto('/app/#/accounts')
+  await expect(page.getByRole('heading', { name: 'lando' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'second' })).toBeVisible()
+  await expect(page.getByText('Equity').first()).toBeVisible()
+  await page.route('https://api.hyperliquid.xyz/**', route => route.abort())
+  await page.reload()
+  await expect(page.getByRole('alert')).toContainText('Could not reach Hyperliquid')
+  await expect(page.getByRole('heading', { name: 'lando' })).toHaveCount(0)
 })

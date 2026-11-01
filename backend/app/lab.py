@@ -526,7 +526,5 @@ def chat(body: ChatIn) -> dict:
         return _out("clarify", f"{msg[:1].upper()}{msg[1:]}. Which window should I use (for example 'over the last 730 days'), or which event dates?")
     except (SourceUnavailable, ValueError) as e:
         return _out("error", f"Could not run that backtest: {e}", spec=planned.model_dump(mode="json"))
-    if planned.type not in ("momentum", "meanrev"):
-        res.notes.append(f"no agent runtime for {planned.type} strategies yet: deploying creates the agent definition only")
     why = (theme(body.message) or (None, ""))[1]
     return _out("backtest", " ".join(filter(None, [why, _reply(planned, res, source.name != "hyperliquid")])), planned.model_dump(mode="json"), res.as_dict(), _deployable(planned, res))

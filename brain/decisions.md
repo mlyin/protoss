@@ -1,5 +1,12 @@
 # Decisions
 
+- 2026-11-01: The demo is four ideas, everywhere (homepage, Lab examples, Telegram /demo), in this order (Matthew):
+  1. "Let's buy XMR every time a major company gets hacked": buy XMR after each hack, hold 7 days.
+  2. "I think robots are going to take over the world": buy and hold xyz:UNITREE.
+  3. "The Anthropic bubble is going to pop": short xyz:ANT.
+  4. "Dwarkesh is always right": buy xyz:NVDA on each new Dwarkesh Podcast episode, hold 7 days (dates from his feed).
+  The website is Home, Test an idea, Accounts (live Hyperliquid balances, positions and fills for lando and second) and an
+  Open Telegram button. Practice app, Activity, legion pages and the web group chat are gone.
 - 2026-10-31: Concurrent API-wallet work arrived as e4a6a3c. Preserve its existing `--live` flag and `copies` mode. The browser approval flow uses `--wallet-review`, a separate database/checkpoint, and cannot be combined with `--live`. This avoids silently changing the authorization model.
 
 - 2026-10-31: Live Telegram copies: each participant authorizes an API wallet on their own Hyperliquid account once; the bridge in `copies` mode (`backend/app/copies.py`) sends one real order per person from that account, 1x, capped per order, receipts read back from Hyperliquid fill history. No master key, nothing pooled. The shared-vault adapter stays the legion path; copies are the group-chat path.
