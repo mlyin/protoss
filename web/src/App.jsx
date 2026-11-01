@@ -1,13 +1,19 @@
-import React, { useEffect, useState } from 'react'
+import React, { lazy, Suspense, useEffect, useState } from 'react'
 import Homepage from './Homepage.jsx'
 import AccountWorkspace from './AccountWorkspace.jsx'
+import { canonicalLocation, privateRoute } from './privateRoutes.js'
+
+const TelegramConnect = lazy(() => import('./TelegramConnect.jsx'))
+const TradeReview = lazy(() => import('./TradeReview.jsx'))
 
 export default function App() {
   const landing = !location.pathname.startsWith('/app')
+  const [route, setRoute] = useState(() => privateRoute())
   useEffect(() => {
     const clean = () => {
-      if (location.pathname.startsWith('/app/') && location.hash) history.replaceState(null, '', '/app/')
-      else if (location.pathname === '/' && location.hash.startsWith('#/')) location.replace('/app/')
+      const redirect = canonicalLocation()
+      if (redirect) { location.replace(redirect); return }
+      setRoute(privateRoute())
     }
     clean(); window.addEventListener('hashchange', clean)
     return () => window.removeEventListener('hashchange', clean)
@@ -24,7 +30,11 @@ export default function App() {
       <span className="spacer" /><a className="text-link" href="https://t.me/ProtossTradingDemoBot" target="_blank" rel="noreferrer">Telegram ↗</a>
       <button className="icon-btn" aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} theme`} onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}>◐</button>
     </div></header>
-    <main className="page">{landing ? <Homepage /> : <AccountWorkspace />}</main>
-    <footer className="site-footer"><span>Protoss · Your friends. Your positions.</span><span>Positions from Hyperliquid · Read-only</span></footer>
+    <main className="page"><Suspense fallback={<p role="status">Opening your private link…</p>}>
+      {route?.path === '/telegram/connect' ? <TelegramConnect key={route.path + route.token} token={route.token} />
+        : route?.path === '/trade' ? <TradeReview key={route.path + route.token} token={route.token} />
+          : landing ? <Homepage /> : <AccountWorkspace />}
+    </Suspense></main>
+    <footer className="site-footer"><span>Protoss · Your friends. Your positions.</span><span>{route?.path === '/trade' ? 'Each trade requires your wallet approval' : route ? 'Wallet ownership only · No trading permission' : 'Positions from Hyperliquid · Read-only'}</span></footer>
   </>
 }

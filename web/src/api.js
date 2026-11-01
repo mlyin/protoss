@@ -17,3 +17,15 @@ export function apiFetch(path, options = {}) {
   const url = /^https:\/\//.test(path) ? path : apiUrl(path)
   return globalThis.fetch(url, { credentials: 'omit', ...options })
 }
+
+export function privateApiFetch(path, options = {}) {
+  if (!path.startsWith('/telegram/') && !path.startsWith('/live/')) throw new Error('Expected a private account API path')
+  // The API can also serve this same frontend build. Keep its private links with
+  // their issuing database, including local launcher deployments. Pages uses the
+  // public API. An explicit build setting takes precedence; URL parameters never do.
+  const sameOrigin = !import.meta.env.VITE_API_ORIGIN &&
+    ['localhost', '127.0.0.1', 'api.protoss.trade', 'app.protoss.trade'].includes(location.hostname)
+  return globalThis.fetch(sameOrigin ? path : apiUrl(path), {
+    ...options, credentials: 'omit', cache: 'no-store', redirect: 'error', referrerPolicy: 'no-referrer',
+  })
+}
