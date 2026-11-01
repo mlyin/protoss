@@ -98,12 +98,10 @@ def test_momentum_spec_and_window(client):
     assert j["deployable"]["limits"]["allowed_markets"] == ["BTC"] and j["deployable"]["limits"]["max_leverage"] == 2
 
 
-def test_tail_wallet_synthesized_offline(client):
-    j = chat(client, f"tail {HEX40} with $10k")
-    assert j["kind"] == "backtest" and j["spec"]["type"] == "tail_wallet" and j["spec"]["address"] == HEX40
-    assert j["result"] is not None and j["result"]["starting_equity"] == 10_000
-    assert any("synthesized" in n or "sim" in n for n in j["result"]["notes"])
-    assert "synthesized" in j["reply"]
+def test_tail_wallet_never_invents_fills(client):
+    j = chat(client, f"tail {HEX40} with $10k")  # sim mode has no wallet fills to replay
+    assert j["kind"] == "error" and j["result"] is None and "live Hyperliquid API" in j["reply"]
+    assert j["spec"]["type"] == "tail_wallet" and j["spec"]["address"] == HEX40
 
 
 def test_bad_address_is_error(client):

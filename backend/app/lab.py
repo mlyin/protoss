@@ -21,7 +21,7 @@ import httpx
 from fastapi import APIRouter
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, field_validator, model_validator
 
-from .backtest import BacktestResult, NoEventsInWindow, SourceUnavailable, get_source, load_hacks, run_backtest
+from .backtest import BacktestResult, NoEventsInWindow, SourceUnavailable, auto_bar, get_source, load_hacks, run_backtest
 from .config import get_settings
 
 log = logging.getLogger("protoss.lab")
@@ -181,7 +181,6 @@ EXAMPLES = [
     "DCA $100 into HYPE every week since January",
     "What if I bought NVDA perps every Monday open and sold Friday close?",
     "Fade 2 standard deviation moves in ETH on 4h bars, 20-bar lookback",
-    "Tail 0x0000000000000000000000000000000000000000 with $10k",
     "Buy and hold SOL for the past year",
     "Short BTC for 3 days after each of these dates: 2025-02-21, 2025-05-15",
 ]
@@ -368,7 +367,7 @@ def plan_rules(message: str, starting_equity: float, days: int, known: set[str],
     if kind is None:
         return Clarify(question=f"What should I do with {market}: buy and hold, a momentum crossover, mean reversion, DCA, or buy it on hack events?")
 
-    bar = "4h" if re.search(r"\b4\s*-?\s*h(?:our)?\b|four[- ]hour", low) else "1d" if re.search(r"\b1d\b|\bdaily (?:bars?|candles?)\b|day bars", low) else "1h"
+    bar = "4h" if re.search(r"\b4\s*-?\s*h(?:our)?\b|four[- ]hour", low) else "1d" if re.search(r"\b1d\b|\bdaily (?:bars?|candles?)\b|day bars", low) else auto_bar(common["days"])
     extra: dict = {}
     if kind == "event_buy":
         if iso_dates:
@@ -473,8 +472,6 @@ def _reply(spec, res: BacktestResult, simulated: bool) -> str:
     ]
     if spec.type == "event_buy" and spec.event_set == "major_hacks":
         caveats.append("The hack list is a curated, illustrative set, so verify the dates before relying on it.")
-    if spec.type == "tail_wallet" and "synthesized" in res.label:
-        caveats.append("Wallet fills were unavailable, so the fill series is synthesized from a 3/10 momentum strategy on BTC.")
     return " ".join([s1, s2] + caveats)
 
 

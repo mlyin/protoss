@@ -449,6 +449,12 @@ class BacktestResult:
         return d
 
 
+def auto_bar(days: int) -> str:
+    """Finest bar Hyperliquid can serve for the whole window: it only keeps the latest ~5000 candles per interval
+    (hourly reaches back ~208 days), so a longer window on 1h would quietly test only its last 208 days."""
+    return next((b for b in ("1h", "4h") if days * 86400 / BAR_SECONDS[b] <= HL_MAX_BARS), "1d")
+
+
 def window(days: int, bar: str, now: dt.datetime | None = None) -> tuple[dt.datetime, dt.datetime]:
     step = BAR_SECONDS[bar]
     end = dt.datetime.fromtimestamp(math.floor((now or dt.datetime.now(UTC)).timestamp() / step) * step, UTC)
@@ -546,7 +552,7 @@ def _source_note(source: PriceSource, market: str | None, bar: str) -> str:
 
 def run_backtest(spec, source: PriceSource, now: dt.datetime | None = None) -> BacktestResult:
     """Run a validated Spec (see lab.py) against a price source. Raises SourceUnavailable / ValueError."""
-    bar = getattr(spec, "bar", "1h")
+    bar = getattr(spec, "bar", None) or auto_bar(spec.days)
     start, end = window(spec.days, bar, now)
     notes = [_source_note(source, getattr(spec, "market", None), bar), f"fees: {spec.fee_bps} bp taker per side plus {SLIPPAGE_BPS:g} bp slippage on every fill"]
     if spec.type == "tail_wallet":
@@ -556,6 +562,10 @@ def run_backtest(spec, source: PriceSource, now: dt.datetime | None = None) -> B
     candles = cached_candles(source, spec.market, bar, start, end)
     if len(candles) < 2:
         raise ValueError(f"not enough {bar} candles for {spec.market}")
+    if candles[0].ts > start + dt.timedelta(seconds=2 * BAR_SECONDS[bar]):
+        # listed after the window opened: test from the first candle and say so, never report a span with no data
+        start = candles[0].ts
+        notes.append(f"{spec.market} history starts {start:%Y-%m-%d}, so the test runs from there")
     if spec.type == "dip_buy":
         in_window = dip_dates(candles, spec.drop_pct, spec.over_days)
         span = f"{spec.over_days} day{'s' if spec.over_days != 1 else ''}"
@@ -617,24 +627,25 @@ def _run_tail(spec, source: PriceSource, start: dt.datetime, end: dt.datetime, n
             fills = None
     if fills and spec.markets:
         fills = [f for f in fills if f["coin"] in spec.markets]
+    if fills is None:
+        raise ValueError(f"tailing {short} needs its fills from the live Hyperliquid API, which this server cannot reach right now")
+    unlisted = sorted({f["coin"] for f in fills if not source.has(f["coin"])})
+    fills = [f for f in fills if source.has(f["coin"])]
     if not fills:
-        why = "no fills in window" if fills == [] else "sim mode / Hyperliquid unreachable"
-        notes.append(f"wallet fills for {short} unavailable ({why}): synthesized a plausible fill series from a 3/10 momentum strategy on BTC instead")
-        from .lab import MomentumSpec  # lab imports this module; resolve the cycle lazily
-
-        res = run_backtest(MomentumSpec(market="BTC", days=spec.days, starting_equity=spec.starting_equity, fee_bps=spec.fee_bps), source)
-        res.label, res.notes = f"Tail {short} (synthesized)", notes
-        return res
-
+        # no invented fills: a wallet with nothing to replay gets a plain answer (vaults like HLP trade through sub-accounts)
+        raise ValueError(f"{short} has no perp fills on the markets this server lists in the last {spec.days} days")
+    if unlisted:
+        notes.append(f"skipped fills on {', '.join(unlisted)}: those markets are on dexs this server does not load")
     fills.sort(key=lambda f: int(f["time"]))
     markets = sorted({f["coin"] for f in fills})
-    series = {m: {c.ts: c.c for c in cached_candles(source, m, "1h", start, end)} for m in markets}
+    bar = auto_bar(spec.days)
+    series = {m: {c.ts: c.c for c in cached_candles(source, m, bar, start, end)} for m in markets}
     grid = sorted({ts for s in series.values() for ts in s})
     scale = spec.scale or _default_scale(fills, spec.starting_equity)
     book, marks, curve, queue = Book(spec.starting_equity, spec.fee_bps), {}, [], list(fills)
     for ts in grid:
         marks.update({m: series[m][ts] for m in markets if ts in series[m]})
-        while queue and int(queue[0]["time"]) < _ms(ts) + 3_600_000:  # fills during this bar, at the wallet's own price
+        while queue and int(queue[0]["time"]) < _ms(ts) + BAR_SECONDS[bar] * 1000:  # fills during this bar, at the wallet's own price
             f = queue.pop(0)
             book.fill(ts, f["coin"], "buy" if f["side"] == "B" else "sell", float(f["sz"]) * scale, float(f["px"]), f"wallet {f.get('dir', 'fill')}", slip=False)
         curve.append((ts, book.equity(marks)))
@@ -642,7 +653,7 @@ def _run_tail(spec, source: PriceSource, start: dt.datetime, end: dt.datetime, n
         book.close(grid[-1], m, marks[m], "end of window")
     curve[-1] = (grid[-1], book.equity(marks))
     notes.append(f"replayed {len(fills)} Hyperliquid fills of {short} across {', '.join(markets)} scaled x{scale:.4g}; positions open before the window are ignored")
-    return _result(f"Tail {short}", ",".join(markets), start, end, "1h", spec.starting_equity, book, curve, None, notes)
+    return _result(f"Tail {short}", ",".join(markets), start, end, bar, spec.starting_equity, book, curve, None, notes)
 
 
 def _default_scale(fills: list[dict], equity: float) -> float:
