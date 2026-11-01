@@ -13,6 +13,7 @@ dependencies = [
   "hyperliquid-python-sdk>=0.9",
   "eth-account>=0.11",
   "psycopg[binary]>=3.1",
+  "pillow>=10",  # link-preview cards (share.py); falls back to the brand PNG without it
 ]
 
 [project.optional-dependencies]

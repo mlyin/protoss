@@ -37,7 +37,7 @@ def snapshot(api: str) -> dict:
         get[path] = r.json() if r.headers.get("content-type", "").startswith("application/json") else r.text
         return get[path]
 
-    for p in ("/health", "/stats", "/builder", "/lab/examples", "/v1/markets", "/fills?limit=12", "/feed?limit=80"):
+    for p in ("/health", "/stats", "/builder", "/lab/examples", "/v1/markets", "/fills?limit=12", "/feed?limit=80", "/onboard/options"):
         g(p)
     for d in (1, 7, 30):
         g(f"/leaderboard?window_days={d}")
@@ -103,10 +103,17 @@ BANNER = """
 def build(snap: dict, out: Path, artifact: bool) -> None:
     index = (DIST / "index.html").read_text()
     css = "".join((DIST / "assets" / f).read_text() for f in sorted(p.name for p in (DIST / "assets").glob("*.css")))
-    js = "".join((DIST / "assets" / f).read_text() for f in sorted(p.name for p in (DIST / "assets").glob("*.js")))
+    # only the entry chunk: lazy chunks (Privy, loaded when a PRIVY_APP_ID is set) never run in the frozen copy
+    entry = re.search(r'src="/?(assets/[^"]+\.js)"', index)
+    js = (DIST / entry.group(1)).read_text() if entry else "".join((DIST / "assets" / f).read_text() for f in sorted(p.name for p in (DIST / "assets").glob("*.js")))
     mark = (DIST / "mark.svg").read_bytes() if (DIST / "mark.svg").exists() else b""
     mark_uri = "data:image/svg+xml;base64," + base64.b64encode(mark).decode() if mark else ""
     js = js.replace('"/mark.svg"', json.dumps(mark_uri)).replace("'/mark.svg'", json.dumps(mark_uri))
+    # Keep frozen exports self-contained with the current Probe avatar too.
+    probe = DIST / 'probe.png'
+    if probe.exists():
+        probe_uri = 'data:image/png;base64,' + base64.b64encode(probe.read_bytes()).decode()
+        js = js.replace('"/probe.png"', json.dumps(probe_uri)).replace("'/probe.png'", json.dumps(probe_uri))
     fonts = re.search(r'<link[^>]+fonts\.googleapis\.com[^>]+>', index)
     head = [
         "<title>Protoss</title>",

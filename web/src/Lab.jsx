@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { SkelLines } from './ui.jsx'
+import Probe from './Probe.jsx'
 
 // The Lab: ask a what-if in plain English, get a backtest back, deploy it as an agent.
 // Talks to POST /lab/chat (see backend/app/lab.py for the contract).
@@ -34,6 +35,7 @@ function Result({ r, deployable }) {
   return (
     <div className="result">
       <div className="result-head">
+        <Probe state="success" size={48} />
         <b>{r.label}</b>
         <span className="sub">{r.market} · {day(r.start)} → {day(r.end)} · {r.bars} bars · {r.trades} trades</span>
       </div>
@@ -96,8 +98,8 @@ export default function Lab() {
   return (
     <section className="lab narrow">
       <div className="lab-head">
-        <h1>The Lab</h1>
-        <p className="sub">What if I bought XMR every time a major company got hacked? What if I tailed this wallet? Say it like you'd say it to a friend.</p>
+        <h1>Test an idea</h1>
+        <p className="sub">What if I bought XMR every time a major company got hacked? What if I tailed this wallet? Say it like you'd say it to a friend. Or say it in the <a href="#/huddle/demo">group chat</a>, where friends back it and stake it.</p>
       </div>
       <div className="thread">
         {msgs.map((m, i) => (
@@ -108,7 +110,7 @@ export default function Lab() {
             </div>
           </div>
         ))}
-        {busy && <div className="msg ai"><div className="bubble"><SkelLines n={3} widths={['45%', '80%', '60%']} /></div></div>}
+        {busy && <div className="msg ai"><div className="bubble probe-status" role="status"><Probe state="thinking" size={100} /><div><b>Testing your idea…</b><p className="sub">Checking the strategy against the available price history.</p><SkelLines n={2} widths={['80%', '60%']} /></div></div></div>}
         <div ref={endRef} />
       </div>
       {examples.length > 0 && msgs.length < 3 && (

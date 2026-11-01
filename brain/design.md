@@ -25,6 +25,13 @@ Slop here means: gradients, glows, emoji, uppercase tracked labels, pulsing dots
   `ad.html` (1080x1350 + 1200x628; headline set in an original chiseled block alphabet drawn as SVG polygons, so it needs no
   webfont), `copy.md`, `x-thread.md`. Spot red appears on the issue box, the headline period and the center crest only (~1.5% of area).
   Chosen headline: "Your friends. One wall." Editable canvas: the "Protoss Ads" Design artifact (Anton stands in for the block alphabet there).
+
+- 2026-10-31: Current public brand is the gold-and-cyan cartoon Probe, per Matthew. Warm paper and ink
+  remain the interface base. The native `brand/probe.svg` supplies idle, thinking, talking, working,
+  success and two-Probe conversation states; use animation only where it reflects UI activity and
+  respect reduced motion. Header/bot illustration is `web/public/probe.png`. Favicons, touch/install
+  icons, OG cards, public landing, compatibility marks and posters now use Probe artwork. The Spartan
+  direction above is historical. Production publication still requires deploying the updated sources.
 - 2026-10-31: Matthew wants the practice flow to look like the real product and the gold-and-cyan Probe brand. Keep the app shell, trade review and visual language consistent; show practice status clearly. Public homepage and character galleries should not expose SVG download controls.
 - 2026-10-31: Matthew approved publishing the gold-and-cyan Zealot, Stalker, Immortal and Colossus roster alongside the Probe on the public homepage. Source sheet is retained in the MacBook workspace brand-concepts; the public page uses docs/probe/crew.webp.
 - 2026-10-31: Correction from Matthew: a large character roster and standalone mascot gallery do not explain the product. Keep concept art saved; use characters at a useful scale within actual product activity, with a clear role. The homepage should explain and lead into the same experience the app provides. Do not advertise a practice route that the deployed app does not support. Removed both public galleries and the unsupported demo CTA; Telegram and the browser home remain the public entry points.

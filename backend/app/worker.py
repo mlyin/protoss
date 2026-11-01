@@ -35,6 +35,9 @@ def run_once(ex: ExchangeAdapter, snapshot: bool) -> dict:
             if snapshot:
                 snapshot_equity(db, ex, agent)
                 snapped += 1
+        from .huddle import tick as huddle_tick
+
+        huddle_tick(db, ex)
     return {"halted": halted, "halted_orgs": halted_orgs, "snapshots": snapped}
 
 

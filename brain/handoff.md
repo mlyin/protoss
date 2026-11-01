@@ -4,6 +4,20 @@ Read `CLAUDE.md` and `brain/INDEX.md` first. This page is the state of the world
 session (linked to Matthew's Windows PC) to a session on his Mac mini. Memory about Matthew himself lives in his Claude memory
 and follows him; this page is about the repo.
 
+## Update 2026-10-31 (afternoon, Mac mini session)
+Blocked on Matthew, in order:
+1. Done 16:06: gh on the mini now has repo scope; branch `claude/project-thread-495i0w` is pushed; Pages is on (Actions)
+   with custom domain protoss.trade and the workflow is green. It serves nothing at protoss.trade until DNS exists.
+2. Done 16:38: https://app.protoss.trade serves the live app through a Cloudflare Tunnel (see runbooks). Still missing:
+   DNS `CNAME @` and `CNAME www` to mlyin.github.io, proxy off, which only Matthew can add in the dashboard.
+3. Master wallet: create the first legion's vault (runbooks, "pooling into a vault").
+4. Keys: `PRIVY_APP_ID`, `ONRAMP_MOONPAY_KEY/SECRET/WEBHOOK_KEY` in backend/.env, then `protossctl restart`.
+
+Running: API + fleet as launchd services on aaaas-mac-mini, paper mode, https://aaaas-mac-mini.tailb9b0ef.ts.net (Funnel).
+Done since the morning handoff: candle cache for BTC ETH SOL HYPE XMR (`scripts/candles.py`); tail-wallet verified on real
+fills; MoonPay webhook (signed, forward-only); Stake button signing vaultTransfer (`web/src/hlsign.js`, verified against the
+Python SDK); Privy email wallet lazy-loaded behind `PRIVY_APP_ID`. Open threads 2 and 4 below are code-complete apart from keys.
+
 ## What Protoss is
 Friends pool money into a **legion** (code says `org`; do not rename). Agents trade it on Hyperliquid inside hard limits the
 leader drew. Every fill and every rejected order is public. Revenue: a builder code on every fill. The **Lab** answers

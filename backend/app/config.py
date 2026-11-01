@@ -5,20 +5,36 @@ ARENA_MODE
   paper    real Hyperliquid prices (Info API), simulated fills and ledger. Needs network, no funds.
   testnet  real orders on Hyperliquid testnet via the official SDK. Needs HL_MASTER_PRIVATE_KEY
            funded with testnet USDC; each agent gets its own sub-account.
+  mainnet  mainnet vault accounts; execution is off unless MAINNET_TRADING_ENABLED=true.
+  copies   mainnet, one API wallet per participant (copies.py); each order leaves that person's own account.
+           Off unless MAINNET_TRADING_ENABLED=true. Wallets come from ~/.protoss/wallets.json (scripts/wallets.py).
 """
 from __future__ import annotations
 
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import Field
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_prefix="", extra="ignore")
 
-    arena_mode: Literal["sim", "paper", "testnet"] = "sim"
+    arena_mode: Literal["sim", "paper", "testnet", "mainnet", "copies"] = "sim"
+    mainnet_trading_enabled: bool = False
+    telegram_live_enabled: bool = False  # browser-signed, independent orders; server has no signing role
+
+    @model_validator(mode="after")
+    def check_network(self):
+        if self.telegram_live_enabled and self.arena_mode not in ("sim", "paper"):
+            raise ValueError("browser wallet review must run separately from server-side exchange execution")
+        expected = {"testnet": "https://api.hyperliquid-testnet.xyz", "mainnet": "https://api.hyperliquid.xyz", "copies": "https://api.hyperliquid.xyz"}
+        if self.arena_mode in expected and self.hl_api_url and self.hl_api_url.rstrip("/") != expected[self.arena_mode]:
+            raise ValueError(f"{self.arena_mode} requires {expected[self.arena_mode]}")
+        if self.arena_mode in ("mainnet", "copies") and self.admin_token == "change-me":
+            raise ValueError("mainnet requires a configured ADMIN_TOKEN")
+        return self
     database_url: str = "sqlite:///./arena.db"
     admin_token: str = "change-me"
 
@@ -52,7 +68,9 @@ class Settings(BaseSettings):
             "ETH": 3_850.0,
             "SOL": 190.0,
             "HYPE": 89.0,
+            "XMR": 330.0,
             "xyz:NVDA": 214.0,
+            "xyz:ANT": 111.0,  # synthetic demo seed; never presented as a live quote
             "xyz:TSLA": 420.0,
             "xyz:SP500": 6_900.0,
             "xyz:SOXL": 41.0,
@@ -65,9 +83,15 @@ class Settings(BaseSettings):
     privy_app_id: str | None = None  # embedded wallets in the browser; the key never leaves the user's device
     onramp_moonpay_key: str | None = None  # publishable key (pk_live_...)
     onramp_moonpay_secret: str | None = None  # signs hosted-checkout URLs that carry a wallet address
+    onramp_moonpay_webhook_key: str | None = None  # wk_live_...; verifies Moonpay-Signature-V2 on /onboard/webhooks/moonpay
     onramp_moonpay_currency: str = "usdc_arbitrum"  # usdc_hypercore once MoonPay Gateway is enabled on the account
     onramp_coinbase_app_id: str | None = None  # Coinbase Onramp project id; URLs also need a session token (see onboard.py)
     onboard_min_usd: float = 20.0
+    # Huddle (huddle.py): the group chat that turns a thesis into a backed, staked rule
+    app_url: str = "https://app.protoss.trade"  # where links in chat messages and link previews point
+    huddle_quorum: int = 2  # people backing a thesis, author included, before it arms
+    huddle_max_pledge_usd: float = 1_000.0  # per person per thesis, paper money
+    huddle_hack_feeds: list[str] = Field(default_factory=list)  # RSS/Atom URLs read for hack headlines; empty = off
     onboard_blocked_regions: list[str] = Field(default_factory=lambda: ["US"])  # ISO 3166-1 alpha-2; perps are not offered here
 
 
