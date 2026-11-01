@@ -167,14 +167,14 @@ IDEAS = [
     ("Buy XMR on every major hack", "idea:xmr", "Let's buy XMR every time a major company gets hacked"),
     ("Robots take over: buy Unitree", "idea:unitree", "I think robots are going to take over the world"),
     ("Anthropic bubble pops: short ANT", "idea:ant", "The Anthropic bubble is going to pop"),
-    ("Dwarkesh is right: NVDA each episode", "idea:dwarkesh", "Dwarkesh is always right. Trade every new episode"),
+    ("Research each new Dwarkesh episode", "idea:dwarkesh", "Dwarkesh is always right. Trade every new episode"),
 ]
 
 HELP = ("Protoss practice demo\n/demo (choose one of the four ideas)\n/idea I think robots are going to take over the world\n/back 1 (or tap Back this idea)\n"
         "/pledge 20 (your own paper pledge)\n/status\n/join (private wallet connection)\n"
         "Wallet ownership is checked with a signature. Chat backing never authorizes spending.")
 HELP_LIVE = ("Protoss listens to this chat.\n"
-             "Say an idea, or tap /demo for the four: XMR on every hack, robots (Unitree), the Anthropic bubble (short ANT), Dwarkesh (NVDA each episode). I post the card.\n"
+             "Say an idea, or tap /demo for the four: XMR on every hack, robots (Unitree), the Anthropic bubble (short ANT), and research from each Dwarkesh episode.\n"
              "Back it: thumbs up the card, or say \"in\". Stake: \"in for 11\" or \"$11 each\".\n"
              "Each stake is a real order from your own Hyperliquid account through the API wallet you authorized. Nothing is pooled; close a position yourself any time.\n"
              "Commands still work: /idea, /back 1, /pledge 11, /status, /join.")
@@ -219,7 +219,7 @@ class Bridge:
         key = f"update:{update['update_id']}"
         chat = user["id"]
         raw = message.get("text", "").strip()
-        menu = [[{"text": label if data != "idea:dwarkesh" else "Research each new Dwarkesh episode",
+        menu = [[{"text": label,
                   "callback_data": data.replace("idea:", "research:")}]
                 for label, data, _ in IDEAS]
         if callback:

@@ -191,7 +191,7 @@ def test_dwarkesh_rule_fires_on_a_new_episode(client):
     from app.db import session
 
     hid = client.get("/huddle/web/pod").json()["id"]
-    say(client, hid, "Ana", "Dwarkesh is always right. Trade every new episode")
+    say(client, hid, "Ana", "Buy NVDA on each new Dwarkesh episode and hold 7 days")
     t = client.get(f"/huddle/{hid}").json()["theses"][0]
     assert t["kind"] == "rule" and t["label"].startswith("Buy xyz:NVDA on each new Dwarkesh Podcast episode") and t["proposal"]["holdings"][0]["market"] == "xyz:NVDA"
     say(client, hid, "Bo", "in for $80")
