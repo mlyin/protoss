@@ -361,3 +361,32 @@ def test_close_my_idea_closes_only_the_senders_copy(live, tmp_path):
     assert tg.sent[-1]["text"] == "You have no open copy of idea 1 here."
     w.handle(named(6, 111, "Matthew", "/status"))
     assert "Wallet connections" not in tg.sent[-2]["text"] and tg.sent[-1]["text"].startswith("Here's where things stand:")
+
+
+def test_buttons_and_replies_make_the_chat_interactive(live, tmp_path):
+    client, ex = live
+    h = client.post("/huddle", headers=ADMIN, json={"chat_id": f"telegram:{CHAT}", "title": "protoss beta testing", "quorum": 2}).json()
+    tg = PhotoTelegram()
+    w = bridge.Bridge(tg, LocalAPI(client), bridge.State(tmp_path / "s.json"), CHAT, [111, 222], "ProtossTradingDemoBot", h["id"], live=True)
+    named = lambda uid, user, name, text: {"update_id": uid, "message": {"message_id": 100 + uid, "chat": {"id": CHAT, "type": "supergroup"}, "from": {"id": user, "first_name": name}, "text": text}}  # noqa: E731
+    tap = lambda uid, user, name, data, card: {"update_id": uid, "callback_query": {"id": str(uid), "from": {"id": user, "first_name": name}, "data": data, "message": {"message_id": card, "chat": {"id": CHAT, "type": "supergroup"}}}}  # noqa: E731
+    w.handle(named(1, 111, "Matthew", "I think robots are going to take over the world"))
+    card = next(m for m in tg.sent if m.get("method") == "sendPhoto")
+    assert card["reply_parameters"]["message_id"] == 101  # the card answers Matthew's message
+    card_mid = tg.sent.index(card) + 1
+    buttons = [b["callback_data"] for row in card["reply_markup"]["inline_keyboard"] for b in row]
+    assert buttons == ["back:1", "in:1:10", "in:1:20", "in:1:50"]
+    w.handle(tap(2, 222, "Lando", "in:1:20", card_mid))
+    assert tg.sent[-1]["text"].startswith("Lando is in for $20 on idea 1.") and tg.sent[-1]["reply_parameters"]["message_id"] == card_mid
+    w.handle(tap(3, 111, "Matthew", "in:1:10", card_mid))
+    fills = [m for m in tg.sent if "order filled" in m["text"]]
+    assert {m["text"].split("'s order")[0] for m in fills} == {"Matthew", "Lando"}
+    assert all(m["reply_markup"]["inline_keyboard"][0][0]["callback_data"] == "mine" for m in fills)
+    w.handle(tap(4, 222, "Lando", "mine", card_mid))
+    mine = tg.sent[-1]
+    assert mine["text"].startswith("Lando's positions:\nIdea 1: long ") and "xyz:UNITREE" in mine["text"] and "Matthew" not in mine["text"]
+    assert mine["reply_markup"]["inline_keyboard"][0][0] == {"text": "Close idea 1", "callback_data": "close:1"}
+    w.handle(tap(5, 222, "Lando", "close:1", card_mid))
+    assert tg.sent[-1]["text"].startswith("Lando's copy of idea 1 closed: xyz:UNITREE")
+    w.handle(named(6, 111, "Matthew", "what's my position?"))
+    assert tg.sent[-1]["text"].startswith("Matthew's positions:\nIdea 1: long ") and tg.sent[-1]["reply_parameters"]["message_id"] == 106
