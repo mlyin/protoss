@@ -19,7 +19,7 @@ def test_xmr_history_is_shipped_and_layered_over_sim():
     get_settings.cache_clear()
     B._source = None
     src = B.get_source(get_settings())
-    assert isinstance(src, B.LayeredCandles) and src.real("XMR") and not src.real("DOGE")
+    assert isinstance(src, B.LayeredCandles) and src.real("XMR") and not src.real("NOT-CACHED")
     cs = src.candles("XMR", "1d", dt.datetime(2026, 1, 1, tzinfo=UTC), dt.datetime(2026, 2, 1, tzinfo=UTC))
     assert len(cs) == 31 and all(c.l <= c.c <= c.h for c in cs)
 

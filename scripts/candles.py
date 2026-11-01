@@ -1,6 +1,6 @@
 """Refresh the Lab's offline candle cache from Hyperliquid's public API.
 
-    python scripts/candles.py                  # the default markets, daily bars, full history
+    python scripts/candles.py                  # every market already cached plus the defaults, daily bars, full history
     python scripts/candles.py BTC ETH --bar 1d
 
 Writes backend/app/data/candles/<MARKET>_<bar>.csv (t,o,h,l,c,v; t in seconds), the format FileCandles reads.
@@ -18,6 +18,11 @@ import httpx
 API = "https://api.hyperliquid.xyz/info"
 OUT = Path(__file__).resolve().parents[1] / "backend" / "app" / "data" / "candles"
 DEFAULT = ["BTC", "ETH", "SOL", "HYPE", "XMR"]
+
+
+def cached(bar: str) -> list[str]:
+    """Markets that already have a file for this bar, so a bare run refreshes everything the Lab can read."""
+    return sorted(p.name[: -len(f"_{bar}.csv")].replace("_", ":", 1) for p in OUT.glob(f"*_{bar}.csv"))
 BAR_MS = {"1h": 3_600_000, "4h": 14_400_000, "1d": 86_400_000}
 
 
@@ -54,9 +59,10 @@ def write(coin: str, bar: str, rows: list[dict]) -> Path:
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("markets", nargs="*", default=DEFAULT)
+    ap.add_argument("markets", nargs="*")
     ap.add_argument("--bar", default="1d", choices=sorted(BAR_MS))
     a = ap.parse_args()
+    a.markets = a.markets or sorted(set(DEFAULT) | set(cached(a.bar)))
     with httpx.Client(timeout=30) as client:
         for m in a.markets:
             rows = fetch(client, m, a.bar)
