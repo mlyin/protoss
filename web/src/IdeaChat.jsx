@@ -6,7 +6,7 @@ export const TELEGRAM_BOT = 'https://t.me/ProtossTradingDemoBot'
 
 // Same four sentences, same order, as the Lab (backend/app/lab.py EXAMPLES) and the Telegram bot's /demo menu.
 export const IDEAS = [
-  { id: 'hacks', label: 'A company gets hacked', prompt: "Let's buy XMR every time a major company gets hacked", market: 'XMR', dex: '', direction: 'Long', title: 'Hacks → XMR for a day', event: 'A major company gets hacked', when: 'In the Telegram group, someone reports it ("protoss hack: …") and every armed copy buys XMR for one day.', risk: 'A hack does not have to raise demand for XMR. The test below says whether it has.' },
+  { id: 'hacks', label: 'A company gets hacked', prompt: "Let's buy XMR every time a major company gets hacked", market: 'XMR', dex: '', direction: 'Long', title: 'Hacks → XMR for a day', ask: 'buy XMR after major hacks, hold 1 day, over the last 180 days using hourly candles', days: 180, event: 'A major company gets hacked', when: 'In the Telegram group, someone reports it ("protoss hack: …") and every armed copy buys XMR for one day.', risk: 'A hack does not have to raise demand for XMR. The test below says whether it has.' },
   { id: 'robots', label: 'Robots take over', prompt: 'I think robots are going to take over the world', market: 'xyz:UNITREE', dex: 'xyz', direction: 'Long', title: 'Robotics → Unitree', risk: 'xyz:UNITREE is a Unitree-linked perpetual, not Unitree shares. It can move away from the company’s value.' },
   { id: 'anthropic', label: 'The Anthropic bubble pops', prompt: 'The Anthropic bubble is going to pop', market: 'xyz:ANT', dex: 'xyz', direction: 'Short', title: 'Anthropic → short', risk: 'xyz:ANT is a perpetual, not Anthropic stock. A short loses money when the price rises.' },
   { id: 'dwarkesh', label: 'A new Dwarkesh episode', prompt: 'Dwarkesh is always right. Trade every new episode', market: 'xyz:NVDA', dex: 'xyz', direction: 'Long', title: 'New episode → NVDA for 7 days', event: 'A new Dwarkesh Podcast episode', when: 'The Telegram bot reads his podcast feed every 10 minutes. A new episode buys NVDA for 7 days in every armed copy.', risk: 'An interview is not a price signal by itself. 33 episodes is a small sample.' },
@@ -54,11 +54,13 @@ export default function IdeaChat() {
   const testHistory = async () => {
     setBusy(true); setResearch(null)
     try {
-      const response = await apiFetch('/lab/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: idea.prompt }) })
+      // the hacks test asks for 180 days on hourly candles, which the public API can always serve (PR #10)
+      const response = await apiFetch('/lab/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: idea.ask || idea.prompt, ...(idea.days ? { days: idea.days } : {}) }) })
       const result = await response.json()
       if (!response.ok) throw new Error(typeof result.detail === 'string' ? result.detail : 'Historical research is unavailable.')
       if (typeof result.reply !== 'string') throw new Error('The research service returned no explanation.')
-      setResearch(result.reply)
+      const baseline = Array.isArray(result.result?.notes) ? result.result.notes.filter(note => typeof note === 'string' && note.startsWith('baseline:')) : []
+      setResearch([result.reply, ...baseline].join('\n\n'))
     } catch (e) { setResearch(e.message || 'Historical research is unavailable. No result has been invented.') }
     finally { setBusy(false) }
   }

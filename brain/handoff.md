@@ -1,12 +1,20 @@
 # Handoff (written 2026-11-01, for the session that picks this up next)
 
+## Update, 2026-11-01
+
+The older runtime checklist below is historical. PR #8 is merged; the user confirmed replies in both private Telegram messages and the group. The bot is now an administrator of the upgraded supergroup. Do not repeat the admin setup or reset the delivery checkpoint.
+
+The fourth idea is research from an episode or specific claim, not a default NVDA purchase. The correction asks for that evidence before a trade card is created. Explicit market/direction release-date backtests remain available and are labeled as release-date studies, not transcript analysis. Podcast monitoring and transcript analysis are still not connected.
+
+The MacBook bot currently runs from `~/protoss-demo` under `scripts/telegram_demo.py` with its API on port 8001. A separate session restarted this wrapper after the independent bridge setup described in the runbook. The observed API reports copies mode with `telegram_live_enabled=false`; no runtime or trading settings were changed for this research correction. Inspect the live processes and checkpoint before any restart. PR #9 (`bot-visual`) has merged; preserve its chart cards, link changes, and one-day XMR hold. The Mac mini API is still older than main and has not been updated from this MacBook.
+
 Read `CLAUDE.md` and `brain/INDEX.md` first. This page is the state of the repo today. Memory about Matthew himself lives in
 his Claude memory and follows him.
 
 ## What Protoss is
 Friends say a trading idea in a Telegram group. Protoss tests it on real Hyperliquid history, then each person picks their own
 amount and the order goes out from their own account; the money is never combined. The demo is **four ideas** (see
-[[decisions]] 2026-11-01): XMR on hacks, robots to Unitree, short the Anthropic bubble, NVDA on every Dwarkesh episode.
+[[decisions]] 2026-11-01): XMR on hacks, robots to Unitree, short the Anthropic bubble, research from each Dwarkesh episode.
 **Nothing on the website is simulated** (see [[corrections]]). Revenue: a builder code on every fill. The pooled **legion**
 (code says `org`; do not rename) and vault-backed legions still exist in the backend but are not on the website.
 

@@ -199,7 +199,7 @@ Return exactly one of:
 {"type":"clarify","question":str}   when the message cannot be mapped; ask ONE specific question.
 Every spec may also carry "days" (lookback window, 2-730) and "starting_equity" when the user states them.
 Markets are Hyperliquid perp names: BTC, ETH, SOL, HYPE, XMR, DOGE; stocks/indices are HIP-3 names like xyz:NVDA, xyz:TSLA, xyz:SP500.
-"hacked/breach/exploit" means event_set major_hacks. Dwarkesh or his podcast means event_buy with event_set "dwarkesh" on xyz:NVDA.
+"hacked/breach/exploit" means event_set major_hacks. "Dwarkesh is always right" or trading every new Dwarkesh episode is the demo idea: event_buy, event_set "dwarkesh", xyz:NVDA, long, hold 7 days. Any other Dwarkesh mention: ask for the episode or specific claim; never invent a market or direction.
 Robots or humanoids taking over means buy_hold xyz:UNITREE. A bubble popping or something being overvalued means buy_hold with side "short". Omit fields you are unsure about; defaults apply."""
 
 
@@ -257,14 +257,54 @@ THEMES = [
      "Robots taking over: Unitree, the humanoid robot maker, trades on Hyperliquid as xyz:UNITREE."),
     (r"anthropic.*\b(bubble|pop|overvalued|overhyped|crash|dump|short|sell)|\b(bubble|overvalued|overhyped|short|sell)\b.*anthropic", {"market": "xyz:ANT", "side": "short"},
      "A bubble that pops is a short: xyz:ANT is Hyperliquid's Anthropic-linked perp, not Anthropic shares."),
-    (r"\bdwarkesh\b", {"market": "xyz:NVDA", "kind": "event_buy", "event_set": "dwarkesh"},
-     "Dwarkesh mostly talks about AI, so each new episode is a signal to buy AI compute: xyz:NVDA, held 7 days. Release dates come from his podcast feed."),
+    (r"\bdwarkesh\b", {"kind": "event_buy", "event_set": "dwarkesh"},
+     "This tests your stated trading rule on podcast release dates. It does not analyze episode claims or establish that the podcast predicts prices."),
 ]
+# Demo idea 4 (Matthew, 2026-11-01 goal): "Dwarkesh is always right" buys NVDA on each new episode for 7 days.
+DWARKESH_IDEA = re.compile(r"\bdwarkesh\b.*\b(always right|every (?:new |single )?(?:episode|podcast)|each (?:new )?(?:episode|podcast))"
+                           r"|\b(every|each) (?:new )?dwarkesh (?:episode|podcast)", re.I)
+DWARKESH_WHY = ("Dwarkesh is always right, and he mostly talks about AI, so each new episode buys AI compute: xyz:NVDA for 7 days. "
+                "This trades the release dates; it does not read what was said.")
 
 
 def theme(message: str) -> tuple[dict, str] | None:
+    if dwarkesh_idea(message):
+        return {"market": "xyz:NVDA", "kind": "event_buy", "event_set": "dwarkesh"}, DWARKESH_WHY
     low = message.lower()
     return next(((t, why) for pat, t, why in THEMES if re.search(pat, low)), None)
+
+
+def podcast_trade(message: str, known: set[str]) -> tuple[str, str] | None:
+    """Only a direction directly attached to a listed market is an entry instruction."""
+    if not re.search(r"\bdwarkesh\b", message, re.I):
+        return None
+    entries = []
+    for match in re.finditer(r"\b(buy|long|short|sell)\s+(?:the\s+)?([a-z][a-z0-9:]*)\b", message, re.I):
+        verb, token = match.groups()
+        market = _market(token, token.lower(), known)
+        if market not in known:
+            continue
+        if re.search(r"\b(?:not|never|avoid|don't|dont)\b", message[:match.start()], re.I):
+            return None
+        entries.append((market, "short" if verb.lower() in ("short", "sell") else "long"))
+    if not entries or len({market for market, _ in entries}) != 1:
+        return None
+    # A later sell of the same market can be the exit from the first buy.
+    return entries[0]
+
+
+def dwarkesh_idea(message: str) -> bool:
+    """The demo idea, said plainly and not negated: no market named, so it is NVDA long for 7 days."""
+    return (bool(DWARKESH_IDEA.search(message)) and not re.search(r"\b(?:not|never|avoid|don't|dont)\b", message, re.I)
+            and not re.search(r"\b(?:buy|long|short|sell)\b", message, re.I))  # a stated buy/sell is its own rule (podcast_trade)
+
+
+def podcast_research_question(message: str, known: set[str]) -> Clarify | None:
+    if not re.search(r"\bdwarkesh\b", message, re.I) or podcast_trade(message, known) or dwarkesh_idea(message):
+        return None
+    return Clarify(question="Which Dwarkesh episode or specific claim should we research? "
+                   "A new episode alone does not choose a market or direction. "
+                   "Episode monitoring and transcript analysis are not connected yet.")
 
 
 KINDS = [  # first match wins; tail_wallet is handled before these
@@ -330,6 +370,8 @@ def _days(low: str, today: dt.date) -> int:
 
 
 def plan_rules(message: str, starting_equity: float, days: int, known: set[str], today: dt.date | None = None) -> Union[Spec, Clarify]:
+    if question := podcast_research_question(message, known):
+        return question
     today = today or dt.datetime.now(dt.timezone.utc).date()
     address = re.search(r"\b0x[0-9a-fA-F]+\b", message)
     raw = message.replace(address.group(0), " ") if address else message
@@ -341,7 +383,8 @@ def plan_rules(message: str, starting_equity: float, days: int, known: set[str],
         except ValueError:
             continue
     low_nd = re.sub(r"\b20\d\d-\d\d-\d\d\b", " ", low)  # numbers inside dates must not look like parameters
-    market = _market(raw, low, known)
+    podcast_entry = podcast_trade(raw, known)
+    market = podcast_entry[0] if podcast_entry else _market(raw, low, known)
     themed = (theme(raw) or ({}, ""))[0]
     market = market or themed.get("market")
     explicit_days = _days(low, today)
@@ -402,7 +445,9 @@ def plan_rules(message: str, starting_equity: float, days: int, known: set[str],
             extra["hold_days"] = int(n) * (7 if unit == "week" else 1)
         elif extra.get("event_set", "major_hacks") == "major_hacks":
             extra["hold_days"] = 1  # the demo idea holds a day after a hack (Matthew, 2026-11-01)
-        if re.search(r"\bshort(?:ed|ing)?\b", low):
+        if podcast_entry:
+            extra["side"] = podcast_entry[1]
+        elif re.search(r"\bshort(?:ed|ing)?\b", low):
             extra["side"] = "short"
         if m := re.search(r"(\d+(?:\.\d+)?)\s*%\s*of", low_nd):
             extra["size_pct"] = min(1.0, float(m.group(1)) / 100)
@@ -452,6 +497,10 @@ def plan_rules(message: str, starting_equity: float, days: int, known: set[str],
 def plan(message: str, starting_equity: float = 10_000.0, days: int = 180, known: set[str] | None = None) -> Union[Spec, Clarify]:
     """Spec or Clarify for a chat message. Claude first when configured, rule-based parser otherwise."""
     known = known or set(get_settings().sim_markets)
+    if question := podcast_research_question(message, known):
+        return question
+    if re.search(r"\bdwarkesh\b", message, re.I):
+        return plan_rules(message, starting_equity, days, known)
     planned = _plan_llm(message, {"days": days, "starting_equity": starting_equity})
     return planned if planned is not None else plan_rules(message, starting_equity, days, known)
 

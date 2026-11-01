@@ -372,7 +372,7 @@ def propose(db: Session, h: Huddle, author: str, text: str, addressed: bool) -> 
     """Plan the idea with the Lab. A spec gets a backtest card; a call gets logged; anything else is ignored
     unless the bot was addressed, in which case it asks the Lab's clarifying question."""
     from .backtest import NoEventsInWindow, SourceUnavailable, get_source, run_backtest
-    from .lab import Clarify, LabError, plan
+    from .lab import Clarify, LabError, plan, podcast_research_question
 
     s = get_settings()
     source = get_source(s)
@@ -385,6 +385,9 @@ def propose(db: Session, h: Huddle, author: str, text: str, addressed: bool) -> 
         return [str(e)] if addressed else []
     n = (max((t.n for t in _theses(db, h) if t.n < COPY_BASE), default=0)) + 1
     if isinstance(planned, Clarify):
+        if podcast_research_question(text, known):
+            say(db, h, planned.question)
+            return [planned.question]
         if CALL_CUE.search(text):
             t = Thesis(huddle_id=h.id, n=n, author=author, text=text, kind="call", label=f"Call: {text.strip()[:150]}")
             db.add(t)

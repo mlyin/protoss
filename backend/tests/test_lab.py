@@ -190,10 +190,53 @@ def test_the_four_ideas(client):
     # the benchmark stays plain buy and hold, so a short and its benchmark move in opposite directions
     b = bubble["result"]
     assert (b["final_equity"] - b["starting_equity"]) * (b["benchmark_curve"][-1][1] - b["starting_equity"]) <= 0
+    # idea 4 (Matthew's goal, 2026-11-01): NVDA on each new episode for 7 days, and the reply says it trades release dates only
     assert dwarkesh["kind"] == "backtest" and dwarkesh["spec"]["event_set"] == "dwarkesh" and dwarkesh["spec"]["market"] == "xyz:NVDA"
-    assert any("Dwarkesh Podcast episode" in n for n in dwarkesh["result"]["notes"]) and dwarkesh["result"]["trades"] > 0
+    assert dwarkesh["spec"]["side"] == "long" and dwarkesh["spec"]["hold_days"] == 7 and "does not read what was said" in dwarkesh["reply"]
+    explicit = chat(client, "buy NVDA on each new Dwarkesh episode and hold 7 days")
+    assert explicit["kind"] == "backtest" and explicit["spec"]["event_set"] == "dwarkesh"
+    assert explicit["spec"]["market"] == "xyz:NVDA"
+    assert "does not analyze episode claims" in explicit["reply"]
     episodes = B.load_events("dwarkesh")
     assert len(episodes) > 100 and episodes[0]["date"] == dt.date(2020, 5, 22)
     # Matthew's own sentence in the group chat maps to the same trade
     own = chat(client, "lets buy unitree i think robots are gonna take over the world")
     assert own["spec"]["market"] == "xyz:UNITREE" and own["spec"]["type"] == "buy_hold"
+
+
+def test_podcast_idea_cannot_be_assigned_a_market_by_llm(monkeypatch):
+    from app import lab
+
+    def unexpected(*args, **kwargs):
+        raise AssertionError("An unspecified podcast idea must be clarified before an LLM chooses a trade")
+
+    monkeypatch.setattr(lab, "_plan_llm", unexpected)
+    for message in ["Dwarkesh mentioned NVDA", "Dwarkesh had a long episode about NVDA", "Dwarkesh had a short episode about NVDA",
+                    "do not buy NVDA on each Dwarkesh episode"]:
+        assert isinstance(lab.plan(message, known={"xyz:NVDA"}), lab.Clarify)
+    # the demo idea itself is a fixed rule, decided by Matthew, not by a model
+    for message in ["Dwarkesh is always right", "Trade every new Dwarkesh episode"]:
+        spec = lab.plan(message, known={"xyz:NVDA"})
+        assert spec.event_set == "dwarkesh" and spec.market == "xyz:NVDA" and spec.side == "long" and spec.hold_days == 7
+
+
+def test_podcast_release_rule_preserves_explicit_direction():
+    from app.lab import plan_rules
+
+    for instruction, side in [
+        ("sell NVDA on each new Dwarkesh episode and hold 7 days", "short"),
+        ("short NVDA on each new Dwarkesh episode and hold 7 days", "short"),
+        ("buy NVDA on each new Dwarkesh episode and sell after 7 days", "long"),
+        ("buy NVDA on every Dwarkesh episode and sell NVDA after 7 days", "long"),
+        ("buy NVDA on every Dwarkesh episode and sell 7 days later", "long"),
+    ]:
+        spec = plan_rules(instruction, 10_000, 180, {"xyz:NVDA"})
+        assert spec.event_set == "dwarkesh" and spec.market == "xyz:NVDA"
+        assert spec.side == side
+
+
+def test_hack_buy_then_sell_exit_stays_long():
+    from app.lab import plan_rules
+
+    spec = plan_rules("buy XMR after major hacks and sell 7 days later", 10_000, 180, {"XMR"})
+    assert spec.side == "long"
