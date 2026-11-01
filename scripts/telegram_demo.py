@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 """Run practice, API-wallet copies, or individual browser wallet review on your computer."""
 import argparse
+import getpass
 import json
 import os
 from pathlib import Path
 import secrets
+import signal
 import subprocess
 import sys
 import time
@@ -16,11 +18,14 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--web-only", action="store_true")
     parser.add_argument("--setup", action="store_true", help="guided local token, group and two-account setup")
+    parser.add_argument("--prompt-token", action="store_true", help="enter the bot token privately without repeating group setup")
     parser.add_argument("--wallet-review", action="store_true", help="individual mainnet review links; users sign in their own browser")
     parser.add_argument("--brand", action="store_true", help="apply the Probe profile photo to @ProtossTradingDemoBot")
     parser.add_argument("--chat", type=int)
     parser.add_argument("--users")
     parser.add_argument("--port", type=int, default=8001)
+    parser.add_argument("--state", help="existing Telegram delivery checkpoint to preserve on restart")
+    parser.add_argument("--previous-chat", type=int, help="original group ID after a supergroup upgrade")
     parser.add_argument("--live", action="store_true",
                         help="REAL orders: each participant's own Hyperliquid account through the API wallet they authorized (~/.protoss/wallets.json)")
     args = parser.parse_args()
@@ -41,14 +46,18 @@ def main():
             args.chat, args.users = setup_demo(live=args.live, wallet_review=args.wallet_review)
         except (APIError, ValueError, EOFError) as exc:
             parser.exit(1, str(exc) + "\n")
+    if args.prompt_token and not args.web_only and not os.environ.get("TELEGRAM_BOT_TOKEN"):
+        if not sys.stdin.isatty():
+            parser.error("--prompt-token requires an interactive terminal; never pass the token in chat or command arguments")
+        os.environ["TELEGRAM_BOT_TOKEN"] = getpass.getpass("Telegram bot token (hidden): ").strip()
     if not args.web_only and (not args.chat or not args.users or not os.environ.get("TELEGRAM_BOT_TOKEN")):
         parser.error("set TELEGRAM_BOT_TOKEN locally and supply --chat and --users, or use --web-only")
     if args.brand:
         from telegram_brand import main as apply_brand
         apply_brand()
     root = Path(__file__).resolve().parents[1]
-    if not (root / "web/dist/index.html").exists():
-        parser.error("build the website first: cd web && npm ci && npm run build")
+    if (args.web_only or args.wallet_review) and not any((root / "web" / folder / "index.html").exists() for folder in ("pages-dist", "dist")):
+        parser.error("build the website first: npm --prefix web ci && npm --prefix web run build:pages")
     directory = Path.home() / ".protoss"
     directory.mkdir(exist_ok=True)
     api_url = f"http://127.0.0.1:{args.port}"
@@ -77,8 +86,12 @@ def main():
            "DATABASE_URL": "sqlite:///" + str(directory / ("telegram-wallet-review.db" if args.wallet_review else "telegram-live.db" if args.live else "telegram-practice.db")),
            "ADMIN_TOKEN": secrets.token_urlsafe(32), "PROTOSS_API": api_url,
            "APP_URL": os.environ.get("DEMO_PUBLIC_URL", api_url)}
-    server = subprocess.Popen([sys.executable, "-m", "uvicorn", "app.main:app", "--host", "127.0.0.1", "--port", str(args.port)], cwd=root, env=env)
+    server = subprocess.Popen([sys.executable, "-m", "uvicorn", "app.main:app", "--app-dir", str(root / "backend"), "--host", "127.0.0.1", "--port", str(args.port)], cwd=root, env=env)
     worker = None
+    # Service managers send SIGTERM. Clean up both children just as Ctrl-C does.
+    def stop(signum, frame):
+        raise KeyboardInterrupt
+    previous_sigterm = signal.signal(signal.SIGTERM, stop)
     try:
         for attempt in range(40):
             if server.poll() is not None:
@@ -97,7 +110,7 @@ def main():
         time.sleep(0.25)
         if server.poll() is not None:
             parser.exit(1, "Practice API exited; refusing to attach to another process.\n")
-        print(f"Website: {api_url}/", flush=True)
+        print(f"Website: {api_url}/" if args.web_only else "Website: https://protoss.trade/", flush=True)
         print("Real-trade review links enabled. Each user signs in their own browser. No server signing." if args.wallet_review
               else "LIVE: real orders from each participant's account through their API wallet." if args.live
               else "Practice accounts only. No real deposits or orders.", flush=True)
@@ -106,13 +119,18 @@ def main():
             server.wait()
         else:
             command = [sys.executable, str(root / "scripts/telegram_bridge.py"), "run", "--chat", str(args.chat), "--users", args.users]
-            if args.wallet_review:
+            if args.state:
+                command += ["--state", args.state]
+            elif args.wallet_review:
                 command += ["--state", str(directory / f"telegram-wallet-review-{args.chat}.json")]
+            if args.previous_chat is not None:
+                command += ["--previous-chat", str(args.previous_chat)]
             worker = subprocess.Popen(command, cwd=root, env=env)
             parser.exit(worker.wait())
     except KeyboardInterrupt:
         pass
     finally:
+        signal.signal(signal.SIGTERM, previous_sigterm)
         for process in (worker, server):
             if process and process.poll() is None:
                 process.terminate()

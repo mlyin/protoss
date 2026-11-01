@@ -4,11 +4,13 @@
 
 Private account route repair: the simplified frontend had discarded the connection and trade-review links still issued by Telegram. The two private screens are restored without adding public navigation. Browser fixtures cover link preservation/reload, ownership click gating, owner changes, missing/expired links, public API destination, prepared-trade reloads and leaving during preparation. An isolated running API/database trace confirms actual issued links render the correct private records. No real wallet was connected and no trade was signed or submitted. Live acceptance still needs the bot and its issuing API available together; local-only links do not work for remote participants.
 
+Goal audit: at the start of the 12-hour product goal the MacBook bot and its API on port 8001 were stopped after the separate Telegram-card deployment. No token was present in the remaining test API process or this shell. Restoring the bot needs private token entry; never print credentials or reset its databases/checkpoints. The homepage preview runs at port 4374; private account screens are previewed at port 4375. The other session installed `com.protoss.telegram`, but it is stopped with exit 126 and repeated macOS operation-not-permitted errors; its private token file is absent. Do not start a competing poller. PRs #10 and #11 are merged; the public XMR request completes, while the newer backend code still needs deployment. A subsequent research audit found date-only event timestamps can cause entries before publication; study validity is not established and needs correction.
+
 The older runtime checklist below is historical. PR #8 is merged; the user confirmed replies in both private Telegram messages and the group. The bot is now an administrator of the upgraded supergroup. Do not repeat the admin setup or reset the delivery checkpoint.
 
 The fourth idea is research from an episode or specific claim, not a default NVDA purchase. The correction asks for that evidence before a trade card is created. Explicit market/direction release-date backtests remain available and are labeled as release-date studies, not transcript analysis. Podcast monitoring and transcript analysis are still not connected.
 
-The MacBook bot currently runs from `~/protoss-demo` under `scripts/telegram_demo.py` with its API on port 8001. A separate session restarted this wrapper after the independent bridge setup described in the runbook. The observed API reports copies mode with `telegram_live_enabled=false`; no runtime or trading settings were changed for this research correction. Inspect the live processes and checkpoint before any restart. PR #9 (`bot-visual`) has merged; preserve its chart cards, link changes, and one-day XMR hold. The Mac mini API is still older than main and has not been updated from this MacBook.
+Before the later stop, the MacBook bot ran from `~/protoss-demo` under `scripts/telegram_demo.py` with its API on port 8001. A separate session restarted this wrapper after the independent bridge setup described in the runbook. The observed API reports copies mode with `telegram_live_enabled=false`; no runtime or trading settings were changed for this research correction. Inspect the live processes and checkpoint before any restart. PR #9 (`bot-visual`) has merged; preserve its chart cards, link changes, and one-day XMR hold. The Mac mini API is still older than main and has not been updated from this MacBook.
 
 Read `CLAUDE.md` and `brain/INDEX.md` first. This page is the state of the repo today. Memory about Matthew himself lives in
 his Claude memory and follows him.
@@ -26,9 +28,9 @@ amount and the order goes out from their own account; the money is never combine
   api.hyperliquid.xyz in the browser; research calls api.protoss.trade.
 - Website (`web/src/IdeaChat.jsx`, `AccountWorkspace.jsx`): Home shows the four ideas; each shows its backtest card, verdict and
   events from `web/public/ideas` (written by `scripts/idea_snapshots.py` on live candles, dated; rerun it to refresh), with
-  Run it now (live Lab) and Trade it in Telegram. Friends & positions shows the group's two accounts (lando, second) from
-  Hyperliquid, then the visitor's own connected wallet. Run it now on protoss.trade calls the mini's Lab, which still runs old
-  code: it works once the mini runs main.
+  Run it now (live Lab) and Trade it in Telegram. Friends & positions shows only the visitor's own connected wallet: owner-only
+  privacy, Matthew's choice (see [[corrections]]; #15 removed the public group panel). Run it now on protoss.trade calls the
+  mini's Lab, which still runs old code: it works once the mini runs main.
 - Telegram bot (@ProtossTradingDemoBot): a launchd agent on Matthew's MacBook, `com.protoss.telegram`, running from its own clone
   `~/protoss-bot` (launchd cannot read `~/Documents`: exit 126 "Operation not permitted"). Put a dev commit on it with
   `deploy/macbook/update_bot.sh` from `~/Documents/protoss2` (local fetch, copies `web/dist`, restarts). It waits for

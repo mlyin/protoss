@@ -325,17 +325,18 @@ def test_setup_discovers_only_human_group_participants():
     assert groups[CHAT]["users"] == {111, 222}
 
 
-def test_guided_setup_keeps_token_out_of_output(monkeypatch, capsys):
+def test_guided_setup_keeps_token_out_of_output(monkeypatch, capsys, tmp_path):
     token = "unit-test-token-not-a-real-credential"
     monkeypatch.delenv("TELEGRAM_BOT_TOKEN", raising=False)
     monkeypatch.setattr(bridge.getpass, "getpass", lambda prompt: token)
     monkeypatch.setattr("builtins.input", lambda prompt: "")
+    monkeypatch.setattr(bridge.Path, "home", lambda: tmp_path)
     class SetupTelegram:
         def __init__(self, supplied):
             assert supplied == token
         def call(self, method, **body):
             if method == "getMe":
-                return {"username": "demo_bot"}
+                return {"id": 123, "username": "demo_bot"}
             if method == "getWebhookInfo":
                 return {}
             assert method == "getUpdates"
