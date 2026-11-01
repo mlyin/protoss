@@ -17,7 +17,11 @@ harness/runs/
 node_modules/
 web/dist/
 web/node_modules
-
+logs/
+ios/build/
+ios/*.xcodeproj/
+ios/App/Info.plist
+ios/MessagesExtension/Info.plist
 web/pages-dist/
 web/test-results/
 web/playwright-report/

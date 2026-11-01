@@ -11,6 +11,12 @@ const enc = new TextEncoder()
 
 // The subset of msgpack the SDK's packb emits for these actions: maps, strings, bools, unsigned ints.
 function pack(v, out) {
+  if (Array.isArray(v)) {
+    if (v.length >= 16) throw new Error('array too large')
+    out.push(0x90 | v.length)
+    for (const item of v) pack(item, out)
+    return
+  }
   if (typeof v === 'boolean') { out.push(v ? 0xc3 : 0xc2); return }
   if (typeof v === 'number') {
     if (!Number.isSafeInteger(v) || v < 0) throw new Error('only unsigned integers are packed')
@@ -43,11 +49,12 @@ function be64(n, out) { for (let i = 7; i >= 0; i--) out.push(Number((n >> BigIn
 
 const hex = (bytes) => '0x' + Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('')
 
-export function actionHash(action, nonce) {
+export function actionHash(action, nonce, expiresAfter = null) {
   const out = []
   pack(action, out)
   be64(BigInt(nonce), out)
   out.push(0x00) // no vaultAddress on the envelope: the user signs for their own account
+  if (expiresAfter !== null) { out.push(0x00); be64(BigInt(expiresAfter), out) }
   return hex(keccak_256(Uint8Array.from(out)))
 }
 
@@ -56,7 +63,7 @@ export function vaultTransferAction(vault, usd, isDeposit = true) {
   return { type: 'vaultTransfer', vaultAddress: vault.toLowerCase(), isDeposit, usd: Math.round(usd * 1e6) }
 }
 
-export function l1TypedData(action, nonce, mainnet) {
+export function l1TypedData(action, nonce, mainnet, expiresAfter = null) {
   return {
     domain: { chainId: 1337, name: 'Exchange', verifyingContract: ZERO, version: '1' },
     types: {
@@ -64,7 +71,7 @@ export function l1TypedData(action, nonce, mainnet) {
       Agent: [{ name: 'source', type: 'string' }, { name: 'connectionId', type: 'bytes32' }],
     },
     primaryType: 'Agent',
-    message: { source: mainnet ? 'a' : 'b', connectionId: actionHash(action, nonce) },
+    message: { source: mainnet ? 'a' : 'b', connectionId: actionHash(action, nonce, expiresAfter) },
   }
 }
 

@@ -143,13 +143,15 @@ def _summary(db: Session, ex: ExchangeAdapter, org: Org) -> dict:
 def open_org(body: OrgCreate, db: Session = DbDep, ex: ExchangeAdapter = Depends(exchange)):
     """Anyone can open a legion in sim/paper mode (the social flow: a leader writes a mandate, friends join).
     In testnet/live mode creation goes through /admin/orgs until wallet auth lands."""
-    if ex.name == "testnet":
-        raise HTTPException(501, "open legions with the admin API in testnet mode (wallet auth coming)")
+    if ex.name in ("testnet", "mainnet"):
+        raise HTTPException(501, "open legions with the admin API in exchange mode (wallet auth coming)")
     return create_org(body, db, ex)
 
 
 @router.post("/admin/orgs", status_code=201, dependencies=[Depends(require_admin)])
 def create_org(body: OrgCreate, db: Session = DbDep, ex: ExchangeAdapter = Depends(exchange)):
+    if ex.name == "mainnet" and body.initial_deposit:
+        raise HTTPException(422, "mainnet deposits must be signed into the Hyperliquid vault")
     slug = body.slug or _slugify(body.name)
     if db.scalar(select(Org).where(Org.slug == slug)):
         raise HTTPException(409, "slug taken")
@@ -185,7 +187,14 @@ def add_member(slug: str, body: MemberCreate, org: Org = Depends(require_org_own
 
     if org.status != "live":
         raise HTTPException(409, f"org is {org.status}")
-    if body.allocation_usd > org.pool_cash + 1e-9:
+    mainnet_equity = None
+    if ex.name == "mainnet":
+        if not org.hl_vault:
+            raise HTTPException(422, "connect a funded Hyperliquid vault first")
+        mainnet_equity = ex.account_equity(org.hl_vault)
+        if mainnet_equity <= 0 or abs(body.allocation_usd - mainnet_equity) > 0.01:
+            raise HTTPException(422, "the single mainnet agent must track the full current vault equity; use max_notional_usd to cap its trading")
+    elif body.allocation_usd > org.pool_cash + 1e-9:
         raise HTTPException(422, f"only ${org.pool_cash:,.2f} unallocated in the pool")
     lim = body.limits or MandateIn()
     # a member can never be allowed a market the mandate forbids
@@ -208,15 +217,18 @@ def add_member(slug: str, body: MemberCreate, org: Org = Depends(require_org_own
             allowed_markets=markets,
         ),
     )
-    out = create_agent_record(db, ex, agent_body, org_id=org.id, starting_equity=0.0)
+    out = create_agent_record(db, ex, agent_body, org_id=org.id, starting_equity=mainnet_equity or 0.0)
     agent = db.get(Agent, out["id"])
-    O.allocate(db, org, agent, body.allocation_usd)
+    if mainnet_equity is None:
+        O.allocate(db, org, agent, body.allocation_usd)
     out["allocation_usd"] = body.allocation_usd
     return out
 
 
 @router.post("/orgs/{slug}/allocate")
 def allocate(slug: str, body: AllocateIn, org: Org = Depends(require_org_owner), db: Session = DbDep, ex: ExchangeAdapter = Depends(exchange)):
+    if ex.name == "mainnet":
+        raise HTTPException(409, "mainnet capital is held in the Hyperliquid vault; ledger allocations are disabled")
     agent = db.scalar(select(Agent).where(Agent.name == body.agent, Agent.org_id == org.id)) or db.get(Agent, body.agent)
     if not agent or agent.org_id != org.id:
         raise HTTPException(404, "no such member")
@@ -244,6 +256,11 @@ def set_mandate(slug: str, body: MandateIn, org: Org = Depends(require_org_owner
 def set_vault(slug: str, body: VaultIn, org: Org = Depends(require_org_owner), db: Session = DbDep, ex: ExchangeAdapter = Depends(exchange)):
     """Back this legion with a Hyperliquid vault: the non-custodial pool. Friends deposit and withdraw on Hyperliquid;
     the leader's key (our master) can only trade it. Deposits through our API are then disabled for this legion."""
+    if ex.name == "mainnet":
+        if db.scalar(select(Agent.id).where(Agent.org_id == org.id)):
+            raise HTTPException(409, "a mainnet legion with an agent cannot change vaults")
+        if db.scalar(select(Org.id).where(Org.hl_vault == body.address, Org.id != org.id)):
+            raise HTTPException(409, "this mainnet vault is already linked to another legion")
     details = ex.vault_details(body.address) if hasattr(ex, "vault_details") else None
     if hasattr(ex, "vault_details") and details is None:
         raise HTTPException(502, "could not read that vault from Hyperliquid")
@@ -303,8 +320,8 @@ def deposit(slug: str, body: DepositIn, db: Session = DbDep, ex: ExchangeAdapter
     org = _org(db, slug)
     if org.hl_vault:
         raise HTTPException(409, f"this legion is backed by a Hyperliquid vault; deposit on Hyperliquid: https://app.hyperliquid.xyz/vaults/{org.hl_vault}")
-    if ex.name == "testnet":
-        raise HTTPException(501, "on testnet deposits go through the Hyperliquid vault, not this endpoint")
+    if ex.name in ("testnet", "mainnet"):
+        raise HTTPException(501, "real deposits go through the Hyperliquid vault, not this endpoint")
     try:
         O.deposit(db, org, body.depositor, body.amount_usd)
     except ValueError as e:

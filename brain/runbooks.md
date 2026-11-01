@@ -1,5 +1,13 @@
 # Runbooks
 
+- 2026-10-31: Two-account Telegram and browser demo: `docs/telegram-demo.md`. `scripts/telegram_demo.py`
+  starts an isolated sim API and optional Telegram bridge. It forces mainnet execution off. Browser entry: `/#/demo`.
+  Each participant gets a separate practice trade. Wallet signatures prove ownership only.
+
+- 2026-10-31: Anthropic / Messages acceptance steps are in `docs/live-imessage-test.md`. `scripts/live_check.py`
+  reads mainnet market metadata, public-account positions and fills for `xyz:ANT`, without keys or signing.
+  Explicit mainnet vault mode now exists with execution off by default. Live verification and chat reconciliation of real fills remain outstanding.
+
 ## Run locally
 `pip install -r requirements.txt` then `python scripts/demo.py` (any OS; `run_protoss.bat` on Windows).
 Sim mode, SQLite, opens http://localhost:8000. `DATABASE_URL=postgresql+psycopg://... python scripts/demo.py` for Postgres (truncates tables).
@@ -11,6 +19,20 @@ Local Postgres for that: `/usr/lib/postgresql/16/bin/initdb` + `pg_ctl` on port 
 ## Mac mini (always-on)
 `cd ~/protoss && DATABASE_URL='...' bash deploy/macmini/install.sh`. Then `deploy/macmini/protossctl status|logs|restart|mode|funnel|url`.
 Services `com.protoss.api`, `com.protoss.fleet`; logs in `logs/`. Public URL: `protossctl funnel` (Tailscale Funnel).
+- 2026-10-31: Installed on aaaas-mac-mini (paper mode, SQLite, 1057 markets). Live app: https://aaaas-mac-mini.tailb9b0ef.ts.net
+  (the API serves web/dist, so the dashboard and API share that origin). Funnel serves only its own ts.net name, so
+  `app.protoss.trade` cannot be a CNAME to it; a custom app domain needs a Cloudflare Tunnel (`cloudflared`) instead.
+- 2026-10-31: app.protoss.trade is a Cloudflare Tunnel (`protoss`, id f4016e23) to 127.0.0.1:8000, run by launchd
+  `com.protoss.tunnel` (`cloudflared tunnel run protoss`, config in ~/.cloudflared/config.yml, log logs/com.protoss.tunnel.log).
+  `PUBLIC_URL=https://app.protoss.trade` in backend/.env so checkout redirects land on the live app. Recreate on a new
+  machine: `cloudflared tunnel login` (Matthew clicks Authorize on protoss.trade), `tunnel create`, `tunnel route dns`.
+- 2026-11-01: `scripts/candles.py` with no arguments now refreshes every market already in `backend/app/data/candles/` plus the
+  defaults. 34 markets cached (top perps by volume, every HIP-3 name in the Lab's alias list), 1.8 MB. xyz:ANT has 6 bars (listed 2026-10-26).
+- 2026-10-31: Refresh the Lab's offline candles with `.venv/bin/python scripts/candles.py [MARKETS]` (default BTC ETH SOL HYPE XMR,
+  daily, full history, drops the bar still forming). Lab tests pin their own cache to XMR, so shipping a market does not move them.
+- 2026-10-31: Tail-wallet verified on real fills from the mini: `scripts/lab.py "tail 0x... with $10k over the last 7 days"` replayed 65 fills across 14 markets. Vault addresses like HLP trade through sub-accounts and have no fills of their own, so the Lab synthesizes for them and says so.
+- 2026-10-31: Privy turns on by setting `PRIVY_APP_ID=` in backend/.env, then `protossctl restart`. The Join page lazy-loads web/src/PrivyWallet.jsx (1.6 MB chunk) only when the id is set; email sign-in makes an embedded wallet and the Stake button signs with it. In the Privy dashboard, allow the app's origins (the Funnel URL, protoss.trade).
+- 2026-10-31: The local `gh` token cannot enable Pages (403 on POST /pages); that switch needs Matthew's browser login.
 
 ## Supabase
 Project `koinon` (ref hgegigtdjkkclexqnuoy, us-east-1; the project keeps the old name). Migrations in `backend/migrations/`,
@@ -43,7 +65,7 @@ as the way agents use the minis without taking over his screen. Every agent read
 The cloud container cannot reach Hyperliquid, so real-data backtests run on a machine of Matthew's:
     cd protoss/backend && .venv\Scripts\activate (Windows) or . .venv/bin/activate (Mac)
     python ../scripts/lab.py "what if I bought XMR every time a major institution got hacked and held 7 days" --days 730
-XMR is a Hyperliquid perp (listed early 2026), so candles only exist from listing; the CLI reports the bars it found and the
+XMR is a Hyperliquid perp; candleSnapshot serves daily bars from 2023-04-22 (checked 2026-10-31), so candles only exist from then; the CLI reports the bars it found and the
 hack events that fell inside them. `--markets` prints what Hyperliquid lists; for an unlisted name the CLI exits with the three
 closest listed markets so the question can be rephrased as "what this transfers to on Hyperliquid". `--json` for the raw result.
 Event list is `backend/app/data/hacks.csv`; add rows (date, org, note) to widen the study.
@@ -53,6 +75,30 @@ Pool money from another Hyperliquid account without custody:
 2. Deposit from the other account: Vaults -> that vault -> Deposit (any Hyperliquid account can; withdrawals are self-serve after the lock-up).
 3. Point the legion at it: `PUT /orgs/<slug>/vault {"address": "0x<vault>"}` with the owner key; the API checks the vault's leader is our master.
 4. `ARENA_MODE=testnet` (or live later) so agents in that legion route orders with `vault_address`; the legion page then shows TVL and each depositor from Hyperliquid, not from our ledger. API deposits for that legion return 409 on purpose.
+
+## iMessage group chat (huddle) on the Mac mini (added 2026-10-31)
+Engine: `backend/app/huddle.py` (thesis -> Lab card -> tapback/"in" approvals -> "$50 each" -> paper agent -> fires on
+`protoss hack: ...` or a feed headline -> closes after the hold -> result + score). Web demo: https://app.protoss.trade/#/huddle/demo
+(or `/#/huddle/<legion-slug>` to pool into that legion). Link previews: `/l/<slug>`, `/t/<thesis id>`, `/h/<name>`.
+Bridge (stdlib, runs on the mini):
+1. Messages.app signed into iMessage (best: a separate Apple ID for the bot, added to the group like a friend).
+2. System Settings, Privacy & Security, Full Disk Access: add the Python that runs the bridge (`~/protoss/.venv/bin/python3`
+   resolves to a real binary; add that, or Terminal for a manual run). Without it chat.db will not open.
+3. `cd ~/protoss && .venv/bin/python scripts/imessage_bridge.py chats` and copy the group's guid (`iMessage;+;chat...`).
+4. Names: `~/.protoss/names.json` like `{"+15551234567": "Lee"}`.
+5. Dry run: `ADMIN_TOKEN=<from backend/.env> BRIDGE_ME=Matthew .venv/bin/python scripts/imessage_bridge.py run --chat '<guid>' --title 'the boys' --legion <slug> --dry-run`
+6. Drop `--dry-run`; the first send pops one Automation prompt (allow control of Messages). Then run it under launchd.
+Env: `PROTOSS_API` (default http://127.0.0.1:8000), `ADMIN_TOKEN`, `BRIDGE_ME`. Optional backend env: `HUDDLE_HACK_FEEDS`
+(JSON list of RSS URLs read for hack headlines), `HUDDLE_QUORUM` (default 2), `APP_URL` (links in chat).
+- 2026-10-31: iMessage extension (in-thread cards) scaffolded in `ios/` (XcodeGen spec, SwiftUI). Build and Simulator steps in
+  `ios/README.md`. Written without a Mac in the loop: the first `xcodebuild` on the mini is its first compile.
+
+## Live Telegram copies (added 2026-10-31)
+
+See docs/telegram-demo.md, section "Live copies". Short form: per participant `scripts/wallets.py add tg:<id> --name .. --address 0x..`
+(key at a hidden prompt), `scripts/wallets.py check tg:<id>`, collateral on the xyz dex, then
+`scripts/telegram_demo.py --live --chat <group> --users <id1>,<id2>` and type LIVE. Receipts come from Hyperliquid fill history.
+Matthew's rule: the only thing a participant should touch is Telegram; the one-time authorization is the exception because it is their signature.
 
 ## Place a demo order through the API, no clicking (added 2026-10-31)
 

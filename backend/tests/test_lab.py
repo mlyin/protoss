@@ -1,5 +1,6 @@
 import datetime as dt
 import os
+import shutil
 
 import pytest
 
@@ -9,6 +10,7 @@ os.environ["ADMIN_TOKEN"] = "test-admin"
 
 from fastapi.testclient import TestClient  # noqa: E402
 
+from app import backtest as B  # noqa: E402
 from app import db as dbmod  # noqa: E402
 from app import hl  # noqa: E402
 from app.backtest import load_hacks  # noqa: E402
@@ -21,6 +23,13 @@ HEX40 = "0x" + "ab" * 20
 def client(tmp_path, monkeypatch):
     monkeypatch.setenv("DATABASE_URL", f"sqlite:///{tmp_path}/t.db")
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)  # the rule-based planner must carry every test offline
+    # the Lab answers from cached candles where it has them; pin the cache to XMR so these tests do not move
+    # every time scripts/candles.py ships another market
+    cache = tmp_path / "candles"
+    cache.mkdir()
+    shutil.copy(B.FileCandles.DIR / "XMR_1d.csv", cache / "XMR_1d.csv")
+    monkeypatch.setattr(B.FileCandles, "DIR", cache)
+    B._source = None
     get_settings.cache_clear()
     dbmod.reset_engine_for_tests()
     hl.set_exchange_for_tests(hl.SimExchange(get_settings(), seed=3))
@@ -89,12 +98,10 @@ def test_momentum_spec_and_window(client):
     assert j["deployable"]["limits"]["allowed_markets"] == ["BTC"] and j["deployable"]["limits"]["max_leverage"] == 2
 
 
-def test_tail_wallet_synthesized_offline(client):
-    j = chat(client, f"tail {HEX40} with $10k")
-    assert j["kind"] == "backtest" and j["spec"]["type"] == "tail_wallet" and j["spec"]["address"] == HEX40
-    assert j["result"] is not None and j["result"]["starting_equity"] == 10_000
-    assert any("synthesized" in n or "sim" in n for n in j["result"]["notes"])
-    assert "synthesized" in j["reply"]
+def test_tail_wallet_never_invents_fills(client):
+    j = chat(client, f"tail {HEX40} with $10k")  # sim mode has no wallet fills to replay
+    assert j["kind"] == "error" and j["result"] is None and "live Hyperliquid API" in j["reply"]
+    assert j["spec"]["type"] == "tail_wallet" and j["spec"]["address"] == HEX40
 
 
 def test_bad_address_is_error(client):
@@ -141,3 +148,25 @@ def test_deterministic(client):
     b = chat(client, "backtest a 3/10 momentum crossover on BTC over the last 30 days")
     assert a["result"]["final_equity"] == b["result"]["final_equity"]
     assert a["result"]["equity_curve"] == b["result"]["equity_curve"]
+
+
+def test_dip_buy_on_cached_history(client):
+    import csv
+
+    j = chat(client, "buy XMR after it drops 8% in a day and sell 5 days later")
+    assert j["kind"] == "backtest", j["reply"]
+    spec, res = j["spec"], j["result"]
+    assert spec["type"] == "dip_buy" and spec["drop_pct"] == 8 and spec["over_days"] == 1 and spec["hold_days"] == 5
+    assert spec["days"] == 730 and res["bars"] > 300  # drops are rare, so the window reaches back to the cap on daily bars
+    # every entry is a cached close 8% or more below the one before it, counted here straight from the file
+    start, end = (dt.datetime.fromisoformat(res[k]).timestamp() for k in ("start", "end"))
+    with open(B.FileCandles.DIR / "XMR_1d.csv", newline="") as f:
+        closes = [float(r["c"]) for r in csv.DictReader(f) if start <= int(r["t"]) < end]
+    dips = sum(closes[i] / closes[i - 1] - 1 <= -0.08 for i in range(1, len(closes)))
+    assert dips and any(n.startswith(f"{dips} closes 8% or more below") for n in res["notes"]), res["notes"]
+    assert any(n.startswith("baseline:") for n in res["notes"]) and 0 < res["trades"] <= dips
+    assert "Buy XMR after any 8% drop within 1 day, hold 5d" in j["reply"]
+    weekly = chat(client, "what if I bought XMR every time it fell 15% in a week and held 2 weeks")
+    assert (weekly["spec"]["over_days"], weekly["spec"]["hold_days"]) == (7, 14)
+    never = chat(client, "buy XMR when it drops 80% in a day")
+    assert never["kind"] == "clarify" and never["reply"].startswith("XMR did not fall 80%")

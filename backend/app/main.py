@@ -155,7 +155,10 @@ def create_agent_record(db: Session, ex: ExchangeAdapter, body: AgentCreate, org
     )
     db.add(agent)
     db.flush()
-    ex.on_agent_created(db, agent)
+    try:
+        ex.on_agent_created(db, agent)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
     db.add(Event(agent_id=agent.id, kind="info", detail=f"agent created with {equity:,.0f} USDC in {ex.name} mode"))
     return {
         "id": agent.id,
@@ -197,7 +200,7 @@ def me(p: Principal = Depends(current_principal), db: Session = DbDep, ex: Excha
         "status": a.status,
         "halted_reason": a.halted_reason,
         "equity": round(st.equity, 2),
-        "cash": round(a.cash, 2) if ex.name != "testnet" else None,
+        "cash": round(a.cash, 2) if ex.name not in ("testnet", "mainnet") else None,
         "peak_equity": round(a.peak_equity, 2),
         "day_start_equity": round(a.day_start_equity, 2),
         "gross_notional": round(st.gross_notional(), 2),
@@ -379,7 +382,8 @@ def builder(ex: ExchangeAdapter = Depends(exchange)):
 
 @app.get("/health")
 def health(ex: ExchangeAdapter = Depends(exchange)):
-    return {"ok": True, "mode": ex.name, "markets": len(ex.markets())}
+    return {"ok": True, "mode": ex.name, "markets": len(ex.markets()),
+            "telegram_live_enabled": get_settings().telegram_live_enabled}
 
 
 from .routes_orgs import router as orgs_router  # noqa: E402
@@ -393,6 +397,17 @@ from .onboard import router as onboard_router  # noqa: E402
 
 app.include_router(social_router)
 app.include_router(onboard_router)
+
+from .huddle import router as huddle_router  # noqa: E402
+from .share import router as share_router  # noqa: E402
+from .telegram import router as telegram_router  # noqa: E402
+
+app.include_router(huddle_router)
+app.include_router(share_router)
+app.include_router(telegram_router)
+
+from .live import router as live_router  # noqa: E402
+app.include_router(live_router)
 
 # serve the built web app if present (web/dist)
 _dist = Path(__file__).resolve().parents[2] / "web" / "dist"

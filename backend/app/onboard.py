@@ -26,7 +26,7 @@ import logging
 import secrets
 from urllib.parse import quote, urlencode
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 from sqlalchemy import DateTime, Float, String, select
 from sqlalchemy.orm import Mapped, Session, mapped_column
@@ -40,6 +40,7 @@ log = logging.getLogger("protoss.onboard")
 router = APIRouter()
 
 SESSION_TTL = dt.timedelta(hours=2)
+WEBHOOK_TOLERANCE_S = 300  # a signed MoonPay event older than this is a replay, not news
 ADDRESS = r"^0x[0-9a-fA-F]{40}$"
 
 
@@ -51,7 +52,8 @@ def exchange() -> ExchangeAdapter:
 
 
 class OnboardSession(Base):
-    """One attempt to fund a wallet and stake it in a legion. Status moves created → redirected → funded → staked."""
+    """One attempt to fund a wallet and stake it in a legion. Status moves created → redirected → funded → staked
+    (or failed, when the partner says the payment did not go through)."""
 
     __tablename__ = "onboard_sessions"
 
@@ -303,3 +305,49 @@ def mark_staked(session_id: str, body: StakedIn, db: Session = DbDep):
         raise HTTPException(409, "session expired")
     sess.status = "staked"
     return _public(sess)
+
+
+# ------------------------------------------------------------------------------------------------ partner webhooks
+
+
+def moonpay_signature_ok(key: str, header: str | None, body: bytes, *, now: float) -> bool:
+    """`Moonpay-Signature-V2: t=<unix>,s=<hex>`, where s = HMAC-SHA256(webhook key, "<t>.<raw body>").
+    Source: dev.moonpay.com/reference/reference-webhooks-signature (read 2026-10-31)."""
+    if not header:
+        return False
+    parts = dict(p.split("=", 1) for p in header.split(",") if "=" in p)
+    t, sig = parts.get("t", ""), parts.get("s", "")
+    if not t.isdigit() or not sig or abs(now - int(t)) > WEBHOOK_TOLERANCE_S:
+        return False
+    want = hmac.new(key.encode(), t.encode() + b"." + body, hashlib.sha256).hexdigest()
+    return hmac.compare_digest(want, sig)
+
+
+@router.post("/onboard/webhooks/moonpay")
+async def moonpay_webhook(request: Request, moonpay_signature_v2: str | None = Header(default=None), db: Session = DbDep):
+    """MoonPay tells us when a checkout completes, so the session flips to `funded` without waiting on the equity
+    poll. The poll stays as the fallback. We only ever move a session forward, and only on a signed event."""
+    s = get_settings()
+    if not s.onramp_moonpay_webhook_key:
+        raise HTTPException(503, "MoonPay webhooks are not configured")
+    body = await request.body()
+    if not moonpay_signature_ok(s.onramp_moonpay_webhook_key, moonpay_signature_v2, body, now=_now().timestamp()):
+        raise HTTPException(401, "bad signature")
+    try:
+        event = json.loads(body)
+        data = event.get("data") or {}
+    except (ValueError, AttributeError):
+        raise HTTPException(400, "not json")
+    sess = db.get(OnboardSession, str(data.get("externalTransactionId") or ""))
+    if not sess:
+        return {"ok": True, "ignored": "no matching session"}  # 2xx so MoonPay stops retrying an event that is not ours
+    status = data.get("status")
+    if sess.status in {"created", "redirected", "expired"}:
+        if status == "completed":
+            # quoteCurrencyAmount is the USDC delivered, after MoonPay's fee
+            sess.funded_usd = float(data.get("quoteCurrencyAmount") or sess.amount_usd)
+            sess.status = "funded"
+        elif status == "failed":
+            sess.status = "failed"
+    log.info("moonpay %s %s -> session %s %s", event.get("type"), status, sess.id, sess.status)
+    return {"ok": True, "session_status": sess.status}

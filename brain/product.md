@@ -56,3 +56,21 @@ Matthew's first strategy question. Daily XMR candles pulled from the public Hype
 - On Hyperliquid: XMR-PERP since 2026-01-15, 5x max, funding positive 97% of hours, longs paying ~29% annualized (0.3 to 1.4% per 7-day hold). That alone eats the mean move.
 - Binance $6.3B theft (2026-10-29) added to the list; XMR -2.9% day one.
 Lesson for the product: the Lab must always print the any-day baseline next to an event study, or people will read time-in-market as edge. Done the same day: every event_buy result carries a `baseline:` note (mean move after the events vs from any bar).
+
+## Study: buy the dip, real Hyperliquid data (2026-11-01)
+
+The Lab used to answer "buy NVDA when it drops 5% in a day, sell after 5 days" with buy and hold, because the bare word "buy"
+matched first. It now runs a dip study (`dip_buy`): every daily close X% below the close N days earlier, entry at that close,
+the any-day baseline printed next to it. First answers, 730-day window, $10k, daily bars:
+- xyz:NVDA, 5% one-day drop, hold 5d: 6 events, -9.9% vs +5.8% buy and hold; mean 5d move -1.56% (1 of 6 up) vs +0.22% from any day.
+- SOL, 10% one-day drop, hold 5d: 7 events, -14.5% vs -42.7% buy and hold; mean 5d move -1.32% vs +0.01% from any day.
+Beating buy and hold on SOL came from sitting in cash through a falling market, not from the dips: the baseline says so.
+
+- 2026-10-31: The Privy embedded wallet is called the **Protoss wallet** in copy (Matthew). Code keeps `privy`/`protossWallet`.
+
+## The group chat (added 2026-10-31)
+The legion lives where friends already talk. Someone says "let's buy XMR every time a major company gets hacked"; Protoss
+replies with a card (tested on 25 hacks since Oct 2024: XMR +1.3% in the 7 days after a hack vs +1.7% after any day, 10 of
+25 up), two thumbs up back it, "$50 each" stakes it, the next hack fires it, and the close posts the result and the running
+score by whose idea it was. Ideas with no Hyperliquid market (sports, injuries) are logged as calls and scored by the group.
+The hack thesis has no edge on the real data so far; the card says so, which is the point.

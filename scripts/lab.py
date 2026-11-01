@@ -74,7 +74,7 @@ def main() -> None:
     print(f"${res.starting_equity:,.0f} -> ${res.final_equity:,.2f}")
     print("\ntrades (first/last 20):")
     for t in res.trades_sample:
-        print(f"  {t['ts'][:10]}  {t['side']:<4} {t['size']:>12.4f} @ {t['px']:>12,.2f}  {t['reason']}")
+        print(f"  {t.ts:%Y-%m-%d}  {t.side:<4} {t.size:>12.4f} @ {t.px:>12,.2f}  {t.reason}")
     print("\nnotes:")
     for n in res.notes:
         print(f"  - {n}")

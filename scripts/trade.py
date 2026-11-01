@@ -7,7 +7,7 @@ One-time setup per account (a signature only the account owner can give):
   app.hyperliquid.xyz -> More -> API -> "Generate" an API wallet, name it protoss-demo, Authorize. Copy the private key
   it shows into your shell, never into chat:
       export HL_AGENT_KEY_SECOND=0x...        # the API wallet's private key
-      export HL_ACCOUNT_SECOND=0x027D9eEEe7eFc177b5287f7f5E0976b37ad838c9   # the master account it acts for
+      export HL_ACCOUNT_SECOND=0x2222222222222222222222222222222222222222   # the master account it acts for
   Same for Lando with HL_AGENT_KEY_LANDO / HL_ACCOUNT_LANDO.
 
 Then:

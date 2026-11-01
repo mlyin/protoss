@@ -436,6 +436,7 @@ class BacktestResult:
     benchmark_curve: list[tuple[dt.datetime, float]] | None
     trades_sample: list[Fill]
     notes: list[str]
+    stats: dict | None = None  # event strategies: the event-day vs any-day comparison (event_stats)
 
     def as_dict(self) -> dict:
         d = asdict(self)
@@ -444,8 +445,14 @@ class BacktestResult:
         d["final_equity"] = round(self.final_equity, 2)
         for k in ("equity_curve", "benchmark_curve"):
             d[k] = None if d[k] is None else [[ts.isoformat(), round(v, 2)] for ts, v in d[k]]
-        d["trades_sample"] = [{"ts": f.ts.isoformat(), "side": f.side, "px": round(f.px, 6), "size": round(f.size, 6), "reason": f.reason} for f in self.trades_sample]
+        d["trades_sample"] = [{"ts": f.ts.isoformat(), "market": f.market, "side": f.side, "px": round(f.px, 6), "size": round(f.size, 6), "reason": f.reason} for f in self.trades_sample]
         return d
+
+
+def auto_bar(days: int) -> str:
+    """Finest bar Hyperliquid can serve for the whole window: it only keeps the latest ~5000 candles per interval
+    (hourly reaches back ~208 days), so a longer window on 1h would quietly test only its last 208 days."""
+    return next((b for b in ("1h", "4h") if days * 86400 / BAR_SECONDS[b] <= HL_MAX_BARS), "1d")
 
 
 def window(days: int, bar: str, now: dt.datetime | None = None) -> tuple[dt.datetime, dt.datetime]:
@@ -490,16 +497,16 @@ def _result(label: str, market: str, start: dt.datetime, end: dt.datetime, bar: 
     )
 
 
-def _event_baseline(candles: list[Candle], dates: list[dt.date], hold_days: int, bar: str, side: str) -> str:
-    """Time in market is not edge. Compare the mean forward move after the event days with the mean from any bar."""
+def event_stats(candles: list[Candle], dates: list[dt.date], hold_days: int, side: str) -> dict | None:
+    """Mean forward move after the event days vs after any bar, same holding period. None when it cannot compare."""
     if len(candles) < 3:
-        return "baseline: window too short to compare"
+        return None
     step = max(1.0, (candles[1].ts - candles[0].ts).total_seconds())  # the bars we really got, not the bars asked for
     n = max(1, int(round(hold_days * 86400 / step)))
     sign = 1.0 if side == "long" else -1.0
     fwd = [sign * (candles[i + n].c / candles[i].c - 1) * 100 for i in range(len(candles) - n)]
     if not fwd:
-        return "baseline: window too short to compare"
+        return None
     ev = []
     for d in sorted(set(dates)):
         t0 = dt.datetime.combine(d, dt.time(), UTC)
@@ -507,11 +514,29 @@ def _event_baseline(candles: list[Candle], dates: list[dt.date], hold_days: int,
         if i is not None and i < len(fwd):
             ev.append(fwd[i])
     if not ev:
-        return "baseline: no event fell on a bar with a full holding period after it"
+        return {"events": 0}
     mean = lambda xs: sum(xs) / len(xs)  # noqa: E731
-    win = lambda xs: 100 * sum(x > 0 for x in xs) / len(xs)  # noqa: E731
-    return (f"baseline: mean {hold_days}d move after the {len(ev)} events {mean(ev):+.2f}% (win {win(ev):.0f}%) vs "
-            f"{mean(fwd):+.2f}% (win {win(fwd):.0f}%) from any bar; the gap is the edge, the rest is time in market")
+    return {
+        "events": len(ev), "event_mean_pct": round(mean(ev), 2), "event_up": sum(x > 0 for x in ev),
+        "any_mean_pct": round(mean(fwd), 2), "any_win_pct": round(100 * sum(x > 0 for x in fwd) / len(fwd), 1),
+    }
+
+
+def dip_dates(candles: list[Candle], drop_pct: float, over_days: int) -> list[dt.date]:
+    """Daily bars whose close is drop_pct or more below the close over_days bars earlier. The date is the bar that completed the drop."""
+    return [candles[i].ts.date() for i in range(over_days, len(candles)) if candles[i].c / candles[i - over_days].c - 1 <= -drop_pct / 100]
+
+
+def _event_baseline(candles: list[Candle], dates: list[dt.date], hold_days: int, bar: str, side: str) -> str:
+    """Time in market is not edge. Compare the mean forward move after the event days with the mean from any bar."""
+    st = event_stats(candles, dates, hold_days, side)
+    if st is None:
+        return "baseline: window too short to compare"
+    if not st["events"]:
+        return "baseline: no event fell on a bar with a full holding period after it"
+    win = 100 * st["event_up"] / st["events"]
+    return (f"baseline: mean {hold_days}d move after the {st['events']} events {st['event_mean_pct']:+.2f}% (win {win:.0f}%) vs "
+            f"{st['any_mean_pct']:+.2f}% (win {st['any_win_pct']:.0f}%) from any bar; the gap is the edge, the rest is time in market")
 
 
 def _source_note(source: PriceSource, market: str | None, bar: str) -> str:
@@ -527,14 +552,26 @@ def _source_note(source: PriceSource, market: str | None, bar: str) -> str:
 
 def run_backtest(spec, source: PriceSource, now: dt.datetime | None = None) -> BacktestResult:
     """Run a validated Spec (see lab.py) against a price source. Raises SourceUnavailable / ValueError."""
-    bar = getattr(spec, "bar", "1h")
+    bar = getattr(spec, "bar", None) or auto_bar(spec.days)
     start, end = window(spec.days, bar, now)
     notes = [_source_note(source, getattr(spec, "market", None), bar), f"fees: {spec.fee_bps} bp taker per side plus {SLIPPAGE_BPS:g} bp slippage on every fill"]
     if spec.type == "tail_wallet":
         return _run_tail(spec, source, start, end, notes)
+    if spec.type == "basket_hold":
+        return _run_basket(spec, source, start, end, bar)
     candles = cached_candles(source, spec.market, bar, start, end)
     if len(candles) < 2:
         raise ValueError(f"not enough {bar} candles for {spec.market}")
+    if candles[0].ts > start + dt.timedelta(seconds=2 * BAR_SECONDS[bar]):
+        # listed after the window opened: test from the first candle and say so, never report a span with no data
+        start = candles[0].ts
+        notes.append(f"{spec.market} history starts {start:%Y-%m-%d}, so the test runs from there")
+    if spec.type == "dip_buy":
+        in_window = dip_dates(candles, spec.drop_pct, spec.over_days)
+        span = f"{spec.over_days} day{'s' if spec.over_days != 1 else ''}"
+        if not in_window:
+            raise NoEventsInWindow(f"{spec.market} did not fall {spec.drop_pct:g}% within {span} at any point in the last {spec.days} days")
+        notes.append(f"{len(in_window)} closes {spec.drop_pct:g}% or more below the close {span} earlier; each entry is at that close")
     if spec.type == "event_buy":
         dates = list(spec.custom_dates or []) if spec.event_set == "custom" else [r["date"] for r in load_hacks()]
         in_window = [d for d in dates if start.date() <= d <= end.date()]
@@ -542,16 +579,42 @@ def run_backtest(spec, source: PriceSource, now: dt.datetime | None = None) -> B
             raise NoEventsInWindow(f"none of the {len(dates)} event dates fall in the last {spec.days} days")
         notes.append(HACKS_NOTE if spec.event_set == "major_hacks" else f"custom event dates: {len(dates)} supplied")
         notes.append(f"{len(in_window)} of {len(dates)} event dates fall inside the window")
+    if spec.type in ("event_buy", "dip_buy"):
         notes.append(_event_baseline(candles, in_window, spec.hold_days, bar, spec.side))
+        stats = event_stats(candles, in_window, spec.hold_days, spec.side)
         build: Callable = lambda cs, bk: _event_buy(spec, cs, bk, in_window)  # noqa: E731
     else:
+        stats = None
         build = lambda cs, bk: _STRATEGIES[spec.type](spec, cs, bk)  # noqa: E731
     book, curve = _simulate(candles, spec.market, build, spec.starting_equity, spec.fee_bps)
     _, bench = _simulate(candles, spec.market, lambda cs, bk: _buy_hold(spec, cs, bk), spec.starting_equity, spec.fee_bps)
     if spec.type == "dca":
         buys = [f for f in book.fills if f.side == "buy"]
         notes.append(f"DCA: {len(buys)} buys deployed ${sum(f.size * f.px for f in buys):,.0f} of the ${spec.starting_equity:,.0f} starting equity; return is on the full starting equity")
-    return _result(spec.label(), spec.market, start, end, bar, spec.starting_equity, book, curve, bench, notes)
+    res = _result(spec.label(), spec.market, start, end, bar, spec.starting_equity, book, curve, bench, notes)
+    res.stats = stats
+    return res
+
+
+def _run_basket(spec, source, start, end, bar):
+    series = {holding.market: {candle.ts: candle for candle in cached_candles(source, holding.market, bar, start, end)} for holding in spec.holdings}
+    times = sorted(set.intersection(*(set(candles) for candles in series.values())))
+    if len(times) < 2:
+        raise ValueError("not enough overlapping candles for this basket")
+    book, curve = Book(spec.starting_equity, spec.fee_bps), []
+    # Book stores perpetual equity, so it does not deduct the notional itself from cash.
+    for index, timestamp in enumerate(times):
+        marks = {market: candles[timestamp].c for market, candles in series.items()}
+        if index == 0:
+            for holding in spec.holdings:
+                book.fill(timestamp, holding.market, "buy", spec.starting_equity * holding.weight / marks[holding.market], marks[holding.market], "initial basket allocation")
+        if index == len(times) - 1:
+            for holding in spec.holdings:
+                book.close(timestamp, holding.market, marks[holding.market], "end of window")
+        curve.append((timestamp, book.equity(marks)))
+    notes = [_source_note(source, holding.market, bar) for holding in spec.holdings]
+    notes += [f"fees: {spec.fee_bps} bp per side plus {SLIPPAGE_BPS:g} bp slippage", "Fixed initial weights, no rebalancing. Perpetual-market simulation; funding is not modelled."]
+    return _result(spec.label(), ",".join(spec.markets), start, end, bar, spec.starting_equity, book, curve, list(curve), notes)
 
 
 def _run_tail(spec, source: PriceSource, start: dt.datetime, end: dt.datetime, notes: list[str]) -> BacktestResult:
@@ -564,24 +627,25 @@ def _run_tail(spec, source: PriceSource, start: dt.datetime, end: dt.datetime, n
             fills = None
     if fills and spec.markets:
         fills = [f for f in fills if f["coin"] in spec.markets]
+    if fills is None:
+        raise ValueError(f"tailing {short} needs its fills from the live Hyperliquid API, which this server cannot reach right now")
+    unlisted = sorted({f["coin"] for f in fills if not source.has(f["coin"])})
+    fills = [f for f in fills if source.has(f["coin"])]
     if not fills:
-        why = "no fills in window" if fills == [] else "sim mode / Hyperliquid unreachable"
-        notes.append(f"wallet fills for {short} unavailable ({why}): synthesized a plausible fill series from a 3/10 momentum strategy on BTC instead")
-        from .lab import MomentumSpec  # lab imports this module; resolve the cycle lazily
-
-        res = run_backtest(MomentumSpec(market="BTC", days=spec.days, starting_equity=spec.starting_equity, fee_bps=spec.fee_bps), source)
-        res.label, res.notes = f"Tail {short} (synthesized)", notes
-        return res
-
+        # no invented fills: a wallet with nothing to replay gets a plain answer (vaults like HLP trade through sub-accounts)
+        raise ValueError(f"{short} has no perp fills on the markets this server lists in the last {spec.days} days")
+    if unlisted:
+        notes.append(f"skipped fills on {', '.join(unlisted)}: those markets are on dexs this server does not load")
     fills.sort(key=lambda f: int(f["time"]))
     markets = sorted({f["coin"] for f in fills})
-    series = {m: {c.ts: c.c for c in cached_candles(source, m, "1h", start, end)} for m in markets}
+    bar = auto_bar(spec.days)
+    series = {m: {c.ts: c.c for c in cached_candles(source, m, bar, start, end)} for m in markets}
     grid = sorted({ts for s in series.values() for ts in s})
     scale = spec.scale or _default_scale(fills, spec.starting_equity)
     book, marks, curve, queue = Book(spec.starting_equity, spec.fee_bps), {}, [], list(fills)
     for ts in grid:
         marks.update({m: series[m][ts] for m in markets if ts in series[m]})
-        while queue and int(queue[0]["time"]) < _ms(ts) + 3_600_000:  # fills during this bar, at the wallet's own price
+        while queue and int(queue[0]["time"]) < _ms(ts) + BAR_SECONDS[bar] * 1000:  # fills during this bar, at the wallet's own price
             f = queue.pop(0)
             book.fill(ts, f["coin"], "buy" if f["side"] == "B" else "sell", float(f["sz"]) * scale, float(f["px"]), f"wallet {f.get('dir', 'fill')}", slip=False)
         curve.append((ts, book.equity(marks)))
@@ -589,7 +653,7 @@ def _run_tail(spec, source: PriceSource, start: dt.datetime, end: dt.datetime, n
         book.close(grid[-1], m, marks[m], "end of window")
     curve[-1] = (grid[-1], book.equity(marks))
     notes.append(f"replayed {len(fills)} Hyperliquid fills of {short} across {', '.join(markets)} scaled x{scale:.4g}; positions open before the window are ignored")
-    return _result(f"Tail {short}", ",".join(markets), start, end, "1h", spec.starting_equity, book, curve, None, notes)
+    return _result(f"Tail {short}", ",".join(markets), start, end, bar, spec.starting_equity, book, curve, None, notes)
 
 
 def _default_scale(fills: list[dict], equity: float) -> float:

@@ -1,57 +1,51 @@
-# Handoff (written 2026-10-31, for the session that picks this up next)
+# Handoff (written 2026-11-01, for the session that picks this up next)
 
-Read `CLAUDE.md` and `brain/INDEX.md` first. This page is the state of the world on the day the work moved from a cloud
-session (linked to Matthew's Windows PC) to a session on his Mac mini. Memory about Matthew himself lives in his Claude memory
-and follows him; this page is about the repo.
+Read `CLAUDE.md` and `brain/INDEX.md` first. This page is the state of the repo today. Memory about Matthew himself lives in
+his Claude memory and follows him.
 
 ## What Protoss is
-Friends pool money into a **legion** (code says `org`; do not rename). Agents trade it on Hyperliquid inside hard limits the
-leader drew. Every fill and every rejected order is public. Revenue: a builder code on every fill. The **Lab** answers
-plain-English backtest questions. **Join with card** gets a person from fiat to a stake without touching the Hyperliquid UI.
+Friends share a trading idea in a group chat. Each person picks their own amount and approves from their own wallet; the
+money is never combined (Matthew, 2026-10-31, see [[decisions]]). The pooled **legion** (code says `org`; do not rename)
+and vault-backed legions still exist in code. Every fill is public. Revenue: a builder code on every fill. The **Lab**
+answers plain-English backtest questions. **Join with card** gets a person from fiat to a stake.
 
-## Where things are
-- Repo: github.com/mlyin/protoss, branch `main`, last commit f6fa30b, `harness/check.sh` GREEN (54 tests).
-- Domain: protoss.trade on Cloudflare. GitHub Pages workflow (`.github/workflows/pages.yml`) publishes `docs/` on every push.
-- Supabase project `koinon` (ref hgegigtdjkkclexqnuoy): migrations 0001 to 0004 applied, RLS on. DB password: Matthew has it.
-- Design canvas and the old handoff doc still carry the Coliseum name; cosmetic.
+## Where things are (2026-11-01)
+- Live: https://protoss.trade (GitHub Pages from `docs/`, cert approved), https://app.protoss.trade and
+  https://api.protoss.trade (Cloudflare Tunnel to the mini, paper mode, ~1070 markets),
+  https://aaaas-mac-mini.tailb9b0ef.ts.net (Tailscale Funnel, same API).
+- Repo: github.com/mlyin/protoss. `main` is e62a51d plus whatever lands from the open PRs below.
+- Open PRs, in the order they were opened:
+  - #1 `claude/project-thread-495i0w` and #2 `codex/anthropic-imessage-e2e` (draft): superseded by #4, close them once #4 lands.
+  - #3 `codex/pages-consolidation`: homepage and app from one React build in `web/`, app at `/app/`, API at
+    api.protoss.trade, Playwright in the Pages workflow. Notes in `brain/pages-deployment-2026-11-01.md` on that branch.
+  - #4 `integrate/2026-11-01`: everything backend, scripts, iOS and brain from #1 and #2, plus the 34-market candle cache and
+    the Lab dip study. Leaves `web/` to #3 except `web/src/hlsign.js` (newer than #3's copy; backend tests check it).
+    Against #3 only `.gitignore` (keep both) and `hlsign.js` (keep #4's) conflict. Either can land first.
+- Mac mini (user `aaaa`): API and fleet run under launchd from `/Users/aaaa/protoss` on `claude/project-thread-495i0w`
+  **with a large uncommitted tree** (huddle, onboarding, data-quality gate, iOS edits) that is on no remote. The release
+  checkout for #3 is `/Users/aaaa/protoss-pages`. Do not pull main over the running checkout until that tree is committed.
+- MacBook: `~/Documents/protoss2` is a clone (no launchd services). No SSH or Tailscale CLI from here to the mini.
+- Supabase project `koinon` (ref hgegigtdjkkclexqnuoy): migrations 0001 to 0004 applied, RLS on.
 
-## Done today
-- Rename Coliseum to Protoss everywhere (services `com.protoss.*`, `protossctl`, `run_protoss.bat`).
-- Vault-backed legions: `PUT /orgs/{slug}/vault`, adapter routes member orders to the vault, legion page reads TVL and
-  depositors from Hyperliquid. Non-custodial by construction.
-- Join with card backend (`backend/app/onboard.py`): options, hosted checkout URL (MoonPay signed URL, Coinbase preview,
-  manual path), region gate (US blocked by default via `CF-IPCountry`), polling to funded, staked. Web page `#/join`.
-- Dashboard restyle: home with hero and live strip, paper theme toggle, phone layout, skeletons, empty states.
-- Lab on real data offline: `FileCandles` reads `backend/app/data/candles/<MARKET>_1d.csv`; XMR daily history
-  2024-08-22 to 2026-10-30 is shipped. Event studies print an any-day baseline. 2026 hacks (Binance $6.3B included) added.
-- Study result: buying XMR on hack days has no edge over any day; details in `brain/product.md`.
-- One-line Mac mini install: `deploy/macmini/bootstrap.sh`.
-
-## Waiting on Matthew (only his logins can do these)
-1. GitHub: repo Settings, Pages, Source = GitHub Actions; custom domain `protoss.trade`. Until then the Pages run fails at
-   `configure-pages`.
-2. Cloudflare DNS: `CNAME @ -> mlyin.github.io`, `CNAME www -> mlyin.github.io`, proxy off.
-3. Builder wallet: a standard-mode Hyperliquid account with >= 100 USDC; its address goes in `HL_BUILDER_ADDRESS`.
-4. Keys for Join with card when ready: `PRIVY_APP_ID`, `ONRAMP_MOONPAY_KEY/SECRET` (currency `usdc_hypercore` once
-   MoonPay Gateway is enabled on the account), `ONRAMP_COINBASE_APP_ID`.
-
-## First things to do on the Mac mini
-```
-curl -fsSL https://raw.githubusercontent.com/mlyin/protoss/main/deploy/macmini/bootstrap.sh | bash
-~/protoss/deploy/macmini/protossctl status
-~/protoss/deploy/macmini/protossctl funnel        # public https URL; point app.protoss.trade at it
-```
-Then, with the API up: run `python scripts/lab.py "..."` for real Hyperliquid answers, refresh the candle cache for more
-markets (`candleSnapshot`, 1d, write `backend/app/data/candles/<MARKET>_1d.csv`), and wire Privy in `web/src/Join.jsx`.
+## Waiting on Matthew
+1. On the mini: commit and push the dirty `/Users/aaaa/protoss` tree to a branch (a session there, or
+   `git -C ~/protoss switch -c mini/wip-2026-11-01 && git -C ~/protoss add -A && git -C ~/protoss commit -m wip && git -C ~/protoss push -u origin HEAD`
+   after checking `git status` for anything that should not be committed). Until then that work exists in one place.
+2. Merge #4 and #3 (or say which one waits).
+3. Builder wallet: a separate standard-mode Hyperliquid account with >= 100 USDC; its address goes in `HL_BUILDER_ADDRESS`.
+4. Keys in the mini's `backend/.env`, then `protossctl restart`: `PRIVY_APP_ID`, `ONRAMP_MOONPAY_KEY/SECRET/WEBHOOK_KEY`
+   (currency `usdc_hypercore` once MoonPay Gateway is on), `ONRAMP_COINBASE_APP_ID`.
+5. X thread in `brand/x-thread.md`: drafted, his to post.
 
 ## Open threads, in order
-1. Live site: Pages on, DNS, then `app.protoss.trade` to the mini's Funnel URL; `VITE_API`/CORS as needed.
-2. Join with card: Privy embedded wallet in the browser, `vaultTransfer` signing, MoonPay webhook instead of polling.
-3. First real legion: create a Hyperliquid vault from the master wallet, deposit from Matthew's other account,
-   `PUT /orgs/<slug>/vault`, `ARENA_MODE=testnet`.
-4. Lab: `static_demo.py` should snapshot `/onboard/options`; more cached markets; tail-wallet on real fills.
+1. Land #4 and #3, then bring the mini's uncommitted tree onto main (it overlaps `backend/app/backtest.py` and the Lab tests).
+2. Join with card: code-complete apart from keys (Privy wallet, vaultTransfer signing, signed MoonPay webhook).
+3. First real trades: `scripts/trade.py` places an order from an API wallet acting for a master account; live Telegram copies
+   per participant (`docs/telegram-demo.md`). Matthew runs anything that signs.
+4. Lab: dip study done, tail-wallet verified on real fills, 34 markets cached. Next: refresh the cache on a schedule (the mini's
+   data-quality gate rejects stale history), an hourly cache for the last 208 days if hourly questions matter.
 5. agent-desktop (Chris Tate) evaluation on the minis; harness loop for routine tasks (`harness/README.md`).
-6. Brand: Design canvas and old handoff doc still say Coliseum; X thread in `brand/x-thread.md` is drafted, unposted.
+6. Brand: the Design canvas and the old handoff doc still say Coliseum.
 
 ## Rules that do not change
 Shell and files only, never his screen. Never move money or sign with his keys. Keys never in chat, commits or the brain.
