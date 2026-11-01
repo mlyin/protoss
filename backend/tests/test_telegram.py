@@ -97,8 +97,8 @@ def test_two_accounts_to_paper_fill_and_retry(client, tmp_path):
     assert len(copies) == 2 and len({copy["agent_id"] for copy in copies}) == 2
     assert {copy["author"] for copy in copies} == {"tg:111", "tg:222"}
     assert all(copy["pledged_usd"] == 20 and len(copy["triggers"]) == 1 for copy in copies)
-    assert any("separate paper copy filled" in m["text"] for m in tg.sent)
-    assert any("No real funds moved" in m["text"] for m in tg.sent)  # paper copies say so on the fill line
+    assert any("An account update is available privately" in m["text"] for m in tg.sent)
+    assert any("Paper demo. No real funds." in m["text"] for m in tg.sent)
     assert client.get(f"/huddle/{hid}/outbox", headers=ADMIN).json() == []
     old_count = len(tg.sent)
     worker.drain()
@@ -359,7 +359,9 @@ def test_private_links_prove_two_distinct_wallets_without_deposits(client, tmp_p
     assert client.get(f"/telegram/huddles/{hid}/connections").status_code == 403
     assert client.get("/telegram/connect").status_code == 401
     worker.handle(message(4, 111, "/status"))
-    assert any("Deposit not checked" in m["text"] for m in tg.sent)
+    shared = "\n".join(m["text"] for m in tg.sent if m["chat_id"] == CHAT)
+    assert "Wallet connections" not in shared and "Deposit not checked" not in shared
+    assert account1.address[:8] not in shared and account2.address[:8] not in shared
     assert client.get("/orgs").json() == []  # wallet linking never creates or funds a vault
 
 
@@ -552,3 +554,69 @@ def test_public_simulated_web_idea_previews_remain_accessible(client):
     tid = client.get(f"/huddle/{h['id']}").json()['theses'][0]['id']
     for path in [f'/theses/{tid}', f'/t/{tid}', f'/og/t/{tid}.png']:
         assert client.get(path).status_code == 200
+
+
+def test_legacy_account_updates_and_status_are_private_without_changing_records(client, tmp_path, monkeypatch):
+    from app import huddle as HD
+    from app.db import session
+
+    worker, tg, hid = make_bridge(client, tmp_path)
+    sentinel = 'private-financial-sentinel 6.5 XMR at $125 with profit $900'
+    with session() as db:
+        child = HD.Thesis(huddle_id=hid, n=1001, author='tg:111', text='Public idea', kind='rule', label='Public idea',
+                          spec={'_telegram_copy_owner': 'tg:111', '_parent_n': 1})
+        db.add(child)
+        db.flush()
+        tid = child.id
+        rows = [HD.HuddleMessage(huddle_id=hid, sender=HD.BOT, text=sentinel, kind='result', from_bot=True, thesis_id=tid, delivered=False),
+                HD.HuddleMessage(huddle_id=hid, sender=HD.BOT, text="Here's where things stand:\n" + sentinel, kind='text', from_bot=True, delivered=False),
+                HD.HuddleMessage(huddle_id=hid, sender=HD.BOT, text='Call 2 from a friend: hit\nScore, by whose idea it was:\n' + sentinel, kind='text', from_bot=True, delivered=False)]
+        db.add_all(rows)
+        db.flush()
+        old = {r.id: r.text for r in rows}
+    for path in [f'/huddle/{hid}', f'/huddle/{hid}/outbox']:
+        assert sentinel not in client.get(path, headers=ADMIN).text
+
+    class OlderAPI(LocalAPI):
+        def call(self, method, path, body=None):
+            if method == 'GET' and path.endswith('/outbox'):
+                return [{'id': rid, 'kind': 'result' if i == 0 else 'text', 'text': text, 'thesis_id': tid if i == 0 else None}
+                        for i, (rid, text) in enumerate(old.items())]
+            return super().call(method, path, body)
+
+    worker.protoss = OlderAPI(client)
+    worker.drain()
+    assert sentinel not in str(tg.sent)
+    assert len(tg.sent) == 3
+    assert all(m['reply_markup']['inline_keyboard'][0][0]['url'] == 'https://protoss.trade/app/' for m in tg.sent)
+    with session() as db:
+        assert all(db.get(HD.HuddleMessage, rid).text == text for rid, text in old.items())
+        assert all(db.get(HD.HuddleMessage, rid).delivered for rid in old)
+
+    def no_lookup(*args, **kwargs):
+        raise AssertionError('shared status cannot inspect private positions')
+
+    for method in ('mark', 'positions', 'equity'):
+        monkeypatch.setattr(hl.get_exchange(), method, no_lookup)
+    worker.protoss = LocalAPI(client)
+    worker.handle(message(900, 111, '/status'))
+    worker.handle(message(901, 111, '/score'))
+    assert sentinel not in str(tg.sent)
+
+
+@pytest.mark.parametrize('wallet_review', [False, True])
+def test_shared_status_does_not_query_wallet_connections_or_trade_receipts(client, tmp_path, wallet_review):
+    worker, tg, hid = make_bridge(client, tmp_path)
+    worker.wallet_review = wallet_review
+
+    class PrivateAPI(LocalAPI):
+        def call(self, method, path, body=None):
+            assert not path.endswith('/connections'), 'group must not read linked wallets'
+            assert not path.startswith('/live/groups/'), 'group must not read or verify owner receipts'
+            return super().call(method, path, body)
+
+    worker.protoss = PrivateAPI(client)
+    worker.handle(message(902, 111, '/status'))
+    assert not any('Wallet connections' in row['text'] or 'tg:111' in row['text'] for row in tg.sent)
+    if wallet_review:
+        assert tg.sent[-1]['text'].startswith('Your positions are private.')

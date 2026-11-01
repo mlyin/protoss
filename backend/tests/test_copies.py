@@ -203,11 +203,11 @@ def test_two_participants_two_real_orders_from_their_own_accounts(live, tmp_path
         assert e.leverage == {"xyz:ANT": 1} and len(e.orders) == 1
         market, is_buy, size = e.orders[0]
         assert market == "xyz:ANT" and is_buy and size == 0.18  # $20 at 111 rounded down to the market's 0.01 step
-    # the exchange's own fill history is what gets announced
+    # Fill records stay private; shared chat receives only a neutral account notice.
     texts = [m["text"] for m in tg.sent]
-    assert sum("Real order, real money" in t for t in texts) == 2
-    assert any("0x1111...1111" in t and "0xfeedbeef" in t for t in texts)
-    assert any("0x2222...2222" in t for t in texts)
+    assert sum("An account update is available privately" in t for t in texts) == 2
+    assert not any("0x1111" in t or "0xfeedbeef" in t or "order filled:" in t for t in texts)
+    assert not any("0x2222" in t for t in texts)
     assert not any("paper" in t.lower() or "practice" in t.lower() for t in texts), [t for t in texts if "paper" in t.lower() or "practice" in t.lower()]
     assert any("separate orders, one from each account" in t for t in texts)
 
@@ -223,8 +223,8 @@ def test_unauthorized_wallet_refuses_only_that_copy(live, tmp_path):
     w.handle(msg(3, 111, "/pledge 20"))
     w.handle(msg(4, 222, "/pledge 20"))
     texts = [m["text"] for m in tg.sent]
-    assert sum("Real order, real money" in t for t in texts) == 1
-    assert any("P's copy did not go out" in t and "not authorized" in t for t in texts)  # names, not tg:<id>
+    assert sum("An account update is available privately" in t for t in texts) == 2
+    assert not any("not authorized" in t or "copy did not go out" in t for t in texts)
     assert {e.master for e in FakeExchange.made} == {ACC1}
 
 
@@ -296,7 +296,7 @@ def test_plain_chat_thesis_thumbs_up_and_in_for_sends_two_real_orders(live, tmp_
         market, is_buy, size = e.orders[0]
         assert market == "xyz:UNITREE" and is_buy and size == 0.11 and e.cross["xyz:UNITREE"] is False
     texts = [m["text"] for m in tg.sent]
-    assert sum("Real order, real money" in t for t in texts) == 2
+    assert sum("An account update is available privately" in t for t in texts) == 2
     assert not any("paper" in t.lower() for t in texts)
     # a stray chat line that is neither thesis nor backing is ignored, not answered with help
     before = len(tg.sent)
@@ -339,14 +339,15 @@ def test_hack_fires_each_copy_by_name_closes_and_scores_the_idea_author(live, tm
     w.handle(named(3, 111, "Matthew", "in for 11"))
     w.handle(named(4, 111, "Matthew", "protoss hack: Example Exchange drained for $40M"))
     fired = [m["text"] for m in tg.sent if " fired on " in m["text"]]
-    assert {t.split(" fired")[0] for t in fired} == {"Matthew's copy of idea 1", "Lando's copy of idea 1"}
-    assert all("Real order, from their own account." in t and "of their $11" in t and "1001" not in t for t in fired)
+    assert fired == []
+    assert sum("An account update is available privately" in m["text"] for m in tg.sent) == 4
     with session() as db:
         assert HD.settle(db, ex, now=dt.datetime.now(dt.timezone.utc) + dt.timedelta(days=2)) == 2
     w.drain()
-    assert sum(" copy of idea 1 closed: XMR" in m["text"] for m in tg.sent) == 2
+    assert not any(" copy of idea 1 closed: XMR" in m["text"] for m in tg.sent)
+    assert sum("An account update is available privately" in m["text"] for m in tg.sent) == 6
     w.handle(named(5, 111, "Matthew", "protoss score"))
-    assert tg.sent[-1]["text"].splitlines()[1].startswith("Matthew: 0 of 2 right") or tg.sent[-1]["text"].splitlines()[1].startswith("Matthew: 2 of 2 right")
+    assert tg.sent[-1]["text"].startswith("Your positions are private.")
 
 
 def test_close_my_idea_closes_only_the_senders_copy(live, tmp_path):
@@ -360,7 +361,8 @@ def test_close_my_idea_closes_only_the_senders_copy(live, tmp_path):
     w.handle(named(3, 111, "Matthew", "in for 11"))
     w.handle(named(4, 222, "Lando", "close my idea 1"))
     closed = [m["text"] for m in tg.sent if " closed: " in m["text"]]
-    assert len(closed) == 1 and closed[0].startswith("Lando's copy of idea 1 closed: xyz:UNITREE")
+    assert closed == []
+    assert tg.sent[-1]["text"].startswith("An account update is available privately")
     sides = [(e.master, o[1]) for e in FakeExchange.made for o in e.orders]
     assert (ACC2, False) in sides and (ACC1, False) not in sides  # Lando sold; Matthew's position is untouched
     w.handle(named(5, 222, "Lando", "/close 1"))
@@ -385,14 +387,14 @@ def test_buttons_and_replies_make_the_chat_interactive(live, tmp_path):
     w.handle(tap(2, 222, "Lando", "in:1:20", card_mid))
     assert tg.sent[-1]["text"].startswith("Lando is in for $20 on idea 1.") and tg.sent[-1]["reply_parameters"]["message_id"] == card_mid
     w.handle(tap(3, 111, "Matthew", "in:1:10", card_mid))
-    fills = [m for m in tg.sent if "order filled" in m["text"]]
-    assert {m["text"].split("'s order")[0] for m in fills} == {"Matthew", "Lando"}
-    assert all(m["reply_markup"]["inline_keyboard"][0][0]["callback_data"] == "mine" for m in fills)
+    fills = [m for m in tg.sent if "An account update is available privately" in m["text"]]
+    assert len(fills) == 2
+    assert all(m["reply_markup"]["inline_keyboard"][0][0]["url"] == "https://protoss.trade/app/" for m in fills)
     w.handle(tap(4, 222, "Lando", "mine", card_mid))
     mine = tg.sent[-1]
     assert mine["text"].startswith("Your positions are private.") and "xyz:UNITREE" not in mine["text"] and "Matthew" not in mine["text"]
     assert mine["reply_markup"]["inline_keyboard"][0][0] == {"text": "My positions", "url": "https://protoss.trade/app/"}
     w.handle(tap(5, 222, "Lando", "close:1", card_mid))
-    assert tg.sent[-1]["text"].startswith("Lando's copy of idea 1 closed: xyz:UNITREE")
+    assert tg.sent[-1]["text"].startswith("An account update is available privately")
     w.handle(named(6, 111, "Matthew", "what's my position?"))
     assert tg.sent[-1]["text"].startswith("Your positions are private.") and tg.sent[-1]["reply_parameters"]["message_id"] == 106
