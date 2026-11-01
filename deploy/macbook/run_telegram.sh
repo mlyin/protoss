@@ -11,4 +11,5 @@ pkill -f "uvicorn app.main:app --host 127.0.0.1 --port ${PROTOSS_TG_PORT:-8001}"
 sleep 1
 [ -f web/dist/index.html ] || (cd web && npx vite build --outDir dist --logLevel error)
 echo "=== start $(date '+%F %T') on $(git log --oneline -1) ==="
-printf 'LIVE\n' | "$PY" -u scripts/telegram_demo.py --live --chat "$PROTOSS_TG_CHAT" --users "$PROTOSS_TG_USERS" --port "${PROTOSS_TG_PORT:-8001}"
+# caffeinate keeps the Mac from idle-sleeping while the bot runs (a closed lid still sleeps it); it exits with the bot
+printf 'LIVE\n' | caffeinate -i "$PY" -u scripts/telegram_demo.py --live --chat "$PROTOSS_TG_CHAT" --users "$PROTOSS_TG_USERS" --port "${PROTOSS_TG_PORT:-8001}"
