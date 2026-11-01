@@ -64,3 +64,6 @@ has no call for that transfer). Keys never go in chat or files in the repo.
 
 ## Unified Pages frontend (2026-11-01)
 See `brain/pages-deployment-2026-11-01.md`. The current frontend release source is `web/`, built by GitHub Actions, with `/app/` on the apex and a separate `api.protoss.trade` tunnel. This supersedes older apex-to-tunnel and frozen-docs deployment instructions. Do not restart or replace the fleet to publish the frontend.
+
+## Simplified frontend (2026-11-01)
+The homepage now offers four idea previews: hacks/XMR, robotics/UNITREE, an ANT short, and Dwarkesh episode research. `/app/` contains only connected-wallet positions and locally saved Telegram contacts. Legacy practice/hash routes enter this workspace. Market and position reads use the public Hyperliquid info endpoint, with no signatures or exchange calls. Wallet addresses come from the user's explicit browser-wallet connection; never embed the local wallet registry in Pages. All perpetual venues are queried, and partial failures must remain visible. Friends are local bookmarks per connected wallet, not synchronized Telegram memberships. News/podcast monitoring is not enabled. The deployed Lab currently refuses XMR research for incomplete hourly history; do not fabricate results or relax its data-quality check.
