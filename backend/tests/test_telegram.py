@@ -193,6 +193,16 @@ def test_group_greeting_replies_without_creating_idea(client, tmp_path):
     assert client.get(f"/huddle/{hid}", headers=ADMIN).json()["theses"] == []
 
 
+def test_dwarkesh_group_idea_asks_for_evidence_without_creating_trade(client, tmp_path):
+    worker, tg, hid = make_bridge(client, tmp_path)
+    worker.handle(message(501, 111, "Dwarkesh is always right. Trade every new episode"))
+    assert "specific claim" in tg.sent[-1]["text"]
+    worker.handle({"update_id": 502, "callback_query": {"id": "d1", "from": {"id": 222},
+                  "data": "idea:dwarkesh", "message": {"chat": {"id": CHAT, "type": "supergroup"}}}})
+    assert client.get(f"/huddle/{hid}", headers=ADMIN).json()["theses"] == []
+    assert not any("Back this idea" in str(m.get("reply_markup")) for m in tg.sent)
+
+
 def private_token(tg):
     url = tg.sent[-1]["reply_markup"]["inline_keyboard"][0][0]["url"]
     return parse_qs(urlsplit(url).fragment.split("?", 1)[1])["token"][0]

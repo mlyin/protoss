@@ -1,10 +1,10 @@
 # Decisions
 
 - 2026-11-01: The demo is four ideas, everywhere (homepage, Lab examples, Telegram /demo), in this order (Matthew):
-  1. "Let's buy XMR every time a major company gets hacked": buy XMR after each hack, hold 7 days.
+  1. "Let's buy XMR every time a major company gets hacked": buy XMR after each hack, hold 1 day.
   2. "I think robots are going to take over the world": buy and hold xyz:UNITREE.
   3. "The Anthropic bubble is going to pop": short xyz:ANT.
-  4. "Dwarkesh is always right": buy xyz:NVDA on each new Dwarkesh Podcast episode, hold 7 days (dates from his feed).
+  4. "Dwarkesh is always right": research a specific episode or claim, then identify a market and direction. A release alone does not imply buying NVDA. Episode monitoring and transcript analysis remain unconnected. An explicitly requested market/direction rule can still be backtested against release dates.
   The website (PR #6) is Home (the four ideas as chat previews, Open Telegram) and Friends & positions (the connected wallet's
   positions read from Hyperliquid; no registry addresses shipped). Practice app, Activity and the web group chat are gone. The
   backend side (PR #7): the Lab parses the four sentences, shorts, Dwarkesh episode dates, the bot's /demo menu.
