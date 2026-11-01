@@ -51,6 +51,7 @@ test('homepage contains the real account entry and no practice navigation', asyn
   await expect(page.getByRole('link', { name: 'Activity', exact: true })).toHaveCount(0)
   expect(reads.every(r => r.type === 'metaAndAssetCtxs')).toBeTruthy()
   expect(await page.evaluate(() => window.__walletRequests)).toEqual([])
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBeTruthy()
   await page.screenshot({ path: `test-results/home-${info.project.name}.png`, fullPage: true })
   await page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Friends & positions', exact: true }).click()
   await expect(page).toHaveURL(/\/app\/$/)
