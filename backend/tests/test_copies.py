@@ -34,7 +34,7 @@ class FakeInfo:
         self.fills = {ACC1: [], ACC2: []}
 
     def all_mids(self, dex=""):
-        return {"BTC": "100000", "ETH": "3000"} if dex == "" else {"xyz:ANT": "111.0", "xyz:NVDA": "214"}
+        return {"BTC": "100000", "ETH": "3000"} if dex == "" else {"xyz:ANT": "111.0", "xyz:NVDA": "214", "xyz:UNITREE": "96.8"}
 
     def user_state(self, address, dex=""):
         pos = [{"position": {"coin": m, "szi": str(s), "entryPx": str(e)}} for m, (s, e) in self.positions[address].items() if (":" in m) == (dex == "xyz")]
@@ -53,7 +53,7 @@ class FakeInfo:
         if t == "spotClearinghouseState":
             return {"balances": [{"coin": "USDC", "total": "98.21"}]} if body["user"] == ACC2 else {"balances": []}
         if t == "meta":
-            return {"universe": [{"name": "xyz:ANT", "szDecimals": 2}, {"name": "xyz:NVDA", "szDecimals": 2}]} if body.get("dex") == "xyz" else \
+            return {"universe": [{"name": "xyz:ANT", "szDecimals": 2}, {"name": "xyz:NVDA", "szDecimals": 2}, {"name": "xyz:UNITREE", "szDecimals": 2, "onlyIsolated": True}]} if body.get("dex") == "xyz" else \
                    {"universe": [{"name": "BTC", "szDecimals": 5}, {"name": "ETH", "szDecimals": 4}]}
         raise AssertionError(body)
 
@@ -71,6 +71,8 @@ class FakeExchange:
 
     def update_leverage(self, lev, market, is_cross=True):
         self.leverage[market] = lev
+        self.cross = getattr(self, "cross", {})
+        self.cross[market] = is_cross
         return {"status": "ok"}
 
     def market_open(self, market, is_buy, size, px, slippage, builder=None):
@@ -245,3 +247,16 @@ def test_wallet_file_is_private_and_round_trips(tmp_path, monkeypatch):
     monkeypatch.setenv("HL_AGENT_KEY_LANDO", K1.key.hex())
     assert C._key(C.load_wallets(path)["tg:111"]) == K1.key.hex()
     assert json.loads(path.read_text())["tg:111"].get("agent_key") is None  # env reference, nothing stored
+
+
+def test_isolated_only_markets_get_isolated_leverage(live):
+    client, ex = live
+    from types import SimpleNamespace
+
+    agent = SimpleNamespace(owner="tg:111", starting_equity=12.0, limits=SimpleNamespace(allowed_markets=["xyz:UNITREE"], max_leverage=1.0))
+    f = ex.place(None, agent, "xyz:UNITREE", "buy", 12 / 96.8, "market", None, False)
+    e = ex._ex_cache["tg:111"]
+    assert e.cross["xyz:UNITREE"] is False and e.leverage["xyz:UNITREE"] == 1
+    assert f.size == 0.12 and f.market == "xyz:UNITREE"
+    f2 = ex.place(None, agent, "xyz:ANT", "buy", 0.1, "market", None, False)
+    assert e.cross["xyz:ANT"] is True and f2.size == 0.1

@@ -160,7 +160,9 @@ class CopiesExchange(TestnetExchange):
         ex = self._exchange_for(agent)
         lev = max(1, int(getattr(getattr(agent, "limits", None), "max_leverage", 1) or 1))
         if (agent.owner, market) not in self._lev_done and not reduce_only:
-            r = ex.update_leverage(lev, market, True)
+            meta = self.market_meta(market) or {}
+            is_cross = not meta.get("onlyIsolated", False)  # some HIP-3 markets (xyz:UNITREE) only take isolated margin
+            r = ex.update_leverage(lev, market, is_cross)
             if isinstance(r, dict) and r.get("status") != "ok":
                 raise RuntimeError(f"could not set {lev}x on {market}: {r}")
             self._lev_done.add((agent.owner, market))

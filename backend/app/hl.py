@@ -334,12 +334,16 @@ class TestnetExchange:
 
     def sz_decimals(self, market: str) -> int | None:
         """The market's size step from its dex meta; None when the meta cannot be read."""
-        cache = self.__dict__.setdefault("_szd", {})
+        return (self.market_meta(market) or {}).get("szDecimals")
+
+    def market_meta(self, market: str) -> dict | None:
+        """{szDecimals, maxLeverage, onlyIsolated} for a market from its dex meta; None when unreadable."""
+        cache = self.__dict__.setdefault("_meta", {})
         if market not in cache:
             dex = market.split(":")[0] if ":" in market else ""
             try:
                 for u in self.info.post("/info", {"type": "meta", **({"dex": dex} if dex else {})})["universe"]:
-                    cache[u["name"]] = int(u["szDecimals"])
+                    cache[u["name"]] = {"szDecimals": int(u["szDecimals"]), "maxLeverage": int(u.get("maxLeverage", 1)), "onlyIsolated": bool(u.get("onlyIsolated", False))}
             except Exception as e:
                 log.debug("meta unavailable for %s: %s", market, e)
         return cache.get(market)
