@@ -35,7 +35,13 @@ export async function readPositions(address, signal) {
     }))
   }
   if (signal.aborted) throw new Error('Request cancelled')
-  return { positions: positions.sort((a, b) => a.coin.localeCompare(b.coin)), unavailable, checked: new Date(), venues: names.length }
+  // the connected owner's own fills, newest first (spot pairs show as their index, e.g. @142)
+  let fills = null
+  try {
+    const rows = await info({ type: 'userFills', user: address })
+    fills = Array.isArray(rows) ? rows.slice(0, 10) : null
+  } catch { fills = null }
+  return { positions: positions.sort((a, b) => a.coin.localeCompare(b.coin)), unavailable, fills, checked: new Date(), venues: names.length }
 }
 
 function usePositions(address) {
@@ -158,6 +164,14 @@ export default function AccountWorkspace({ embedded = false }) {
             <div className="position-heading"><b>{p.coin}</b><span className={Number(p.szi) > 0 ? 'long' : 'short'}>{Number(p.szi) > 0 ? 'Long' : 'Short'}</span></div>
             <dl><div><dt>Size</dt><dd>{Math.abs(Number(p.szi)).toLocaleString(undefined, { maximumFractionDigits: 10 })}</dd></div><div><dt>Entry price</dt><dd>{money(p.entryPx)}</dd></div><div><dt>Position value</dt><dd>{money(p.positionValue)}</dd></div><div><dt>Unrealized P&amp;L</dt><dd>{money(p.unrealizedPnl)}</dd></div></dl>
           </article>)}</div>
+          <div className="owner-fills"><h3>My recent fills</h3>
+            {state.data.fills === null ? <p className="account-error" role="alert">Could not load your fills. Positions above are still current.</p>
+              : !state.data.fills.length ? <p className="account-note">No fills yet.</p>
+              : <table><tbody>{state.data.fills.map(f => <tr key={`${f.tid}-${f.time}`}>
+                <td>{new Date(f.time).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</td>
+                <td>{f.coin}</td><td className={f.side === 'B' ? 'long' : 'short'}>{f.side === 'B' ? 'Buy' : 'Sell'} {f.sz}</td><td>{money(f.px)}</td>
+                <td>{number(f.closedPnl) ? money(f.closedPnl) : ''}</td></tr>)}</tbody></table>}
+          </div>
           <p className="account-updated">Checked {state.data.checked.toLocaleTimeString()} · Updates every 30 seconds</p>
         </>}
       </section>

@@ -46,7 +46,9 @@ amount and the order goes out from their own account; the money is never combine
   uncommitted tree (huddle, onboarding, a data-quality gate that refuses incomplete history, iOS). On no remote. The live Lab
   runs that code, so it still fails long windows until the mini runs main.
 - MacBook clone: `~/Documents/protoss2`. Node there is 18; run Playwright with a temporary Node 20
-  (`npx -y -p node@20 -c 'command -v node'`, then that node on `node_modules/@playwright/test/cli.js test`).
+  (`npx -y -p node@20 -c 'command -v node'`, then that node on `node_modules/@playwright/test/cli.js test`), built and pointed
+  the way CI does: `VITE_API_ORIGIN=https://api.protoss.trade npm run build:pages`, `E2E_API_URL=https://api.protoss.trade`,
+  `E2E_BASE_URL=http://127.0.0.1:4173` with the preview running. A build against a local API fails the private-link test.
 - Supabase project `koinon` (ref hgegigtdjkkclexqnuoy): migrations 0001 to 0004 applied, RLS on.
 
 ## Waiting on Matthew
