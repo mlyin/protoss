@@ -98,7 +98,7 @@ def test_two_accounts_to_paper_fill_and_retry(client, tmp_path):
     assert {copy["author"] for copy in copies} == {"tg:111", "tg:222"}
     assert all(copy["pledged_usd"] == 20 and len(copy["triggers"]) == 1 for copy in copies)
     assert any("separate paper copy filled" in m["text"] for m in tg.sent)
-    assert any("practice money" in m["text"] for m in tg.sent)
+    assert any("No real funds moved" in m["text"] for m in tg.sent)  # paper copies say so on the fill line
     assert client.get(f"/huddle/{hid}/outbox", headers=ADMIN).json() == []
     old_count = len(tg.sent)
     worker.drain()
@@ -193,14 +193,16 @@ def test_group_greeting_replies_without_creating_idea(client, tmp_path):
     assert client.get(f"/huddle/{hid}", headers=ADMIN).json()["theses"] == []
 
 
-def test_dwarkesh_group_idea_asks_for_evidence_without_creating_trade(client, tmp_path):
+def test_dwarkesh_idea_makes_the_nvda_rule_and_a_vague_mention_asks(client, tmp_path):
     worker, tg, hid = make_bridge(client, tmp_path)
-    worker.handle(message(501, 111, "Dwarkesh is always right. Trade every new episode"))
+    worker.handle(message(501, 111, "Dwarkesh mentioned NVDA"))
     assert "specific claim" in tg.sent[-1]["text"]
+    assert client.get(f"/huddle/{hid}", headers=ADMIN).json()["theses"] == []
     worker.handle({"update_id": 502, "callback_query": {"id": "d1", "from": {"id": 222},
                   "data": "idea:dwarkesh", "message": {"chat": {"id": CHAT, "type": "supergroup"}}}})
-    assert client.get(f"/huddle/{hid}", headers=ADMIN).json()["theses"] == []
-    assert not any("Back this idea" in str(m.get("reply_markup")) for m in tg.sent)
+    thesis = client.get(f"/huddle/{hid}", headers=ADMIN).json()["theses"][0]
+    assert thesis["label"].startswith("Buy xyz:NVDA on each new Dwarkesh Podcast episode, hold 7d")
+    assert any("Back this idea" in str(m.get("reply_markup")) for m in tg.sent)
 
 
 def private_token(tg):
@@ -286,7 +288,7 @@ def test_crypto_basket_has_four_independent_fills(client, tmp_path):
     frozen = [row["proposal"] for row in rows[1:]]
     worker.handle(message(5, 111, "/idea buy and hold SOL"))
     after = client.get(f"/huddle/{hid}", headers=ADMIN).json()["theses"]
-    assert [row["proposal"] for row in after[1:3]] == frozen
+    assert [row["proposal"] for row in after if row["n"] > 1000] == frozen  # copies are numbered from 1001
 
 
 def test_browser_crypto_demo_uses_the_same_engine(client):

@@ -167,7 +167,7 @@ IDEAS = [
     ("Buy XMR on every major hack", "idea:xmr", "Let's buy XMR every time a major company gets hacked"),
     ("Robots take over: buy Unitree", "idea:unitree", "I think robots are going to take over the world"),
     ("Anthropic bubble pops: short ANT", "idea:ant", "The Anthropic bubble is going to pop"),
-    ("Research each new Dwarkesh episode", "idea:dwarkesh", "Dwarkesh is always right. Trade every new episode"),
+    ("Dwarkesh is right: NVDA each episode", "idea:dwarkesh", "Dwarkesh is always right. Trade every new episode"),
 ]
 
 HELP = ("Protoss practice demo\n/demo (choose one of the four ideas)\n/idea I think robots are going to take over the world\n/back 1 (or tap Back this idea)\n"
@@ -202,7 +202,8 @@ def friendly(text):
     parts = re.split(r"(https?://\S+)", text)
     for index in range(0, len(parts), 2):
         for word, replacement in replacements.items():
-            parts[index] = re.sub(r"\b" + re.escape(word) + r"\b", replacement, parts[index], flags=re.I)
+            parts[index] = re.sub(r"\b" + re.escape(word) + r"\b", lambda m, r=replacement: r[:1].upper() + r[1:] if m.group(0)[:1].isupper() else r,
+                                  parts[index], flags=re.I)
     return "".join(parts)
 
 
@@ -295,6 +296,8 @@ class Bridge:
         chat = r.get("chat") or {}
         if user.get("is_bot") or user.get("id") not in self.users or chat.get("id") != self.chat:
             return
+        if user.get("first_name"):
+            self.state.data.setdefault("names", {})[str(user["id"])] = user["first_name"][:40]
         n = self.state.data.get("cards", {}).get(str(r.get("message_id")))
         if not n:
             return
@@ -315,6 +318,8 @@ class Bridge:
             keyboard = None
             if row["kind"] == "card" and thesis and thesis["status"] == "proposed":
                 keyboard = [[{"text": "Back this idea", "callback_data": f"back:{thesis['n']}"}]]
+                if ((thesis.get("test") or {}).get("events") or {}).get("per_event"):
+                    keyboard[0].append({"text": "Show the events", "callback_data": f"events:{thesis['n']}"})
             text = tidy(friendly(row["text"]), self.state.data.get("names"))
             if not self.wallet_review and huddle.get("mode") in ("sim", "paper"):
                 text = "Paper demo. No real funds.\n" + text
@@ -379,6 +384,8 @@ class Bridge:
                 return
             if match:
                 text = f"protoss back {match[1]}"
+            elif events := re.fullmatch(r"events:([1-9][0-9]*)", payload):
+                text = f"protoss events {events[1]}"
             elif idea := next((said for _, data, said in IDEAS if data == payload), None):
                 text = "protoss " + idea
             else:
@@ -572,7 +579,7 @@ def main():
                     protoss.call("POST", f"/live/groups/{huddle['id']}/verify", {})
                 if time.monotonic() - last_tick > 60:  # close finished holds, fire rules on new hacks and episodes
                     last_tick = time.monotonic()
-                    protoss.call("POST", "/huddle/tick")
+                    protoss.call("POST", "/huddle/tick", {})  # a body keeps it a POST (no body sends GET)
                 bridge.drain()
                 updates = telegram.call("getUpdates", offset=state.data["offset"], timeout=20, allowed_updates=["message", "callback_query", "message_reaction"])
                 for update in updates:

@@ -521,18 +521,20 @@ def event_stats(candles: list[Candle], dates: list[dt.date], hold_days: int, sid
     fwd = [sign * (candles[i + n].c / candles[i].c - 1) * 100 for i in range(len(candles) - n)]
     if not fwd:
         return None
-    ev = []
+    ev, per = [], []
     for d in sorted(set(dates)):
         t0 = dt.datetime.combine(d, dt.time(), UTC)
         i = next((k for k, c in enumerate(candles) if c.ts >= t0), None)
         if i is not None and i < len(fwd):
             ev.append(fwd[i])
+            per.append([d.isoformat(), round(fwd[i], 2)])
     if not ev:
         return {"events": 0}
     mean = lambda xs: sum(xs) / len(xs)  # noqa: E731
     return {
         "events": len(ev), "event_mean_pct": round(mean(ev), 2), "event_up": sum(x > 0 for x in ev),
         "any_mean_pct": round(mean(fwd), 2), "any_win_pct": round(100 * sum(x > 0 for x in fwd) / len(fwd), 1),
+        "per_event": per,  # [date, move % over the hold] for each event with a full hold after it
     }
 
 

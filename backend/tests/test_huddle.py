@@ -65,7 +65,7 @@ def test_thesis_to_result_in_a_web_huddle(client):
     assert len(th) == 1 and th[0]["kind"] == "rule" and th[0]["status"] == "proposed"
     assert th[0]["test"]["real"] and th[0]["test"]["events"]["events"] > 3  # real cached XMR candles, several hacks in window
     card = bot(client, hid)[-1]
-    assert card["kind"] == "card" and card["text"].startswith("Thesis 1, from Matthew") and "/t/" in card["text"]
+    assert card["kind"] == "card" and card["text"].startswith("Idea 1 from Matthew") and "/t/" in card["text"]
     assert "—" not in card["text"]
 
     # chit-chat is ignored
@@ -210,3 +210,23 @@ def test_dwarkesh_rule_fires_on_a_new_episode(client):
     # a hack does not fire a podcast rule
     say(client, hid, "Ana", "protoss hack: Example Exchange drained")
     assert len(client.get(f"/huddle/{hid}").json()["theses"][0]["triggers"]) == 1
+
+
+def test_tick_endpoint_is_admin_only_and_settles(client):
+    assert client.post("/huddle/tick").status_code == 403
+    r = client.post("/huddle/tick", headers=ADMIN, json={})
+    assert r.status_code == 200 and r.json()["settled"] == 0 and "feed_events" in r.json()
+
+
+def test_events_list_names_each_hack_with_the_move_after_it(client):
+    hid = client.get("/huddle/web/ev").json()["id"]
+    say(client, hid, "Ana", "let's buy xmr every time a major company gets hacked")
+    say(client, hid, "Ana", "can you show me what all of the events are")  # a plain ask, no command word
+    text = bot(client, hid)[-1]["text"]
+    assert text.startswith("Idea 1 was tested on ") and "hacks. XMR over the 1d after each" in text
+    assert "2025-02-21" in text and "Bybit" in text and text.rstrip().endswith("after any day.")
+    say(client, hid, "Bo", "protoss events 1")
+    assert bot(client, hid)[-1]["text"] == text
+    # an idea that only mentions hacks is still an idea, not an events request
+    say(client, hid, "Bo", "what if I bought BTC on hacks and held 3 days")
+    assert len(client.get(f"/huddle/{hid}").json()["theses"]) == 2

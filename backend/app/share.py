@@ -269,30 +269,41 @@ def thesis_link(tid: int, request: Request, db: Session = DbDep):
                 url=f"{base}/t/{tid}", to=to)
 
 
-@router.get("/og/t/{tid}.png")
-def thesis_card(tid: int, db: Session = DbDep):
-    t = _thesis(db, tid)
+def card_png(t: dict) -> bytes:
+    """The idea card as a PNG, from a thesis dict (thesis_out shape). Used by the link preview and scripts/idea_snapshots.py."""
     s = t.get("test") or {}
     ev = s.get("events") or {}
     tone = lambda v: "pos" if v > 0 else "neg" if v < 0 else None  # noqa: E731
     if t["kind"] == "call":
         stats = [("Status", t["outcome"] or ("open" if t["status"] == "live" else "proposed"), None), ("Backers", str(sum(b["approved"] for b in t["backers"])), None)]
-        foot = f"a call in {t['huddle_title']}, scored when it resolves"
+        foot = f"a call in {t.get('huddle_title', 'the group')}, scored when it resolves"
     elif ev.get("events"):
         stats = [("After an event", f"{ev['event_mean_pct']:+.1f}%", tone(ev["event_mean_pct"])), ("Any day", f"{ev['any_mean_pct']:+.1f}%", tone(ev["any_mean_pct"])),
-                 ("Up", f"{ev['event_up']} of {ev['events']}", None), ("In", _usd(t["pledged_usd"]), None)]
+                 ("Up", f"{ev['event_up']} of {ev['events']}", None), ("In", _usd(t["pledged_usd"] or 0), None)]
         foot = f"{s.get('hold_days')}d hold · {'real Hyperliquid candles' if s.get('real') else 'simulated prices'} · {s.get('start', '')[:7]} to {s.get('end', '')[:7]}"
     else:
-        stats = [("Backtest", f"{s.get('return_pct', 0):+.1f}%", tone(s.get("return_pct", 0))), ("Max drawdown", f"-{abs(s.get('max_drawdown_pct', 0)):.1f}%", None),
-                 ("Trades", str(s.get("trades", 0)), None), ("In", _usd(t["pledged_usd"]), None)]
-        foot = f"{'real Hyperliquid candles' if s.get('real') else 'simulated prices'} · {s.get('start', '')[:7]} to {s.get('end', '')[:7]}"
+        days = (dt.date.fromisoformat(s["end"]) - dt.date.fromisoformat(s["start"])).days if s.get("start") else 0
+        history = f"{days} days" if days < 90 else f"{round(days / 30.4)} months"
+        stats = [("Return", f"{s.get('return_pct', 0):+.1f}%", tone(s.get("return_pct", 0))), ("Worst drop", f"-{abs(s.get('max_drawdown_pct', 0)):.1f}%", None),
+                 ("History", history, "neg" if days < 60 else None), ("In", _usd(t["pledged_usd"] or 0), None)]
+        foot = f"{'real Hyperliquid candles' if s.get('real') else 'simulated prices'} · since {s.get('start', '')}" + (" · too short to call" if days < 60 else "")
     rec = t["record"]
     if rec["closed"]:
         stats[-1] = ("Record", f"{rec['up']} of {rec['closed']}", tone(rec["pnl_usd"]))
+    elif t.get("pledged_usd") is None:
+        stats = stats[:-1]  # a card outside a chat (the website) has no stake to show
     curve = [p[1] for p in s.get("curve") or []] or None
     bench = [p[1] for p in s.get("bench") or []] or None
+    kicker = f"idea {t['n']}" if not t.get("author") or t["author"].startswith("tg:") else f"idea {t['n']} from {t['author']}"
+    return render_card(kicker=kicker, headline=t["label"], stats=stats, foot=foot, curve=curve, bench=bench)
+
+
+@router.get("/og/t/{tid}.png")
+def thesis_card(tid: int, db: Session = DbDep):
+    t = _thesis(db, tid)
+    rec = t["record"]
     key = f"t:{tid}:{t['label']}:{t['status']}:{t['pledged_usd']}:{rec['closed']}:{t['outcome']}"
-    return _png(key, lambda: render_card(kicker=f"idea {t['n']}" if t["author"].startswith("tg:") else f"idea {t['n']} from {t['author']}", headline=t["label"], stats=stats, foot=foot, curve=curve, bench=bench))
+    return _png(key, lambda: card_png(t))
 
 
 # ------------------------------------------------------------------------------------------------ huddle invite

@@ -1,5 +1,9 @@
 # Decisions
 
+- 2026-11-01 (later, Matthew's 12-hour goal): idea 4, "Dwarkesh is always right", is a fixed rule: buy xyz:NVDA on each new
+  Dwarkesh Podcast episode, hold 7 days, fired by the bot reading his feed. The card and Lab reply say it trades release dates
+  and does not read the episodes. This replaces the earlier same-day entry that made it a research prompt. Any other Dwarkesh
+  mention ("Dwarkesh mentioned NVDA", a negation) still asks which episode or claim; an explicit buy/sell rule stays its own rule.
 - 2026-11-01: The demo is four ideas, everywhere (homepage, Lab examples, Telegram /demo), in this order (Matthew):
   1. "Let's buy XMR every time a major company gets hacked": buy XMR after each hack, hold 1 day.
   2. "I think robots are going to take over the world": buy and hold xyz:UNITREE.

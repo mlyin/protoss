@@ -35,3 +35,15 @@
 .idea-conversation > footer a { color: #277da1; }
 .idea-research { white-space: pre-wrap; }
 @media(max-width:760px) { .product-home .idea-demo { grid-template-columns: minmax(0, 1fr); gap: 20px; } .idea-picker h2 br { display: none; } .idea-picker [role=tablist] { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .idea-picker button { min-width: 0; white-space: normal; font-size: 12px; gap: 8px; padding: 12px 9px; min-height: 65px; } .idea-picker button > span:last-child { display: none; } .idea-picker-note { max-width: none; margin-bottom: 0; } .idea-chat-body { padding: 16px 12px; } .idea-bot-bubble { max-width: 100%; } .product-home .product-hero { padding: 20px 0; } }
+.idea-card { display: block; width: 100%; height: auto; border-radius: 8px; margin: 6px 0 12px; }
+.idea-verdict p { margin: 4px 0; }
+.idea-verdict small { display: block; font-size: 10px; color: #69818c; margin: 6px 0 12px; line-height: 1.6; }
+.idea-events { margin: 0 0 12px; font-size: 12px; }
+.idea-events summary { cursor: pointer; color: #277da1; padding: 6px 0; }
+.idea-events table { width: 100%; min-width: 0; border-collapse: collapse; margin-top: 6px; }
+.idea-events td { padding: 4px 6px; border-bottom: 1px solid #eef2f2; font: 11px/1.5 var(--mono); }
+.idea-events td:last-child { font-family: var(--sans); color: #4b5f66; }
+.idea-events td.up { color: #1f8a5b; } .idea-events td.down { color: #c0392b; }
+.idea-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
+.idea-conversation .idea-action.primary { background: #277da1; color: #fff; }
+@media(max-width:520px) { .idea-actions { grid-template-columns: 1fr; } }

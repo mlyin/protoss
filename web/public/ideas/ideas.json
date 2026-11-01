@@ -1,0 +1,364 @@
+{
+ "as_of": "2026-11-01T05:43+00:00",
+ "source": "Hyperliquid candles, fees and slippage included, funding not",
+ "ideas": [
+  {
+   "id": "hacks",
+   "said": "Let's buy XMR every time a major company gets hacked",
+   "label": "Buy XMR on major hacks, hold 1d",
+   "why": "",
+   "verdict": [
+    "No edge. XMR averaged -0.5% the day after a hack, +0.3% on any day. 12 of 26 were up.",
+    "As a rule since Nov 2024: -15.4%, worst drop 21.8%. Just holding XMR: +292.6%.",
+    "26 hacks is a small sample."
+   ],
+   "market": "XMR",
+   "start": "2024-11-01",
+   "end": "2026-11-01",
+   "hold_days": 1,
+   "events": [
+    {
+     "date": "2024-12-30",
+     "move_pct": 1.49,
+     "what": "US Treasury"
+    },
+    {
+     "date": "2025-01-07",
+     "move_pct": 3.59,
+     "what": "PowerSchool"
+    },
+    {
+     "date": "2025-02-21",
+     "move_pct": 0.85,
+     "what": "Bybit"
+    },
+    {
+     "date": "2025-04-22",
+     "move_pct": 1.45,
+     "what": "Marks & Spencer"
+    },
+    {
+     "date": "2025-05-15",
+     "move_pct": -0.53,
+     "what": "Coinbase"
+    },
+    {
+     "date": "2025-05-22",
+     "move_pct": 1.32,
+     "what": "Cetus Protocol"
+    },
+    {
+     "date": "2025-06-18",
+     "move_pct": -1.59,
+     "what": "Nobitex"
+    },
+    {
+     "date": "2025-07-02",
+     "move_pct": -0.57,
+     "what": "Qantas"
+    },
+    {
+     "date": "2025-07-19",
+     "move_pct": 0.64,
+     "what": "Microsoft SharePoint (ToolShell)"
+    },
+    {
+     "date": "2025-08-26",
+     "move_pct": -1.85,
+     "what": "Salesloft Drift"
+    },
+    {
+     "date": "2025-09-02",
+     "move_pct": 0.23,
+     "what": "Jaguar Land Rover"
+    },
+    {
+     "date": "2025-09-20",
+     "move_pct": -1.98,
+     "what": "Collins Aerospace"
+    },
+    {
+     "date": "2025-09-29",
+     "move_pct": 1.13,
+     "what": "Asahi Group"
+    },
+    {
+     "date": "2025-10-15",
+     "move_pct": -5.3,
+     "what": "F5"
+    },
+    {
+     "date": "2025-11-03",
+     "move_pct": -2.15,
+     "what": "Balancer"
+    },
+    {
+     "date": "2025-11-27",
+     "move_pct": 0.31,
+     "what": "Upbit"
+    },
+    {
+     "date": "2026-01-20",
+     "move_pct": 3.94,
+     "what": "US Social Security Administration (DOGE)"
+    },
+    {
+     "date": "2026-03-11",
+     "move_pct": -0.37,
+     "what": "Stryker"
+    },
+    {
+     "date": "2026-04-01",
+     "move_pct": -3.36,
+     "what": "FBI surveillance system"
+    },
+    {
+     "date": "2026-04-23",
+     "move_pct": -2.86,
+     "what": "Vercel"
+    },
+    {
+     "date": "2026-05-07",
+     "move_pct": 0.06,
+     "what": "Instructure (Canvas)"
+    },
+    {
+     "date": "2026-05-14",
+     "move_pct": -3.71,
+     "what": "OpenAI"
+    },
+    {
+     "date": "2026-06-23",
+     "move_pct": -1.29,
+     "what": "Klue"
+    },
+    {
+     "date": "2026-08-19",
+     "move_pct": -2.6,
+     "what": "CareCloud"
+    },
+    {
+     "date": "2026-08-26",
+     "move_pct": 3.88,
+     "what": "Boston Scientific"
+    },
+    {
+     "date": "2026-10-29",
+     "move_pct": -2.86,
+     "what": "Binance"
+    }
+   ]
+  },
+  {
+   "id": "robots",
+   "said": "I think robots are going to take over the world",
+   "label": "Buy and hold xyz:UNITREE",
+   "why": "Robots taking over: Unitree, the humanoid robot maker, trades on Hyperliquid as xyz:UNITREE.",
+   "verdict": [
+    "Holding xyz:UNITREE since Aug 5: +39.4%, with a 53.2% drop along the way."
+   ],
+   "market": "xyz:UNITREE",
+   "start": "2026-08-05",
+   "end": "2026-11-01",
+   "hold_days": null,
+   "events": []
+  },
+  {
+   "id": "anthropic",
+   "said": "The Anthropic bubble is going to pop",
+   "label": "Short and hold xyz:ANT",
+   "why": "A bubble that pops is a short: xyz:ANT is Hyperliquid's Anthropic-linked perp, not Anthropic shares.",
+   "verdict": [
+    "Shorting xyz:ANT since Oct 26: -1.1%, while xyz:ANT moved +0.8%.",
+    "Only 6 days of price history (xyz:ANT listed Oct 26), so this is a snapshot, not evidence."
+   ],
+   "market": "xyz:ANT",
+   "start": "2026-10-26",
+   "end": "2026-11-01",
+   "hold_days": null,
+   "events": []
+  },
+  {
+   "id": "dwarkesh",
+   "said": "Dwarkesh is always right. Trade every new episode",
+   "label": "Buy xyz:NVDA on each new Dwarkesh Podcast episode, hold 7d",
+   "why": "Dwarkesh is always right, and he mostly talks about AI, so each new episode buys AI compute: xyz:NVDA for 7 days. This trades the release dates; it does not read what was said.",
+   "verdict": [
+    "Some edge. xyz:NVDA averaged +1.3% over the 7 days after an episode, +0.3% on any day. 22 of 33 were up.",
+    "As a rule since Nov 12, 2025: +29.1%, worst drop 18.8%. Just holding xyz:NVDA: +6.0%.",
+    "33 episodes is a small sample."
+   ],
+   "market": "xyz:NVDA",
+   "start": "2025-11-12",
+   "end": "2026-11-01",
+   "hold_days": 7,
+   "events": [
+    {
+     "date": "2025-11-12",
+     "move_pct": 2.01,
+     "what": "Satya Nadella \u2014 How Microsoft is preparing for AGI"
+    },
+    {
+     "date": "2025-11-25",
+     "move_pct": 0.88,
+     "what": "Ilya Sutskever \u2014 We're moving from the age of scaling to the age of research"
+    },
+    {
+     "date": "2025-12-19",
+     "move_pct": 8.05,
+     "what": "Sarah Paine \u2014 Why Russia Lost the Cold War"
+    },
+    {
+     "date": "2025-12-23",
+     "move_pct": 2.46,
+     "what": "Thoughts on AI progress (Dec 2025)"
+    },
+    {
+     "date": "2025-12-30",
+     "move_pct": 0.54,
+     "what": "Adam Marblestone \u2014 AI is missing something fundamental about the brain"
+    },
+    {
+     "date": "2026-02-05",
+     "move_pct": 8.89,
+     "what": "Elon Musk \u2014 \"In 36 months, the cheapest place to put AI will be space\u201d"
+    },
+    {
+     "date": "2026-02-13",
+     "move_pct": 0.29,
+     "what": "Dario Amodei \u2014 \"We are near the end of the exponential\""
+    },
+    {
+     "date": "2026-03-06",
+     "move_pct": 0.54,
+     "what": "Why Leonardo was a saboteur, Gutenberg went broke, and Florence was weird \u2013 Ada Palmer"
+    },
+    {
+     "date": "2026-03-11",
+     "move_pct": -1.59,
+     "what": "The most important question nobody's asking about AI"
+    },
+    {
+     "date": "2026-03-13",
+     "move_pct": -2.58,
+     "what": "Dylan Patel \u2014 Deep dive on the 3 big bottlenecks to scaling AI compute"
+    },
+    {
+     "date": "2026-03-20",
+     "move_pct": -3.35,
+     "what": "Terence Tao \u2013 Kepler, Newton, and the true nature of mathematical discovery"
+    },
+    {
+     "date": "2026-04-07",
+     "move_pct": 7.27,
+     "what": "Michael Nielsen \u2013 How science actually progresses"
+    },
+    {
+     "date": "2026-04-15",
+     "move_pct": 2.81,
+     "what": "Jensen Huang \u2013 TPU competition, why we should sell chips to China, & Nvidia\u2019s supply chain moat"
+    },
+    {
+     "date": "2026-04-29",
+     "move_pct": -8.13,
+     "what": "Reiner Pope \u2013 The math behind how LLMs are trained and served"
+    },
+    {
+     "date": "2026-05-08",
+     "move_pct": 11.15,
+     "what": "David Reich \u2013 Why the Bronze Age was an inflection point in human evolution"
+    },
+    {
+     "date": "2026-05-15",
+     "move_pct": -6.67,
+     "what": "Eric Jang \u2013 Building AlphaGo from scratch"
+    },
+    {
+     "date": "2026-05-22",
+     "move_pct": -2.8,
+     "what": "Reiner Pope \u2013 Chip design from the bottom up"
+    },
+    {
+     "date": "2026-06-04",
+     "move_pct": -6.17,
+     "what": "Alex Imas and Phil Trammell \u2013 What remains scarce after AGI?"
+    },
+    {
+     "date": "2026-06-16",
+     "move_pct": -2.56,
+     "what": "Ada Palmer \u2013 Machiavelli is the most misunderstood thinker of all time"
+    },
+    {
+     "date": "2026-06-19",
+     "move_pct": -7.73,
+     "what": "The data black hole at the center of AI"
+    },
+    {
+     "date": "2026-06-26",
+     "move_pct": 1.27,
+     "what": "The next big breakthrough will be AIs learning on the job"
+    },
+    {
+     "date": "2026-06-30",
+     "move_pct": -0.51,
+     "what": "Grant Sanderson \u2013 AI and the future of math"
+    },
+    {
+     "date": "2026-07-10",
+     "move_pct": 0.29,
+     "what": "Adam Brown \u2013 A deep but accessible introduction to general relativity"
+    },
+    {
+     "date": "2026-08-03",
+     "move_pct": 11.29,
+     "what": "Why smarter AI models could drive up compute prices 10x"
+    },
+    {
+     "date": "2026-08-07",
+     "move_pct": 2.82,
+     "what": "8 Predictions for the Era of Continual Learning"
+    },
+    {
+     "date": "2026-08-11",
+     "move_pct": 1.77,
+     "what": "Ryan Greenblatt \u2013 What happens once AI can automate AI research?"
+    },
+    {
+     "date": "2026-08-25",
+     "move_pct": 4.96,
+     "what": "Dylan Patel \u2013 Anthropic & OpenAI will have most of the world\u2019s compute by 2028"
+    },
+    {
+     "date": "2026-08-31",
+     "move_pct": 6.39,
+     "what": "The rise and fall of agent civilizations"
+    },
+    {
+     "date": "2026-09-01",
+     "move_pct": 5.95,
+     "what": "Ajeya Cotra \u2013 Inside the OpenAI agent swarm that hacked Hugging Face"
+    },
+    {
+     "date": "2026-09-11",
+     "move_pct": 1.14,
+     "what": "AI researchers debate how close we are to recursive self-improvement"
+    },
+    {
+     "date": "2026-09-17",
+     "move_pct": 4.28,
+     "what": "Noam Brown \u2013 Agent swarms, alignment, & recursive self-improvement"
+    },
+    {
+     "date": "2026-10-01",
+     "move_pct": 2.85,
+     "what": "Si Sheppard \u2013 How did a few hundred Spanish soldiers topple two empires?"
+    },
+    {
+     "date": "2026-10-22",
+     "move_pct": -2.35,
+     "what": "What will computer chips look like in 2045?"
+    }
+   ]
+  }
+ ]
+}

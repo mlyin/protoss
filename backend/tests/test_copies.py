@@ -203,7 +203,7 @@ def test_two_participants_two_real_orders_from_their_own_accounts(live, tmp_path
     assert any("0x1111...1111" in t and "0xfeedbeef" in t for t in texts)
     assert any("0x2222...2222" in t for t in texts)
     assert not any("paper" in t.lower() or "practice" in t.lower() for t in texts), [t for t in texts if "paper" in t.lower() or "practice" in t.lower()]
-    assert any("separate orders, one per account" in t for t in texts)
+    assert any("separate orders, one from each account" in t for t in texts)
 
 
 def test_unauthorized_wallet_refuses_only_that_copy(live, tmp_path):

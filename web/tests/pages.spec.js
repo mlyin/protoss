@@ -26,10 +26,17 @@ test.afterEach(async ({ page }) => {
   expect((await page.evaluate(() => window.__walletRequests || [])).every(method => method === 'eth_requestAccounts')).toBeTruthy()
 })
 
+// The two accounts the Telegram bot trades for; the positions page reads them for everyone (AccountWorkspace GROUP_ACCOUNTS).
+const GROUP = ['0x562b9081df47193428a67b0885d9562ede242c01', '0x027d9eeee7efc177b5287f7f5e0976b37ad838c9']
+
 async function marketData(page, { empty = false, fail = '', delay = 0 } = {}) {
   const reads = []
   await page.route('https://api.hyperliquid.xyz/info', async route => {
     const body = route.request().postDataJSON()
+    if (body.type === 'spotMeta') return route.fulfill({ json: { universe: [], tokens: [] } })
+    if (GROUP.includes(String(body.user).toLowerCase())) {
+      return route.fulfill({ json: { clearinghouseState: { assetPositions: [], marginSummary: { accountValue: '0' } }, spotClearinghouseState: { balances: [] }, userAbstraction: 'disabled', userFills: [] }[body.type] ?? {} })
+    }
     reads.push(body)
     if (body.type === 'metaAndAssetCtxs') return route.fulfill({ json: [{ universe: [{ name: 'XMR' }] }, [{ markPx: '200' }]] })
     if (body.type === 'perpDexs') return route.fulfill({ json: [null, { name: 'xyz' }] })
@@ -65,7 +72,9 @@ test('connection reads actual venue responses and never calls the exchange', asy
   await page.getByRole('button', { name: 'Connect wallet', exact: true }).click()
   await expect(page.getByText('BTC', { exact: true })).toBeVisible()
   await expect(page.getByText('xyz:ANT', { exact: true })).toBeVisible()
-  expect(reads).toEqual([{ type: 'perpDexs' }, { type: 'clearinghouseState', user: owner, dex: '' }, { type: 'clearinghouseState', user: owner, dex: 'xyz' }])
+  // the group accounts read the market list too; the connected wallet's own reads are exactly these two
+  expect(reads.some(body => body.type === 'perpDexs')).toBeTruthy()
+  expect(reads.filter(body => body.type !== 'perpDexs')).toEqual([{ type: 'clearinghouseState', user: owner, dex: '' }, { type: 'clearinghouseState', user: owner, dex: 'xyz' }])
   await expect(page.getByText('Long', { exact: true })).toBeVisible()
   await expect(page.getByText('Short', { exact: true })).toBeVisible()
   await expect(page.getByText('No friends added yet.')).toBeVisible()
@@ -142,7 +151,7 @@ test('four idea previews use exchange quotes and honest event status', async ({ 
   await page.route('https://api.hyperliquid.xyz/info', async route => {
     const body = route.request().postDataJSON(); reads.push(body)
     expect(body.type).toBe('metaAndAssetCtxs')
-    await route.fulfill({ json: [{ universe: [{ name: 'XMR' }, { name: 'xyz:UNITREE' }, { name: 'xyz:ANT' }] }, [{ markPx: '200' }, { markPx: '17.50' }, { markPx: '42' }]] })
+    await route.fulfill({ json: [{ universe: [{ name: 'XMR' }, { name: 'xyz:UNITREE' }, { name: 'xyz:ANT' }, { name: 'xyz:NVDA' }] }, [{ markPx: '200' }, { markPx: '17.50' }, { markPx: '42' }, { markPx: '205' }]] })
   })
   await page.route('**/lab/chat', route => {
     const body = route.request().postDataJSON()
@@ -154,7 +163,8 @@ test('four idea previews use exchange quotes and honest event status', async ({ 
   await page.goto('/')
   await expect(page.getByRole('tab')).toHaveCount(4)
   await expect(page.getByText('Long XMR', { exact: true })).toBeVisible()
-  await page.getByRole('button', { name: 'Test the last 180 days' }).click()
+  await expect(page.getByRole('link', { name: /Trade it in Telegram/ })).toHaveAttribute('href', 'https://t.me/ProtossTradingDemoBot')
+  await page.getByRole('button', { name: 'Run it now' }).click()
   await expect(page.getByRole('status')).toContainText('History is incomplete. No backtest was run.')
   await page.getByRole('tab', { name: /Robots take over/ }).click()
   await expect(page.getByText('Long xyz:UNITREE', { exact: true })).toBeVisible()
@@ -162,8 +172,8 @@ test('four idea previews use exchange quotes and honest event status', async ({ 
   await page.getByRole('tab', { name: /Anthropic bubble/ }).click()
   await expect(page.getByText('Short xyz:ANT', { exact: true })).toBeVisible()
   await page.getByRole('tab', { name: /Dwarkesh/ }).click()
-  await expect(page.getByText('Episode monitoring is not connected.', { exact: false })).toBeVisible()
-  await expect(page.getByRole('link', { name: /Read an episode/ })).toHaveAttribute('href', 'https://www.dwarkesh.com/podcast')
+  await expect(page.getByText('Long xyz:NVDA', { exact: true })).toBeVisible()
+  await expect(page.getByText('reads his podcast feed every 10 minutes', { exact: false })).toBeVisible()
   expect(reads.every(body => body.type === 'metaAndAssetCtxs')).toBeTruthy()
 })
 
@@ -175,7 +185,7 @@ test('historical research shows the ordinary-day baseline', async ({ page }) => 
     result: { notes: ['baseline: compare the event reaction with the same hold after any day.', 'Internal detail'] }
   } }))
   await page.goto('/')
-  await page.getByRole('button', { name: 'Test the last 180 days' }).click()
+  await page.getByRole('button', { name: 'Run it now' }).click()
   await expect(page.getByRole('status')).toContainText('180-day window')
   await expect(page.getByRole('status')).toContainText('baseline: compare')
   await expect(page.getByRole('status')).not.toContainText('Internal detail')
