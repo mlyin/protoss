@@ -124,6 +124,17 @@ class CopiesExchange(TestnetExchange):
             raise RuntimeError(f"{w['name']}: the API wallet in wallets.json is not authorized on {w['address'][:6]}... Authorize it in the app (More, API) first.")
 
     # --- sizing sees the pledge, not the account
+    def account_equity(self, address: str) -> float:
+        """Perps equity on every dex, plus spot USDC when the account is unified (that USDC is margin there)."""
+        total = super().account_equity(address)
+        try:
+            if self.info.post("/info", {"type": "userAbstraction", "user": address}) == "unifiedAccount":
+                spot = self.info.post("/info", {"type": "spotClearinghouseState", "user": address})
+                total += sum(float(b.get("total", 0)) for b in spot.get("balances", []) if b.get("coin") == "USDC")
+        except Exception as e:
+            log.debug("abstraction/spot read failed for %s: %s", address, e)
+        return total
+
     def equity(self, db, agent) -> float:
         real = self.account_equity(self._account_for(db, agent))
         return max(0.0, min(float(agent.starting_equity or 0.0), real))

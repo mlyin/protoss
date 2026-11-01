@@ -29,7 +29,7 @@ class FakeInfo:
 
     def __init__(self):
         self.authorized = {ACC1.lower(): {K1.address.lower()}, ACC2.lower(): {K2.address.lower()}}
-        self.value = {ACC1: {"": 110.61, "xyz": 22.0}, ACC2: {"": 0.0, "xyz": 98.21}}
+        self.value = {ACC1: {"": 110.61, "xyz": 22.0}, ACC2: {"": 0.0, "xyz": 0.0}}  # second is unified: its 98.21 is spot USDC
         self.positions = {ACC1: {}, ACC2: {}}
         self.fills = {ACC1: [], ACC2: []}
 
@@ -48,6 +48,10 @@ class FakeInfo:
             return [f for f in self.fills[body["user"]] if f["time"] >= body["startTime"]]
         if t == "clearinghouseState":
             return self.user_state(body["user"], body.get("dex", ""))
+        if t == "userAbstraction":
+            return "unifiedAccount" if body["user"] == ACC2 else "disabled"
+        if t == "spotClearinghouseState":
+            return {"balances": [{"coin": "USDC", "total": "98.21"}]} if body["user"] == ACC2 else {"balances": []}
         if t == "meta":
             return {"universe": [{"name": "xyz:ANT", "szDecimals": 2}, {"name": "xyz:NVDA", "szDecimals": 2}]} if body.get("dex") == "xyz" else \
                    {"universe": [{"name": "BTC", "szDecimals": 5}, {"name": "ETH", "szDecimals": 4}]}
@@ -216,7 +220,7 @@ def test_sizing_sees_the_pledge_not_the_account_and_caps_orders(live):
     from types import SimpleNamespace
 
     agent = SimpleNamespace(owner="tg:222", starting_equity=20.0, limits=SimpleNamespace(allowed_markets=["xyz:ANT"], max_leverage=1.0))
-    assert ex.equity(None, agent) == 20.0  # account holds 98.21
+    assert ex.account_equity(ACC2) == 98.21 and ex.equity(None, agent) == 20.0  # unified: spot USDC counts; sizing still sees the pledge
     ex.info.positions[ACC2] = {"BTC": (0.01, 100000.0), "xyz:ANT": (0.18, 111.0)}
     assert ex.positions(None, agent) == {"xyz:ANT": (0.18, 111.0)}  # the account's other business is not this copy's
     with pytest.raises(RuntimeError, match="per-order cap"):
