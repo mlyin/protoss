@@ -199,9 +199,9 @@ HELP = ("Protoss practice demo\n/demo (choose one of the four ideas)\n/idea I th
         "Wallet ownership is checked with a signature. Chat backing never authorizes spending.")
 HELP_LIVE = ("Protoss listens to this chat.\n"
              "Say an idea, or tap /demo for the four: XMR on every hack, robots (Unitree), the Anthropic bubble (short ANT), NVDA on each new Dwarkesh episode.\n"
-             "Back it: thumbs up the card, or say \"in\". Then each of you says \"in for 11\" with your own amount.\n"
+             "Back it: thumbs up the card, tap \"I'm in for $20\", or say \"in for 11\" with your own amount.\n"
              "Each amount is a real order from your own Hyperliquid account, through the API wallet you authorized. Nothing is pooled; close a position yourself any time.\n"
-             "Also: \"close idea 1\" (closes your own position), \"show the events\", \"protoss status\", \"protoss score\", \"protoss hack: <what happened>\".")
+             "Also: \"my position\" or /mine (yours only), \"close idea 1\" (closes your own), \"show the events\", \"protoss status\", \"protoss score\", \"protoss hack: <what happened>\".")
 
 
 # this bot's own links: anything on the local API, and Protoss page shapes (/t/1, /h/x, /l/x, /#/feed) anywhere.
@@ -287,22 +287,25 @@ class Bridge:
             reply = "Research is unavailable right now. Please try again shortly."
         self.send(chat, reply + "\nResearch only. No order placed and nothing posted to your group.", key)
 
-    def send_card(self, chat, png, caption, key, keyboard=None):
+    def send_card(self, chat, png, caption, key, keyboard=None, reply_to=None):
         """The card as one photo: the backtest chart with the text as its caption. Falls back to text on any failure."""
         if f"{key}:0" in self.state.data["sent"]:
             return
         fields = {"chat_id": str(chat), "caption": caption}
         if keyboard:
             fields["reply_markup"] = {"inline_keyboard": keyboard}
+        if reply_to:
+            fields["reply_parameters"] = {"message_id": reply_to, "allow_sending_without_reply": True}
         try:
             result = self.telegram.upload("sendPhoto", fields, "photo", "idea.png", png)
         except APIError:
-            return self.send(chat, caption, key, keyboard)
+            return self.send(chat, caption, key, keyboard, reply_to)
         self.state.data["sent"][f"{key}:0"] = result["message_id"]
         self.state.save()
 
-    def send(self, chat, text, key, keyboard=None):
-        """Checkpoint every successful chunk. Telegram delivery is at least once across a crash."""
+    def send(self, chat, text, key, keyboard=None, reply_to=None):
+        """Checkpoint every successful chunk. Telegram delivery is at least once across a crash. reply_to threads the
+        answer under the message it answers, so the group sees who it is talking to."""
         for index, start in enumerate(range(0, len(text), 3800)):
             part_key = f"{key}:{index}"
             if part_key in self.state.data["sent"]:
@@ -310,6 +313,8 @@ class Bridge:
             body = {"chat_id": chat, "text": text[start:start + 3800], "link_preview_options": {"is_disabled": True}}
             if keyboard and index == 0:
                 body["reply_markup"] = {"inline_keyboard": keyboard}
+            if reply_to and index == 0:
+                body["reply_parameters"] = {"message_id": reply_to, "allow_sending_without_reply": True}
             result = self.telegram.call("sendMessage", **body)
             self.state.data["sent"][part_key] = result["message_id"]
             self.state.save()
@@ -329,9 +334,10 @@ class Bridge:
         if not emojis & {"\U0001F44D", "\u2764\ufe0f", "\u2764", "\U0001F525", "\U0001F4AF", "\U0001F680"}:
             return
         self.protoss.call("POST", f"/huddle/{self.hid}/messages", {"sender": f"tg:{user['id']}", "text": f"protoss back {n}", "guid": f"tg-update:{uid}"})
-        self.drain()
+        self.drain(reply_to=r.get("message_id"))
 
-    def drain(self):
+    def drain(self, reply_to=None):
+        """Post what the backend has to say. reply_to is the message (or card) that caused it; timed posts have none."""
         rows = self.protoss.call("GET", f"/huddle/{self.hid}/outbox")
         if not rows:
             return
@@ -344,6 +350,12 @@ class Bridge:
                 keyboard = [[{"text": "Back this idea", "callback_data": f"back:{thesis['n']}"}]]
                 if ((thesis.get("test") or {}).get("events") or {}).get("per_event"):
                     keyboard[0].append({"text": "Show the events", "callback_data": f"events:{thesis['n']}"})
+                keyboard.append([{"text": f"I'm in for ${amount}", "callback_data": f"in:{thesis['n']}:{amount}"} for amount in (10, 20, 50)])
+            elif row["kind"] == "result" and re.search(r"order filled| fired on ", row["text"]):
+                keyboard = [[{"text": "My position", "callback_data": "mine"}]]
+            elif row["kind"] == "mine":
+                ideas = sorted(set(re.findall(r"^Idea (\d+): (?:long|short) .* now ", row["text"], re.M)), key=int)
+                keyboard = [[{"text": f"Close idea {n}", "callback_data": f"close:{n}"} for n in ideas]] if ideas else None
             text = tidy(friendly(row["text"]), self.state.data.get("names"))
             if not self.wallet_review and huddle.get("mode") in ("sim", "paper"):
                 text = "Paper demo. No real funds.\n" + text
@@ -354,10 +366,10 @@ class Bridge:
                 except (APIError, AttributeError):
                     png = None
             if png:
-                self.send_card(self.chat, png, text, f"outbox:{row['id']}", keyboard)
+                self.send_card(self.chat, png, text, f"outbox:{row['id']}", keyboard, reply_to)
             else:
-                self.send(self.chat, text, f"outbox:{row['id']}", keyboard)
-            if keyboard:
+                self.send(self.chat, text, f"outbox:{row['id']}", keyboard, reply_to)
+            if keyboard and row["kind"] == "card":
                 mid = self.state.data["sent"].get(f"outbox:{row['id']}:0")
                 if mid:
                     self.state.data.setdefault("cards", {})[str(mid)] = thesis["n"]
@@ -410,6 +422,12 @@ class Bridge:
                 text = f"protoss back {match[1]}"
             elif events := re.fullmatch(r"events:([1-9][0-9]*)", payload):
                 text = f"protoss events {events[1]}"
+            elif amount := re.fullmatch(r"in:([1-9][0-9]*):([1-9][0-9]{0,2})", payload):
+                text = f"protoss in {amount[1]} for {amount[2]}"
+            elif payload == "mine":
+                text = "protoss mine"
+            elif close := re.fullmatch(r"close:([1-9][0-9]*)", payload):
+                text = f"protoss close {close[1]}"
             elif idea := next((said for _, data, said in IDEAS if data == payload), None):
                 text = "protoss " + idea
             else:
@@ -428,7 +446,7 @@ class Bridge:
                 if private or not raw or raw.startswith("/"):
                     return
                 self.protoss.call("POST", f"/huddle/{self.hid}/messages", {"sender": f"tg:{user_id}", "text": raw[:2000], "guid": f"tg-update:{uid}"})
-                self.drain()
+                self.drain(reply_to=message.get("message_id"))
                 return
             command, argument = match[1], (match[3] or "").strip()
             if private:
@@ -463,6 +481,8 @@ class Bridge:
                     lines = [f"tg:{r['telegram_user_id']}: wallet ownership verified ({r['wallet'][:8]}…{r['wallet'][-4:]}). Deposit not checked." for r in connections]
                     self.send(self.chat, "Wallet connections\n" + ("\n".join(lines) or "No verified wallets yet. Each participant can use /join."), key)
                 text = "protoss status"
+            elif command == "mine":
+                text = "protoss mine"
             elif command == "close" and re.fullmatch(r"[1-9][0-9]*", argument):
                 text = "protoss close " + argument
             elif command == "events":
@@ -478,7 +498,7 @@ class Bridge:
                 return
         self.protoss.call("POST", f"/huddle/{self.hid}/messages", {"sender": f"tg:{user_id}", "text": text[:2000],
                           "guid": f"tg-update:{uid}"})
-        self.drain()
+        self.drain(reply_to=message.get("message_id"))  # a command answers under it; a button tap answers under its card
         if callback:
             self.telegram.call("answerCallbackQuery", callback_query_id=callback["id"], text="Recorded." if self.live else "Demo step recorded. No funds moved.")
 

@@ -160,6 +160,7 @@ THESIS_CUE = re.compile(
     r"\b(every ?time|whenever|each time|what if|let'?s (?:buy|sell|short|long|go long|go short|bet|try|back|test)|"
     r"should we (?:buy|sell|short|long)|backtest|test this|thesis|bet (?:on|that)|i think)\b", re.I)
 COPY_BASE = 1000  # per-person copies of an idea are numbered above this, out of the way of the ideas people talk about
+MINE_ASK = re.compile(r"^\s*(?:what'?s\s+|show\s+(?:me\s+)?)?my\s+positions?\s*\??\s*$|^\s*how am i doing\s*\??\s*$", re.I)
 CLOSE_ASK = re.compile(r"^\s*(?:close|exit|sell)\s+(?:my\s+)?(?:copy\s+of\s+)?idea\s+#?(\d+)\s*[.!]*\s*$", re.I)
 EVENTS_ASK = re.compile(r"\b(show|list|see|what (?:are|were)|which (?:are|were))\b.{0,40}\b(events|hacks|episodes)\b", re.I)
 CALL_CUE = re.compile(
@@ -444,7 +445,7 @@ def approve(db: Session, ex: ExchangeAdapter, h: Huddle, t: Thesis, who: str, on
         b.pledge_usd = None
     if on and not was:
         db.flush()
-        _maybe_arm(db, ex, h, t, announce_backing=True)
+        _maybe_arm(db, ex, h, t, announce_backing=pledge is None)  # with an amount, the caller's "X is in for $Y" says it
     elif pledge is not None:
         db.flush()
         _maybe_arm(db, ex, h, t)
@@ -726,6 +727,33 @@ def settle(db: Session, ex: ExchangeAdapter, now: dt.datetime | None = None) -> 
     return closed
 
 
+def _mine(db: Session, ex: ExchangeAdapter, h: Huddle, sender: str) -> str:
+    """The sender's own copies only: what is open, what it is worth now, what is armed and waiting."""
+    mine = [t for t in _theses(db, h, ("live",)) if (t.spec or {}).get("_telegram_copy_owner") == sender]
+    if not mine:
+        return f"{sender}, you have nothing open here. Back an idea and say \"in for 20\"."
+    lines = []
+    for t in mine:
+        spec = t.spec or {}
+        n = spec.get("_parent_n") or t.n
+        held = db.scalars(select(Trigger).where(Trigger.thesis_id == t.id, Trigger.closed.is_(False))).all()
+        for tr in held:
+            try:
+                mark = ex.mark(tr.market)
+            except Exception:  # no price right now: say so rather than guess
+                lines.append(f"Idea {n}: {tr.side} {tr.size:.6g} {tr.market} from {_px(tr.entry_px)}, price unavailable right now.")
+                continue
+            sign = 1 if tr.side == "long" else -1
+            pnl = sign * (mark - tr.entry_px) * tr.size
+            lines.append(f"Idea {n}: {tr.side} {tr.size:.6g} {tr.market} from {_px(tr.entry_px)}, now {_px(mark)}: {_signed_usd(pnl)} ({sign * (mark / tr.entry_px - 1) * 100:+.1f}%).")
+        if not held:
+            ev = {"major_hacks": "the next hack", "dwarkesh": "the next episode"}.get(spec.get("event_set"), "its signal")
+            lines.append(f"Idea {n}: {_usd(_pledged(backers(db, t)))} armed, waiting for {ev}.")
+    acct = getattr(ex, "wallets", {}).get(sender, {}).get("address", "") if hasattr(ex, "wallets") else ""
+    foot = f"\nAll from your own account {acct[:6]}...{acct[-4:]}." if acct else ""
+    return f"{sender}'s positions:\n" + "\n".join(lines) + foot
+
+
 def close_mine(db: Session, ex: ExchangeAdapter, h: Huddle, sender: str, n: int) -> str | None:
     """'close 2': close the sender's own copy of idea 2 now. Each person closes only their own position."""
     mine = [t for t in _theses(db, h, ("live",)) if (t.spec or {}).get("_parent_n") == n and (t.spec or {}).get("_telegram_copy_owner") == sender]
@@ -853,6 +881,18 @@ def command(db: Session, ex: ExchangeAdapter, h: Huddle, sender: str, body: str)
     if low in ("score", "scoreboard", "leaderboard", "who's right", "whos right"):
         say(db, h, _score_board(db, h))
         return True
+    if low in ("mine", "my position", "my positions", "positions", "me"):
+        say(db, h, _mine(db, ex, h, sender), "mine")
+        return True
+    if m := re.fullmatch(r"in\s+#?(\d+)\s+(?:for\s+)?\$?(\d+(?:\.\d+)?)", low):  # the amount buttons on a card
+        t = _by_n(db, h, int(m.group(1)))
+        if not t or t.status != "proposed":
+            say(db, h, f"Idea {m.group(1)} is not taking amounts any more.")
+            return True
+        approve(db, ex, h, t, sender, True, _money(m.group(2)))
+        if t.status == "proposed":
+            say(db, h, f"{sender} is in for {_usd(_backer(db, t, sender).pledge_usd or 0)} on idea {t.n}. {_pledge_line(backers(db, t))}", thesis_id=t.id)
+        return True
     if m := re.fullmatch(r"(?:close|exit|sell)\s+(?:my\s+)?(?:copy\s+of\s+)?(?:idea\s+)?#?(\d+)", low):
         if (note := close_mine(db, ex, h, sender, int(m.group(1)))) is not None:
             say(db, h, note)
@@ -932,6 +972,8 @@ def ingest(db: Session, ex: ExchangeAdapter, h: Huddle, sender: str, text: str =
 
     addressed = bool(ADDRESS.match(text))
     body = ADDRESS.sub("", text, count=1) if addressed else text
+    if not addressed and MINE_ASK.match(text):  # "what's my position?"
+        addressed, body = True, "mine"
     if not addressed and (m := CLOSE_ASK.match(text)):  # "close my idea 2"
         addressed, body = True, f"close {m.group(1)}"
     if not addressed and EVENTS_ASK.search(text):  # "can you show me what the 25 events are"
