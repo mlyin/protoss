@@ -1,146 +1,146 @@
-date,title
-2020-05-22,Bryan Caplan - Nurturing Orphaned Ideas
-2020-07-10,Tyler Cowen - The Great Reset
-2020-08-22,"Matjaž Leonardis - Science, Identity, and Probability"
-2020-08-25,Jason Crawford - The Roots of Progress
-2020-08-31,Robin Hanson - The Long View
-2020-09-04,Caleb Watney - America's Innovation Engine
-2020-10-19,"Alex Tabarrok - Prizes, Prices, and Public Goods"
-2020-10-28,Charles Murray - Human Accomplishment and the Future of Liberty
-2020-11-16,Scott Young - Ultralearning
-2020-11-20,"Scott Aaronson - Quantum Computing, Complexity, and Creativity"
-2020-11-28,Uncle Bob - The Long Reach of Code
-2021-05-28,"Michael Huemer - Anarchy, Capitalism, and Progress"
-2021-06-04,Sarah Fitz-Claridge - Taking Children Seriously
-2021-08-09,"David Friedman - Dating Markets, Legal Systems, Bitcoin, and Automation"
-2021-10-05,"Byrne Hobart - Optionality, Stagnation, and Secret Societies"
-2022-01-31,"David Deutsch - AI, America, Fun, & Bayes"
-2022-02-24,"Richard Hanania - Foreign Policy, Fertility, and Wokeness"
-2022-04-12,"Bryan Caplan - Discrimination, Poverty, & Mental Illness"
-2022-04-16,"Jimmy Soni - Peter Thiel, Elon Musk, and the Paypal Mafia"
-2022-04-20,"Razib Khan - Genomics, Intelligence, and The Church of Science"
-2022-04-27,"Pradyu Prasad - Imperial Japan, the God Emperor, and Militarization in the Modern World"
-2022-05-05,Stephen Grugett (Manifold Markets Founder) - Predictions Markets & Revolutionizing Governance
-2022-05-11,"Ananyo Bhattacharya - John von Neumann, Jewish Genius, and Nuclear War"
-2022-06-23,"Agustin Lebron - Trading, Crypto, and Adverse Selection"
-2022-07-05,"Sam Bankman-Fried - Crypto, Altruism, and Leadership"
-2022-07-13,"Alexander Mikaberidze - Napoleon, War, Progress, and Global Order"
-2022-07-27,"Fin Moorhouse - Longtermism, Space, & Entrepreneurship"
-2022-08-03,"Joseph Carlsmith - Utopia, AI, & Infinite Ethics"
-2022-08-09,"Will MacAskill - Longtermism, Altruism, History, & Technology"
-2022-08-23,"Steve Hsu - Intelligence, Embryo Selection, & The Future of Humanity"
-2022-09-08,"Austin Vernon - Energy Superabundance, Starship Missiles, & Finding Alpha"
-2022-09-14,Charles C. Mann - Americas Before Columbus & Scientific Wizardry
-2022-09-28,"Tyler Cowen - Talent, Collapse, & Pessimism of Sex"
-2022-10-20,"Bryan Caplan - Feminists, Billionaires, and Demagogues"
-2022-10-27,"Brian Potter - Future of Construction, Ugly Modernism, & Environmental Review"
-2022-11-08,"Kenneth T. Jackson - Robert Moses, Hero of New York?"
-2022-11-28,"Edward Glaeser - Cities, Terrorism, Housing, & Remote Work"
-2022-12-01,"Byrne Hobart - FTX, Drugs, Twitter, Taiwan, & Monasticism"
-2022-12-15,"Nadia Asparouhova — Tech elites, democracy, open source, & philanthropy"
-2022-12-21,"Bethany McLean — Enron, FTX, 2008, Musk, frauds, & visionaries"
-2023-01-03,Holden Karnofsky — History's most important century
-2023-01-09,"Lars Doucet — Progress, poverty, Georgism, & why rent is too damn high"
-2023-01-24,"Garett Jones — Immigration, national IQ, & less democracy"
-2023-02-01,"Marc Andreessen — AI, crypto, 1000 Elon Musks, regrets, vulnerabilities, & managerial revolution"
-2023-03-13,Brett Harrison — FTX US former president speaks out
-2023-03-22,"Nat Friedman (Github CEO) — Reading ancient scrolls, open source, & AI"
-2023-03-27,Ilya Sutskever (OpenAI Chief Scientist) — Why next-token prediction could surpass human intelligence
-2023-04-06,"Eliezer Yudkowsky — Why AI will kill us, aligning LLMs, nature of intelligence, SciFi, & rationality"
-2023-05-23,Richard Rhodes — The making of the atomic bomb
-2023-06-14,"Carl Shulman (Pt 1) — Intelligence explosion, primate evolution, robot doublings, & alignment"
-2023-06-26,"Carl Shulman (Pt 2) — AI Takeover, bio & cyber attacks, detecting deception, & humanity's far future"
-2023-07-12,Andy Matuschak — The reason most learning tools fail
-2023-08-08,Dario Amodei (Anthropic CEO) — The hidden pattern behind every AI breakthrough
-2023-10-04,Sarah C. M. Paine — Why dictators keep making the same fatal mistake
-2023-10-12,"Grant Sanderson (@3blue1brown) — Past, present, & future of mathematics"
-2023-10-26,"Shane Legg (DeepMind Founder) — 2028 AGI, superhuman alignment, new architectures"
-2023-10-31,Paul Christiano — Preventing an AI takeover
-2023-11-15,"Dominic Cummings - COVID, Brexit, & Fixing Western Governance"
-2023-11-22,"Andrew Roberts — Why Hitler lost WWII, Churchill as applied historian, & Napoleon as startup founder"
-2023-11-29,Jung Chang (Wild Swans author) — Living through history's largest man-made famine
-2024-01-19,Will scaling work? [Narration]
-2024-01-23,Lessons from The Years of Lyndon Johnson by Robert Caro [Narration]
-2024-01-31,"Tyler Cowen — Hayek, Keynes, & Smith on AI, animal spirits, anarchy, & growth"
-2024-02-21,Patrick Collison — Why Silicon Valley's most talented should leave
-2024-02-28,"Demis Hassabis — Scaling, superhuman AIs, AlphaZero atop LLMs, AlphaFold"
-2024-03-28,Sholto Douglas & Trenton Bricken — How LLMs actually think
-2024-04-18,"Mark Zuckerberg — Llama 3, $10B models, Caesar Augustus, & 1 GW datacenters"
-2024-05-15,"John Schulman (OpenAI Cofounder) — Reasoning, RLHF, & plan for 2027 AGI"
-2024-06-04,"Leopold Aschenbrenner — 2027 AGI, China/US super-intelligence race, & the return of history"
-2024-06-11,Francois Chollet — Why the biggest AI models can't solve simple puzzles
-2024-06-26,Tony Blair — Why political leaders keep failing at major change
-2024-07-24,"Patrick McKenzie — Money laundering, big tech censorship, SBF & Japan"
-2024-08-22,Joe Carlsmith — Preventing an AI takeover
-2024-08-29,"David Reich — How one small tribe conquered the world 70,000 years ago"
-2024-09-18,"Daniel Yergin — Oil destroyed Hitler, fracking destroyed Putin"
-2024-10-02,@Asianometry & Dylan Patel — How the semiconductor industry actually works
-2024-11-13,Gwern — Anonymous writer who predicted AI trajectory on $12K/year salary
-2024-12-26,"Adam Brown — Bubble universes, space elevators, & AdS/CFT"
-2025-01-09,Tyler Cowen — The #1 bottleneck to AI progress is humans
-2025-01-16,Sarah Paine — The war for India (lecture & interview)
-2025-01-23,Sarah Paine — Why Japan lost WWII (lecture & interview)
-2025-01-30,Sarah Paine — How Mao conquered China (lecture & interview)
-2025-02-12,Jeff Dean & Noam Shazeer — 25 years at Google: from PageRank to AGI
-2025-02-19,Satya Nadella — Microsoft’s AGI plan & quantum breakthrough
-2025-03-05,Notes on China
-2025-03-12,Joseph Henrich — Humans defeated smarter species with cultural evolution
-2025-03-25,"AMA: career advice given AGI, how I research ft. Sholto & Trenton"
-2025-04-03,AI 2027: month-by-month model of intelligence explosion — Scott Alexander & Daniel Kokotajlo
-2025-04-17,AGI is still 30 years away — Ege Erdil & Tamay Besiroglu
-2025-04-24,"Why Rome actually fell: plagues, slavery, & ice age — Kyle Harper"
-2025-04-29,Mark Zuckerberg — AI will write most Meta code in 18 months
-2025-05-01,What will automated firms look like?
-2025-05-22,Is RL + LLMs enough for AGI? — Sholto Douglas & Trenton Bricken
-2025-05-29,"Xi Jinping’s paranoid approach to AGI, debt crisis, & Politburo politics — Victor Shih"
-2025-06-12,"""China is digging out of a crisis. And America’s luck is wearing thin."" — Ken Rogoff"
-2025-06-19,Why China's manufacturing economy is dominating — Arthur Kroeber
-2025-06-26,A billion years of evolution in a single afternoon — George Church
-2025-07-03,Why I don’t think AGI is right around the corner
-2025-07-10,Stephen Kotkin — How Stalin became the most powerful dictator in history
-2025-07-25,Sarah Paine — How Imperial Japan defeated Tsarist Russia & Qing China
-2025-08-07,Artificial meat is harder than artificial intelligence — Lewis Bollard
-2025-08-15,China is killing the US on energy. Does that mean they’ll win AGI? — Casey Handmer
-2025-08-21,Evolution designed us to die fast; we can change that — Jacob Kimmel
-2025-09-05,How Hitler almost starved Britain – Sarah Paine
-2025-09-12,Fully autonomous robots are much closer than you think – Sergey Levine
-2025-09-26,Richard Sutton – Father of RL thinks LLMs are a dead end
-2025-10-04,Some thoughts on the Sutton interview
-2025-10-10,Nick Lane – Life as we know it is chemically inevitable
-2025-10-17,Andrej Karpathy — AGI is still a decade away
-2025-10-31,Sarah Paine — How Russia sabotaged China's rise
-2025-11-12,Satya Nadella — How Microsoft is preparing for AGI
-2025-11-25,Ilya Sutskever — We're moving from the age of scaling to the age of research
-2025-12-19,Sarah Paine — Why Russia Lost the Cold War
-2025-12-23,Thoughts on AI progress (Dec 2025)
-2025-12-30,Adam Marblestone — AI is missing something fundamental about the brain
-2026-02-05,"Elon Musk — ""In 36 months, the cheapest place to put AI will be space”"
-2026-02-13,"Dario Amodei — ""We are near the end of the exponential"""
-2026-03-06,"Why Leonardo was a saboteur, Gutenberg went broke, and Florence was weird – Ada Palmer"
-2026-03-11,The most important question nobody's asking about AI
-2026-03-13,Dylan Patel — Deep dive on the 3 big bottlenecks to scaling AI compute
-2026-03-20,"Terence Tao – Kepler, Newton, and the true nature of mathematical discovery"
-2026-04-07,Michael Nielsen – How science actually progresses
-2026-04-15,"Jensen Huang – TPU competition, why we should sell chips to China, & Nvidia’s supply chain moat"
-2026-04-29,Reiner Pope – The math behind how LLMs are trained and served
-2026-05-08,David Reich – Why the Bronze Age was an inflection point in human evolution
-2026-05-15,Eric Jang – Building AlphaGo from scratch
-2026-05-22,Reiner Pope – Chip design from the bottom up
-2026-06-04,Alex Imas and Phil Trammell – What remains scarce after AGI?
-2026-06-16,Ada Palmer – Machiavelli is the most misunderstood thinker of all time
-2026-06-19,The data black hole at the center of AI
-2026-06-26,The next big breakthrough will be AIs learning on the job
-2026-06-30,Grant Sanderson – AI and the future of math
-2026-07-10,Adam Brown – A deep but accessible introduction to general relativity
-2026-08-03,Why smarter AI models could drive up compute prices 10x
-2026-08-07,8 Predictions for the Era of Continual Learning
-2026-08-11,Ryan Greenblatt – What happens once AI can automate AI research?
-2026-08-25,Dylan Patel – Anthropic & OpenAI will have most of the world’s compute by 2028
-2026-08-31,The rise and fall of agent civilizations
-2026-09-01,Ajeya Cotra – Inside the OpenAI agent swarm that hacked Hugging Face
-2026-09-11,AI researchers debate how close we are to recursive self-improvement
-2026-09-17,"Noam Brown – Agent swarms, alignment, & recursive self-improvement"
-2026-10-01,Si Sheppard – How did a few hundred Spanish soldiers topple two empires?
-2026-10-22,What will computer chips look like in 2045?
-2026-10-29,What I learned about power from LBJ and Robert Moses
-2026-10-30,Robert Caro – The master biographer reflects at 91
+date,title,published_at,source_url
+2020-05-22,Bryan Caplan - Nurturing Orphaned Ideas,2020-05-22T18:31:47+00:00,https://www.dwarkesh.com/p/bryan-caplan
+2020-07-10,Tyler Cowen - The Great Reset,2020-07-10T16:55:22+00:00,https://www.dwarkesh.com/p/tyler-cowen
+2020-08-22,"Matjaž Leonardis - Science, Identity, and Probability",2020-08-22T00:36:27+00:00,https://www.dwarkesh.com/p/matjaz-leonardis
+2020-08-25,Jason Crawford - The Roots of Progress,2020-08-25T18:32:55+00:00,https://www.dwarkesh.com/p/jason-crawford
+2020-08-31,Robin Hanson - The Long View,2020-08-31T14:41:39+00:00,https://www.dwarkesh.com/p/robin-hanson
+2020-09-04,Caleb Watney - America's Innovation Engine,2020-09-04T13:53:32+00:00,https://www.dwarkesh.com/p/caleb-watney
+2020-10-19,"Alex Tabarrok - Prizes, Prices, and Public Goods",2020-10-19T19:23:34+00:00,https://www.dwarkesh.com/p/alex-tabarrok
+2020-10-28,Charles Murray - Human Accomplishment and the Future of Liberty,2020-10-28T13:50:45+00:00,https://www.dwarkesh.com/p/charles-murray
+2020-11-16,Scott Young - Ultralearning,2020-11-16T20:25:33+00:00,https://www.dwarkesh.com/p/scott-young
+2020-11-20,"Scott Aaronson - Quantum Computing, Complexity, and Creativity",2020-11-20T23:31:16+00:00,https://www.dwarkesh.com/p/scott-aaronson
+2020-11-28,Uncle Bob - The Long Reach of Code,2020-11-28T01:12:45+00:00,https://www.dwarkesh.com/p/uncle-bob
+2021-05-28,"Michael Huemer - Anarchy, Capitalism, and Progress",2021-05-28T22:02:41+00:00,https://www.dwarkesh.com/p/michael-huemer
+2021-06-04,Sarah Fitz-Claridge - Taking Children Seriously,2021-06-04T16:26:22+00:00,https://www.dwarkesh.com/p/sarah-fitz
+2021-08-09,"David Friedman - Dating Markets, Legal Systems, Bitcoin, and Automation",2021-08-09T15:08:06+00:00,https://www.dwarkesh.com/p/david-friedman
+2021-10-05,"Byrne Hobart - Optionality, Stagnation, and Secret Societies",2021-10-05T05:00:00+00:00,https://www.dwarkesh.com/p/byrne-hobart
+2022-01-31,"David Deutsch - AI, America, Fun, & Bayes",2022-01-31T15:55:20+00:00,https://www.dwarkesh.com/p/david-deutsch
+2022-02-24,"Richard Hanania - Foreign Policy, Fertility, and Wokeness",2022-02-24T06:00:00+00:00,https://www.dwarkesh.com/p/richard-hanania
+2022-04-12,"Bryan Caplan - Discrimination, Poverty, & Mental Illness",2022-04-12T06:00:00+00:00,https://www.dwarkesh.com/p/bryan-caplan-2
+2022-04-16,"Jimmy Soni - Peter Thiel, Elon Musk, and the Paypal Mafia",2022-04-16T10:00:00+00:00,https://www.dwarkesh.com/p/jimmy-soni
+2022-04-20,"Razib Khan - Genomics, Intelligence, and The Church of Science",2022-04-20T10:05:00+00:00,https://www.dwarkesh.com/p/razib-khan
+2022-04-27,"Pradyu Prasad - Imperial Japan, the God Emperor, and Militarization in the Modern World",2022-04-27T14:13:00+00:00,https://www.dwarkesh.com/p/pradyu-prasad
+2022-05-05,Stephen Grugett (Manifold Markets Founder) - Predictions Markets & Revolutionizing Governance,2022-05-05T05:04:41+00:00,https://www.dwarkesh.com/p/stephen-grugett
+2022-05-11,"Ananyo Bhattacharya - John von Neumann, Jewish Genius, and Nuclear War",2022-05-11T05:00:40+00:00,https://www.dwarkesh.com/p/ananyo-bhattacharya
+2022-06-23,"Agustin Lebron - Trading, Crypto, and Adverse Selection",2022-06-23T05:00:12+00:00,https://www.dwarkesh.com/p/agustin-lebron
+2022-07-05,"Sam Bankman-Fried - Crypto, Altruism, and Leadership",2022-07-05T06:55:22+00:00,https://www.dwarkesh.com/p/sbf
+2022-07-13,"Alexander Mikaberidze - Napoleon, War, Progress, and Global Order",2022-07-13T06:43:01+00:00,https://www.dwarkesh.com/p/alexander-mikaberidze
+2022-07-27,"Fin Moorhouse - Longtermism, Space, & Entrepreneurship",2022-07-27T05:00:17+00:00,https://www.dwarkesh.com/p/fin-moorhouse
+2022-08-03,"Joseph Carlsmith - Utopia, AI, & Infinite Ethics",2022-08-03T05:00:26+00:00,https://www.dwarkesh.com/p/joseph-carlsmith
+2022-08-09,"Will MacAskill - Longtermism, Altruism, History, & Technology",2022-08-09T04:02:08+00:00,https://www.dwarkesh.com/p/will-macaskill
+2022-08-23,"Steve Hsu - Intelligence, Embryo Selection, & The Future of Humanity",2022-08-23T05:56:07+00:00,https://www.dwarkesh.com/p/steve-hsu
+2022-09-08,"Austin Vernon - Energy Superabundance, Starship Missiles, & Finding Alpha",2022-09-08T11:00:55+00:00,https://www.dwarkesh.com/p/austin-vernon
+2022-09-14,Charles C. Mann - Americas Before Columbus & Scientific Wizardry,2022-09-14T09:38:32+00:00,https://www.dwarkesh.com/p/charles-mann
+2022-09-28,"Tyler Cowen - Talent, Collapse, & Pessimism of Sex",2022-09-28T13:21:06+00:00,https://www.dwarkesh.com/p/tyler-cowen-2
+2022-10-20,"Bryan Caplan - Feminists, Billionaires, and Demagogues",2022-10-20T11:10:25+00:00,https://www.dwarkesh.com/p/bryan-caplan-3
+2022-10-27,"Brian Potter - Future of Construction, Ugly Modernism, & Environmental Review",2022-10-27T12:09:43+00:00,https://www.dwarkesh.com/p/brian-potter
+2022-11-08,"Kenneth T. Jackson - Robert Moses, Hero of New York?",2022-11-08T13:00:51+00:00,https://www.dwarkesh.com/p/kenneth-jackson
+2022-11-28,"Edward Glaeser - Cities, Terrorism, Housing, & Remote Work",2022-11-28T13:03:56+00:00,https://www.dwarkesh.com/p/edward-glaeser
+2022-12-01,"Byrne Hobart - FTX, Drugs, Twitter, Taiwan, & Monasticism",2022-12-01T11:01:10+00:00,https://www.dwarkesh.com/p/byrne-hobart-2
+2022-12-15,"Nadia Asparouhova — Tech elites, democracy, open source, & philanthropy",2022-12-15T12:01:16+00:00,https://www.dwarkesh.com/p/nadia-asparouhova
+2022-12-21,"Bethany McLean — Enron, FTX, 2008, Musk, frauds, & visionaries",2022-12-21T12:30:53+00:00,https://www.dwarkesh.com/p/bethany-mclean
+2023-01-03,Holden Karnofsky — History's most important century,2023-01-03T13:00:55+00:00,https://www.dwarkesh.com/p/holden-karnofsky
+2023-01-09,"Lars Doucet — Progress, poverty, Georgism, & why rent is too damn high",2023-01-09T13:01:21+00:00,https://www.dwarkesh.com/p/lars-doucet
+2023-01-24,"Garett Jones — Immigration, national IQ, & less democracy",2023-01-24T13:01:36+00:00,https://www.dwarkesh.com/p/garett-jones
+2023-02-01,"Marc Andreessen — AI, crypto, 1000 Elon Musks, regrets, vulnerabilities, & managerial revolution",2023-02-01T16:01:45+00:00,https://www.dwarkesh.com/p/marc-andreessen
+2023-03-13,Brett Harrison — FTX US former president speaks out,2023-03-13T15:15:11+00:00,https://www.dwarkesh.com/p/brett-harrison
+2023-03-22,"Nat Friedman (Github CEO) — Reading ancient scrolls, open source, & AI",2023-03-22T11:16:09+00:00,https://www.dwarkesh.com/p/nat-friedman
+2023-03-27,Ilya Sutskever (OpenAI Chief Scientist) — Why next-token prediction could surpass human intelligence,2023-03-27T13:57:39+00:00,https://www.dwarkesh.com/p/ilya-sutskever
+2023-04-06,"Eliezer Yudkowsky — Why AI will kill us, aligning LLMs, nature of intelligence, SciFi, & rationality",2023-04-06T13:57:41+00:00,https://www.dwarkesh.com/p/eliezer-yudkowsky
+2023-05-23,Richard Rhodes — The making of the atomic bomb,2023-05-23T09:19:29+00:00,https://www.dwarkesh.com/p/richard-rhodes
+2023-06-14,"Carl Shulman (Pt 1) — Intelligence explosion, primate evolution, robot doublings, & alignment",2023-06-14T07:50:32+00:00,https://www.dwarkesh.com/p/carl-shulman
+2023-06-26,"Carl Shulman (Pt 2) — AI Takeover, bio & cyber attacks, detecting deception, & humanity's far future",2023-06-26T15:07:38+00:00,https://www.dwarkesh.com/p/carl-shulman-2
+2023-07-12,Andy Matuschak — The reason most learning tools fail,2023-07-12T13:12:00+00:00,https://www.dwarkesh.com/p/andy-matuschak
+2023-08-08,Dario Amodei (Anthropic CEO) — The hidden pattern behind every AI breakthrough,2023-08-08T13:40:07+00:00,https://www.dwarkesh.com/p/dario-amodei
+2023-10-04,Sarah C. M. Paine — Why dictators keep making the same fatal mistake,2023-10-04T13:43:27+00:00,https://www.dwarkesh.com/p/sarah-paine
+2023-10-12,"Grant Sanderson (@3blue1brown) — Past, present, & future of mathematics",2023-10-12T12:49:12+00:00,https://www.dwarkesh.com/p/grant-sanderson
+2023-10-26,"Shane Legg (DeepMind Founder) — 2028 AGI, superhuman alignment, new architectures",2023-10-26T15:12:11+00:00,https://www.dwarkesh.com/p/shane-legg
+2023-10-31,Paul Christiano — Preventing an AI takeover,2023-10-31T13:56:24+00:00,https://www.dwarkesh.com/p/paul-christiano
+2023-11-15,"Dominic Cummings - COVID, Brexit, & Fixing Western Governance",2023-11-15T15:14:34+00:00,https://www.dwarkesh.com/p/dominic-cummings
+2023-11-22,"Andrew Roberts — Why Hitler lost WWII, Churchill as applied historian, & Napoleon as startup founder",2023-11-22T15:06:19+00:00,https://www.dwarkesh.com/p/andrew-roberts
+2023-11-29,Jung Chang (Wild Swans author) — Living through history's largest man-made famine,2023-11-29T15:01:22+00:00,https://www.dwarkesh.com/p/jung-chang
+2024-01-19,Will scaling work? [Narration],2024-01-19T15:25:56+00:00,https://www.dwarkesh.com/p/will-scaling-work-narration
+2024-01-23,Lessons from The Years of Lyndon Johnson by Robert Caro [Narration],2024-01-23T15:01:00+00:00,https://www.dwarkesh.com/p/lyndon-johnson-narration
+2024-01-31,"Tyler Cowen — Hayek, Keynes, & Smith on AI, animal spirits, anarchy, & growth",2024-01-31T15:00:36+00:00,https://www.dwarkesh.com/p/tyler-cowen-3
+2024-02-21,Patrick Collison — Why Silicon Valley's most talented should leave,2024-02-21T15:25:58+00:00,https://www.dwarkesh.com/p/patrick-collison
+2024-02-28,"Demis Hassabis — Scaling, superhuman AIs, AlphaZero atop LLMs, AlphaFold",2024-02-28T15:49:28+00:00,https://www.dwarkesh.com/p/demis-hassabis
+2024-03-28,Sholto Douglas & Trenton Bricken — How LLMs actually think,2024-03-28T15:10:09+00:00,https://www.dwarkesh.com/p/sholto-douglas-trenton-bricken
+2024-04-18,"Mark Zuckerberg — Llama 3, $10B models, Caesar Augustus, & 1 GW datacenters",2024-04-18T15:49:17+00:00,https://www.dwarkesh.com/p/mark-zuckerberg
+2024-05-15,"John Schulman (OpenAI Cofounder) — Reasoning, RLHF, & plan for 2027 AGI",2024-05-15T13:57:36+00:00,https://www.dwarkesh.com/p/john-schulman
+2024-06-04,"Leopold Aschenbrenner — 2027 AGI, China/US super-intelligence race, & the return of history",2024-06-04T15:39:37+00:00,https://www.dwarkesh.com/p/leopold-aschenbrenner
+2024-06-11,Francois Chollet — Why the biggest AI models can't solve simple puzzles,2024-06-11T17:03:59+00:00,https://www.dwarkesh.com/p/francois-chollet
+2024-06-26,Tony Blair — Why political leaders keep failing at major change,2024-06-26T13:41:20+00:00,https://www.dwarkesh.com/p/tony-blair
+2024-07-24,"Patrick McKenzie — Money laundering, big tech censorship, SBF & Japan",2024-07-24T13:57:59+00:00,https://www.dwarkesh.com/p/patrick-mckenzie
+2024-08-22,Joe Carlsmith — Preventing an AI takeover,2024-08-22T15:09:45+00:00,https://www.dwarkesh.com/p/joe-carlsmith
+2024-08-29,"David Reich — How one small tribe conquered the world 70,000 years ago",2024-08-29T15:38:44+00:00,https://www.dwarkesh.com/p/david-reich
+2024-09-18,"Daniel Yergin — Oil destroyed Hitler, fracking destroyed Putin",2024-09-18T14:02:31+00:00,https://www.dwarkesh.com/p/daniel-yergin
+2024-10-02,@Asianometry & Dylan Patel — How the semiconductor industry actually works,2024-10-02T14:19:08+00:00,https://www.dwarkesh.com/p/dylan-jon
+2024-11-13,Gwern — Anonymous writer who predicted AI trajectory on $12K/year salary,2024-11-13T18:42:28+00:00,https://www.dwarkesh.com/p/gwern-branwen
+2024-12-26,"Adam Brown — Bubble universes, space elevators, & AdS/CFT",2024-12-26T16:29:59+00:00,https://www.dwarkesh.com/p/adam-brown
+2025-01-09,Tyler Cowen — The #1 bottleneck to AI progress is humans,2025-01-09T16:25:21+00:00,https://www.dwarkesh.com/p/tyler-cowen-4
+2025-01-16,Sarah Paine — The war for India (lecture & interview),2025-01-16T20:12:01+00:00,https://www.dwarkesh.com/p/sarah-paine-india
+2025-01-23,Sarah Paine — Why Japan lost WWII (lecture & interview),2025-01-23T16:43:16+00:00,https://www.dwarkesh.com/p/sarah-paine-japan
+2025-01-30,Sarah Paine — How Mao conquered China (lecture & interview),2025-01-30T14:45:25+00:00,https://www.dwarkesh.com/p/sarah-paine-china
+2025-02-12,Jeff Dean & Noam Shazeer — 25 years at Google: from PageRank to AGI,2025-02-12T19:56:43+00:00,https://www.dwarkesh.com/p/jeff-dean-and-noam-shazeer
+2025-02-19,Satya Nadella — Microsoft’s AGI plan & quantum breakthrough,2025-02-19T15:51:23+00:00,https://www.dwarkesh.com/p/satya-nadella
+2025-03-05,Notes on China,2025-03-05T18:12:42+00:00,https://www.dwarkesh.com/p/notes-on-china-narration
+2025-03-12,Joseph Henrich — Humans defeated smarter species with cultural evolution,2025-03-12T16:40:31+00:00,https://www.dwarkesh.com/p/joseph-henrich
+2025-03-25,"AMA: career advice given AGI, how I research ft. Sholto & Trenton",2025-03-25T15:25:59+00:00,https://www.dwarkesh.com/p/scaling-ama
+2025-04-03,AI 2027: month-by-month model of intelligence explosion — Scott Alexander & Daniel Kokotajlo,2025-04-03T15:05:11+00:00,https://www.dwarkesh.com/p/scott-daniel
+2025-04-17,AGI is still 30 years away — Ege Erdil & Tamay Besiroglu,2025-04-17T16:06:32+00:00,https://www.dwarkesh.com/p/ege-tamay
+2025-04-24,"Why Rome actually fell: plagues, slavery, & ice age — Kyle Harper",2025-04-24T15:53:57+00:00,https://www.dwarkesh.com/p/kyle-harper
+2025-04-29,Mark Zuckerberg — AI will write most Meta code in 18 months,2025-04-29T15:46:54+00:00,https://www.dwarkesh.com/p/mark-zuckerberg-2
+2025-05-01,What will automated firms look like?,2025-05-01T23:00:27+00:00,https://www.dwarkesh.com/p/ai-firms-narration
+2025-05-22,Is RL + LLMs enough for AGI? — Sholto Douglas & Trenton Bricken,2025-05-22T20:53:36+00:00,https://www.dwarkesh.com/p/sholto-trenton-2
+2025-05-29,"Xi Jinping’s paranoid approach to AGI, debt crisis, & Politburo politics — Victor Shih",2025-05-29T15:47:29+00:00,https://www.dwarkesh.com/p/victor-shih
+2025-06-12,"""China is digging out of a crisis. And America’s luck is wearing thin."" — Ken Rogoff",2025-06-12T16:32:58+00:00,https://www.dwarkesh.com/p/ken-rogoff
+2025-06-19,Why China's manufacturing economy is dominating — Arthur Kroeber,2025-06-19T16:03:16+00:00,https://www.dwarkesh.com/p/arthur-kroeber
+2025-06-26,A billion years of evolution in a single afternoon — George Church,2025-06-26T15:55:45+00:00,https://www.dwarkesh.com/p/george-church
+2025-07-03,Why I don’t think AGI is right around the corner,2025-07-03T21:19:05+00:00,https://www.dwarkesh.com/p/why-i-dont-think-agi-is-right-around
+2025-07-10,Stephen Kotkin — How Stalin became the most powerful dictator in history,2025-07-10T16:11:28+00:00,https://www.dwarkesh.com/p/stephen-kotkin
+2025-07-25,Sarah Paine — How Imperial Japan defeated Tsarist Russia & Qing China,2025-07-25T17:06:52+00:00,https://www.dwarkesh.com/p/sarah-paine-east-asia
+2025-08-07,Artificial meat is harder than artificial intelligence — Lewis Bollard,2025-08-07T15:58:01+00:00,https://www.dwarkesh.com/p/lewis-bollard
+2025-08-15,China is killing the US on energy. Does that mean they’ll win AGI? — Casey Handmer,2025-08-15T14:54:54+00:00,https://www.dwarkesh.com/p/casey-handmer
+2025-08-21,Evolution designed us to die fast; we can change that — Jacob Kimmel,2025-08-21T16:29:18+00:00,https://www.dwarkesh.com/p/jacob-kimmel
+2025-09-05,How Hitler almost starved Britain – Sarah Paine,2025-09-05T15:05:14+00:00,https://www.dwarkesh.com/p/sarah-paine-ww2
+2025-09-12,Fully autonomous robots are much closer than you think – Sergey Levine,2025-09-12T15:03:02+00:00,https://www.dwarkesh.com/p/sergey-levine
+2025-09-26,Richard Sutton – Father of RL thinks LLMs are a dead end,2025-09-26T14:48:59+00:00,https://www.dwarkesh.com/p/richard-sutton
+2025-10-04,Some thoughts on the Sutton interview,2025-10-04T17:45:00+00:00,https://www.dwarkesh.com/p/thoughts-on-sutton
+2025-10-10,Nick Lane – Life as we know it is chemically inevitable,2025-10-10T15:29:40+00:00,https://www.dwarkesh.com/p/nick-lane
+2025-10-17,Andrej Karpathy — AGI is still a decade away,2025-10-17T16:54:33+00:00,https://www.dwarkesh.com/p/andrej-karpathy
+2025-10-31,Sarah Paine — How Russia sabotaged China's rise,2025-10-31T15:01:37+00:00,https://www.dwarkesh.com/p/sarah-paine-russo-chinese
+2025-11-12,Satya Nadella — How Microsoft is preparing for AGI,2025-11-12T17:03:08+00:00,https://www.dwarkesh.com/p/satya-nadella-2
+2025-11-25,Ilya Sutskever — We're moving from the age of scaling to the age of research,2025-11-25T17:04:02+00:00,https://www.dwarkesh.com/p/ilya-sutskever-2
+2025-12-19,Sarah Paine — Why Russia Lost the Cold War,2025-12-19T17:41:19+00:00,https://www.dwarkesh.com/p/sarah-paine-cold-war
+2025-12-23,Thoughts on AI progress (Dec 2025),2025-12-23T20:24:48+00:00,https://www.dwarkesh.com/p/thoughts-on-ai-progress-dec-2025-video
+2025-12-30,Adam Marblestone — AI is missing something fundamental about the brain,2025-12-30T17:07:17+00:00,https://www.dwarkesh.com/p/adam-marblestone
+2026-02-05,"Elon Musk — ""In 36 months, the cheapest place to put AI will be space”",2026-02-05T16:45:08+00:00,https://www.dwarkesh.com/p/elon-musk
+2026-02-13,"Dario Amodei — ""We are near the end of the exponential""",2026-02-13T16:46:36+00:00,https://www.dwarkesh.com/p/dario-amodei-2
+2026-03-06,"Why Leonardo was a saboteur, Gutenberg went broke, and Florence was weird – Ada Palmer",2026-03-06T17:14:20+00:00,https://www.dwarkesh.com/p/ada-palmer
+2026-03-11,The most important question nobody's asking about AI,2026-03-11T18:55:20+00:00,https://www.dwarkesh.com/p/dow-anthropic
+2026-03-13,Dylan Patel — Deep dive on the 3 big bottlenecks to scaling AI compute,2026-03-13T16:00:42+00:00,https://www.dwarkesh.com/p/dylan-patel
+2026-03-20,"Terence Tao – Kepler, Newton, and the true nature of mathematical discovery",2026-03-20T16:00:55+00:00,https://www.dwarkesh.com/p/terence-tao
+2026-04-07,Michael Nielsen – How science actually progresses,2026-04-07T15:49:28+00:00,https://www.dwarkesh.com/p/michael-nielsen
+2026-04-15,"Jensen Huang – TPU competition, why we should sell chips to China, & Nvidia’s supply chain moat",2026-04-15T15:45:23+00:00,https://www.dwarkesh.com/p/jensen-huang
+2026-04-29,Reiner Pope – The math behind how LLMs are trained and served,2026-04-29T17:07:03+00:00,https://www.dwarkesh.com/p/reiner-pope
+2026-05-08,David Reich – Why the Bronze Age was an inflection point in human evolution,2026-05-08T16:38:22+00:00,https://www.dwarkesh.com/p/david-reich-2
+2026-05-15,Eric Jang – Building AlphaGo from scratch,2026-05-15T16:04:58+00:00,https://www.dwarkesh.com/p/eric-jang
+2026-05-22,Reiner Pope – Chip design from the bottom up,2026-05-22T15:38:34+00:00,https://www.dwarkesh.com/p/reiner-pope-2
+2026-06-04,Alex Imas and Phil Trammell – What remains scarce after AGI?,2026-06-04T16:14:49+00:00,https://www.dwarkesh.com/p/alex-imas-phil-trammell
+2026-06-16,Ada Palmer – Machiavelli is the most misunderstood thinker of all time,2026-06-16T17:27:51+00:00,https://www.dwarkesh.com/p/ada-palmer-2
+2026-06-19,The data black hole at the center of AI,2026-06-19T16:45:03+00:00,https://www.dwarkesh.com/p/the-sample-efficiency-black-hole
+2026-06-26,The next big breakthrough will be AIs learning on the job,2026-06-26T15:51:34+00:00,https://www.dwarkesh.com/p/the-next-paradigm
+2026-06-30,Grant Sanderson – AI and the future of math,2026-06-30T15:53:19+00:00,https://www.dwarkesh.com/p/grant-sanderson-2
+2026-07-10,Adam Brown – A deep but accessible introduction to general relativity,2026-07-10T16:23:56+00:00,https://www.dwarkesh.com/p/adam-brown-gr
+2026-08-03,Why smarter AI models could drive up compute prices 10x,2026-08-03T17:32:13+00:00,https://www.dwarkesh.com/p/why-compute-might-get-10x-more-expensive-video
+2026-08-07,8 Predictions for the Era of Continual Learning,2026-08-07T17:17:40+00:00,https://www.dwarkesh.com/p/era-of-continual-learning
+2026-08-11,Ryan Greenblatt – What happens once AI can automate AI research?,2026-08-11T16:31:23+00:00,https://www.dwarkesh.com/p/ryan-greenblatt
+2026-08-25,Dylan Patel – Anthropic & OpenAI will have most of the world’s compute by 2028,2026-08-25T15:32:57+00:00,https://www.dwarkesh.com/p/dylan-patel-3
+2026-08-31,The rise and fall of agent civilizations,2026-08-31T20:36:53+00:00,https://www.dwarkesh.com/p/openai-huggingface-narration
+2026-09-01,Ajeya Cotra – Inside the OpenAI agent swarm that hacked Hugging Face,2026-09-01T15:41:06+00:00,https://www.dwarkesh.com/p/ajeya-cotra
+2026-09-11,AI researchers debate how close we are to recursive self-improvement,2026-09-11T16:28:11+00:00,https://www.dwarkesh.com/p/john-beren-charlie
+2026-09-17,"Noam Brown – Agent swarms, alignment, & recursive self-improvement",2026-09-17T15:38:13+00:00,https://www.dwarkesh.com/p/noam-brown
+2026-10-01,Si Sheppard – How did a few hundred Spanish soldiers topple two empires?,2026-10-01T15:28:28+00:00,https://www.dwarkesh.com/p/si-sheppard
+2026-10-22,What will computer chips look like in 2045?,2026-10-22T15:02:21+00:00,https://www.dwarkesh.com/p/intel-tour
+2026-10-29,What I learned about power from LBJ and Robert Moses,2026-10-29T16:48:39+00:00,https://www.dwarkesh.com/p/lessons-in-power
+2026-10-30,Robert Caro – The master biographer reflects at 91,2026-10-30T16:56:02+00:00,https://www.dwarkesh.com/p/robert-caro

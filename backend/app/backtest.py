@@ -13,7 +13,7 @@ import math
 import random
 import time
 import zlib
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Callable, Protocol
@@ -250,7 +250,28 @@ def cached_candles(source: PriceSource, market: str, bar: str, start: dt.datetim
 
 
 DWARKESH_CSV = Path(__file__).resolve().parent / "data" / "dwarkesh.csv"
-DWARKESH_NOTE = "event dataset: every Dwarkesh Podcast episode in his public feed (scripts/podcast_dates.py), release day in UTC"
+DWARKESH_NOTE = "event dataset: audio episodes in the saved Dwarkesh Podcast feed, with UTC publication times and source links (scripts/podcast_dates.py)"
+
+
+@dataclass(frozen=True)
+class StudyEvent:
+    date: dt.date
+    available_at: dt.datetime
+    source_url: str = ""
+
+
+def study_event(row: dict) -> StudyEvent:
+    """Publication time when recorded; otherwise wait until the whole stated UTC day has passed."""
+    date = row["date"]
+    raw = row.get("published_at")
+    if raw:
+        available = dt.datetime.fromisoformat(raw.replace("Z", "+00:00"))
+        if available.tzinfo is None:
+            raise ValueError("event publication time must include its timezone")
+        available = available.astimezone(UTC)
+    else:
+        available = dt.datetime.combine(date + dt.timedelta(days=1), dt.time(), UTC)
+    return StudyEvent(date, available, row.get("source_url") or "")
 
 
 def load_events(event_set: str) -> list[dict]:
@@ -407,8 +428,8 @@ def _buy_hold(spec, candles: list[Candle], book: Book) -> Step:
     return on_bar
 
 
-def _event_buy(spec, candles: list[Candle], book: Book, dates: list[dt.date]) -> Step:
-    pending = sorted(dt.datetime.combine(d, dt.time(), UTC) for d in set(dates))
+def _event_buy(spec, candles: list[Candle], book: Book, events: list[StudyEvent]) -> Step:
+    pending = sorted({event.available_at for event in events})
     lots: list[tuple[dt.datetime, float]] = []  # (exit ts, size)
     open_side, close_side = ("buy", "sell") if spec.side == "long" else ("sell", "buy")
 
@@ -418,6 +439,8 @@ def _event_buy(spec, candles: list[Candle], book: Book, dates: list[dt.date]) ->
             book.fill(c.ts, spec.market, close_side, min(lots.pop(0)[1], abs(book.size(spec.market))), c.c, f"exit after {spec.hold_days}d hold")
         while pending and pending[0] <= c.ts:
             when, eq = pending.pop(0), book.equity(marks)
+            if c.ts + dt.timedelta(days=spec.hold_days) > candles[-1].ts:
+                continue  # Do not present a forced early exit as the requested holding period.
             notional = min(spec.size_pct * eq, max(0.0, eq - book.gross_notional(marks)))  # overlapping events never exceed 100%
             if notional > 0:
                 book.fill(c.ts, spec.market, open_side, notional / c.c, c.c, f"event {when:%Y-%m-%d}: {spec.side}")
@@ -511,7 +534,7 @@ def _result(label: str, market: str, start: dt.datetime, end: dt.datetime, bar: 
     )
 
 
-def event_stats(candles: list[Candle], dates: list[dt.date], hold_days: int, side: str) -> dict | None:
+def event_stats(candles: list[Candle], events: list[StudyEvent], hold_days: int, side: str) -> dict | None:
     """Mean forward move after the event days vs after any bar, same holding period. None when it cannot compare."""
     if len(candles) < 3:
         return None
@@ -521,13 +544,19 @@ def event_stats(candles: list[Candle], dates: list[dt.date], hold_days: int, sid
     fwd = [sign * (candles[i + n].c / candles[i].c - 1) * 100 for i in range(len(candles) - n)]
     if not fwd:
         return None
-    ev, per = [], []
-    for d in sorted(set(dates)):
-        t0 = dt.datetime.combine(d, dt.time(), UTC)
+    ev, per, observations = [], [], []
+    # One strategy trigger per timestamp, matching _event_buy even when multiple
+    # source rows describe the same release.
+    unique_events = {event.available_at: event for event in reversed(events)}
+    for event in sorted(unique_events.values(), key=lambda event: event.available_at):
+        t0 = event.available_at
         i = next((k for k, c in enumerate(candles) if c.ts >= t0), None)
         if i is not None and i < len(fwd):
             ev.append(fwd[i])
-            per.append([d.isoformat(), round(fwd[i], 2)])
+            per.append([event.date.isoformat(), round(fwd[i], 2)])
+            observations.append({"date": event.date.isoformat(), "available_at": t0.isoformat(),
+                                 "entry_at": candles[i].ts.isoformat(), "exit_at": candles[i + n].ts.isoformat(),
+                                 "source_url": event.source_url, "move_pct": round(fwd[i], 2)})
     if not ev:
         return {"events": 0}
     mean = lambda xs: sum(xs) / len(xs)  # noqa: E731
@@ -535,6 +564,7 @@ def event_stats(candles: list[Candle], dates: list[dt.date], hold_days: int, sid
         "events": len(ev), "event_mean_pct": round(mean(ev), 2), "event_up": sum(x > 0 for x in ev),
         "any_mean_pct": round(mean(fwd), 2), "any_win_pct": round(100 * sum(x > 0 for x in fwd) / len(fwd), 1),
         "per_event": per,  # [date, move % over the hold] for each event with a full hold after it
+        "observations": observations,
     }
 
 
@@ -543,7 +573,7 @@ def dip_dates(candles: list[Candle], drop_pct: float, over_days: int) -> list[dt
     return [candles[i].ts.date() for i in range(over_days, len(candles)) if candles[i].c / candles[i - over_days].c - 1 <= -drop_pct / 100]
 
 
-def _event_baseline(candles: list[Candle], dates: list[dt.date], hold_days: int, bar: str, side: str) -> str:
+def _event_baseline(candles: list[Candle], dates: list[StudyEvent], hold_days: int, bar: str, side: str) -> str:
     """Time in market is not edge. Compare the mean forward move after the event days with the mean from any bar."""
     st = event_stats(candles, dates, hold_days, side)
     if st is None:
@@ -552,23 +582,30 @@ def _event_baseline(candles: list[Candle], dates: list[dt.date], hold_days: int,
         return "baseline: no event fell on a bar with a full holding period after it"
     win = 100 * st["event_up"] / st["events"]
     return (f"baseline: mean {hold_days}d move after the {st['events']} events {st['event_mean_pct']:+.2f}% (win {win:.0f}%) vs "
-            f"{st['any_mean_pct']:+.2f}% (win {st['any_win_pct']:.0f}%) from any bar; the gap is the edge, the rest is time in market")
+            f"{st['any_mean_pct']:+.2f}% (win {st['any_win_pct']:.0f}%) from any bar; an observed historical difference, not proof of an edge. "
+            "Overlapping observations are not independent; no uncertainty estimate is included.")
 
 
 def _source_note(source: PriceSource, market: str | None, bar: str) -> str:
     if source.name == "hyperliquid":
         return f"Hyperliquid {bar} candles"
-    if isinstance(source, LayeredCandles) and market and source.real(market):
-        span = source.files.span(market)
-        b = "1d" if not source.files.has(market, bar) else bar
+    if isinstance(source, LayeredCandles) and (not market or not source.real(market)):
+        return SIM_NOTE  # Match LayeredCandles' source selection, not merely a file's presence.
+    files = source.files if isinstance(source, LayeredCandles) else source if isinstance(source, FileCandles) else None
+    if files and market and (files.has(market, bar) or files.has(market)):
+        b = bar if files.has(market, bar) else "1d"
+        span = files.span(market, b)
         tail = f" ({span[0]:%Y-%m-%d} to {span[1]:%Y-%m-%d})" if span else ""
-        return f"Hyperliquid {b} candles for {market}, cached in the repo{tail}; Hyperliquid itself was unreachable"
+        return f"Hyperliquid {b} candles for {market}, cached in the repo{tail}"
     return SIM_NOTE
 
 
 def run_backtest(spec, source: PriceSource, now: dt.datetime | None = None) -> BacktestResult:
     """Run a validated Spec (see lab.py) against a price source. Raises SourceUnavailable / ValueError."""
     bar = getattr(spec, "bar", None) or auto_bar(spec.days)
+    files = source.files if isinstance(source, LayeredCandles) else source if isinstance(source, FileCandles) else None
+    if spec.type == "event_buy" and files and files.has(spec.market) and not files.has(spec.market, bar):
+        bar = "1d"  # FileCandles' daily fallback must use the actual close time, not an hourly offset.
     start, end = window(spec.days, bar, now)
     notes = [_source_note(source, getattr(spec, "market", None), bar), f"fees: {spec.fee_bps} bp taker per side plus {SLIPPAGE_BPS:g} bp slippage on every fill"]
     if spec.type == "tail_wallet":
@@ -594,16 +631,26 @@ def run_backtest(spec, source: PriceSource, now: dt.datetime | None = None) -> B
         if not in_window:
             raise NoEventsInWindow(f"{spec.market} did not fall {spec.drop_pct:g}% within {span} at any point in the last {spec.days} days")
         notes.append(f"{len(in_window)} closes {spec.drop_pct:g}% or more below the close {span} earlier; each entry is at that close")
+        in_window = [StudyEvent(d, dt.datetime.combine(d, dt.time(), UTC)) for d in in_window]
     if spec.type == "event_buy":
-        dates = list(spec.custom_dates or []) if spec.event_set == "custom" else [r["date"] for r in load_events(spec.event_set)]
-        in_window = [d for d in dates if start.date() <= d <= end.date()]
+        rows = [{"date": date} for date in (spec.custom_dates or [])] if spec.event_set == "custom" else load_events(spec.event_set)
+        dates = [study_event(row) for row in rows]
+        in_window = [event for event in dates if start <= event.available_at < end]
         if not in_window:
             raise NoEventsInWindow(f"none of the {len(dates)} event dates fall in the last {spec.days} days")
         notes.append({"major_hacks": HACKS_NOTE, "dwarkesh": DWARKESH_NOTE}.get(spec.event_set) or f"custom event dates: {len(dates)} supplied")
         notes.append(f"{len(in_window)} of {len(dates)} event dates fall inside the window")
+        notes.append("event timing: enter at the first completed candle close at or after recorded publication. "
+                     "Date-only events wait until the next UTC day; their disclosure dates still require source verification. "
+                     "Events without a complete holding period are excluded.")
+        # Sources label candles by opening time. Execution and observations use
+        # the close whose price is actually used, never a timestamp before it exists.
+        candles = [replace(c, ts=c.ts + dt.timedelta(seconds=BAR_SECONDS[bar])) for c in candles]
     if spec.type in ("event_buy", "dip_buy"):
         notes.append(_event_baseline(candles, in_window, spec.hold_days, bar, spec.side))
         stats = event_stats(candles, in_window, spec.hold_days, spec.side)
+        if spec.type == "event_buy" and (not stats or not stats.get("events")):
+            raise NoEventsInWindow(f"no event has a complete {spec.hold_days}d holding period in the available history")
         build: Callable = lambda cs, bk: _event_buy(spec, cs, bk, in_window)  # noqa: E731
     else:
         stats = None

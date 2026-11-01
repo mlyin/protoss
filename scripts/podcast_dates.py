@@ -2,13 +2,16 @@
 
     python scripts/podcast_dates.py
 
-Reads the public podcast feed and writes backend/app/data/dwarkesh.csv (date,title; date in UTC). Every row is an
-episode with audio, straight from the feed; nothing is curated by hand.
+Reads the public podcast feed and writes backend/app/data/dwarkesh.csv with the
+UTC date, title, publication timestamp and episode URL. Every row has audio.
 """
 from __future__ import annotations
 
 import csv
+import datetime as dt
 import email.utils
+import os
+import tempfile
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
@@ -26,12 +29,25 @@ def main() -> None:
         if item.find("enclosure") is None:
             continue
         when = email.utils.parsedate_to_datetime(item.findtext("pubDate"))
-        rows.append((when.date().isoformat(), " ".join((item.findtext("title") or "").split())))
+        if when.tzinfo is None:
+            raise ValueError("Podcast publication time must include its timezone; saved dataset unchanged")
+        when = when.astimezone(dt.timezone.utc)
+        rows.append((when.date().isoformat(), " ".join((item.findtext("title") or "").split()),
+                     when.isoformat(), (item.findtext("link") or "").strip()))
     rows.sort()
-    with OUT.open("w", newline="", encoding="utf-8") as f:
-        w = csv.writer(f)
-        w.writerow(["date", "title"])
-        w.writerows(rows)
+    if not rows:
+        raise ValueError("Podcast feed contains no audio episodes; saved dataset unchanged")
+    pending = None
+    try:
+        with tempfile.NamedTemporaryFile(mode="w", dir=OUT.parent, newline="", encoding="utf-8", delete=False) as f:
+            pending = Path(f.name)
+            w = csv.writer(f, lineterminator="\n")
+            w.writerow(["date", "title", "published_at", "source_url"])
+            w.writerows(rows)
+        os.replace(pending, OUT)
+    finally:
+        if pending:
+            pending.unlink(missing_ok=True)
     print(f"{len(rows)} episodes {rows[0][0]} to {rows[-1][0]} -> {OUT.relative_to(OUT.parents[3])}")
 
 
