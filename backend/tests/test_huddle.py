@@ -186,10 +186,12 @@ def test_feed_parser_and_poll(client, monkeypatch):
         assert HD.poll_feeds(db, hl.get_exchange(), fetch=lambda url: rss) == 0  # deduped
 
 
-def test_dwarkesh_rule_fires_on_a_new_episode(client):
+def test_dwarkesh_rule_fires_on_a_new_episode(client, monkeypatch):
     from app import huddle as HD
     from app.db import session
 
+    now = dt.datetime(2026, 11, 1, 5, tzinfo=dt.timezone.utc)
+    monkeypatch.setattr(HD, '_now', lambda: now - dt.timedelta(hours=1))
     hid = client.get("/huddle/web/pod").json()["id"]
     say(client, hid, "Ana", "Buy NVDA on each new Dwarkesh episode and hold 7 days")
     t = client.get(f"/huddle/{hid}").json()["theses"][0]
@@ -197,7 +199,7 @@ def test_dwarkesh_rule_fires_on_a_new_episode(client):
     say(client, hid, "Bo", "in for $80")
     assert client.get(f"/huddle/{hid}").json()["theses"][0]["status"] == "live"
     assert "Waiting for the next Dwarkesh Podcast episode." in bot(client, hid)[-1]["text"]
-    now = dt.datetime.now(dt.timezone.utc)
+    monkeypatch.setattr(HD, '_now', lambda: now + dt.timedelta(minutes=1))
     rss = """<rss><channel>
       <item><title>Someone new on AI</title><link>https://pod.example/new</link><pubDate>%s</pubDate><enclosure url="x.mp3"/></item>
       <item><title>An old one</title><link>https://pod.example/old</link><pubDate>%s</pubDate><enclosure url="y.mp3"/></item>
@@ -216,6 +218,108 @@ def test_tick_endpoint_is_admin_only_and_settles(client):
     assert client.post("/huddle/tick").status_code == 403
     r = client.post("/huddle/tick", headers=ADMIN, json={})
     assert r.status_code == 200 and r.json()["settled"] == 0 and "feed_events" in r.json()
+
+
+def test_podcast_publication_must_follow_arming_even_after_restart(client, monkeypatch):
+    from app import huddle as HD
+    from app.db import session
+    from sqlalchemy import select
+
+    now = dt.datetime(2026, 11, 1, 5, tzinfo=dt.timezone.utc)
+    ids = []
+    for label, minutes_ago in [('before', 60), ('after', 15)]:
+        monkeypatch.setattr(HD, '_now', lambda minutes_ago=minutes_ago: now - dt.timedelta(minutes=minutes_ago))
+        hid = client.get(f'/huddle/web/{label}').json()['id']
+        say(client, hid, 'Ana', 'Buy NVDA on each new Dwarkesh episode and hold 7 days')
+        say(client, hid, 'Bo', 'in for $80')
+        ids.append(hid)
+    published = now - dt.timedelta(minutes=30)
+    monkeypatch.setattr(HD, '_now', lambda: now)
+    rss = f'<rss><channel><item><title>New episode</title><link>https://pod.example/restart</link><pubDate>{published.isoformat()}</pubDate><enclosure url="episode.mp3"/></item></channel></rss>'
+    with session() as db:
+        assert HD.poll_podcasts(db, hl.get_exchange(), fetch=lambda _: rss) == 1
+    # A new session loads the stored publication time, not the time of discovery.
+    with session() as db:
+        event = db.scalar(select(HD.HuddleEvent).where(HD.HuddleEvent.source == 'https://pod.example/restart'))
+        assert HD._aware(event.created_at) == published
+        assert event.reported_by == 'feed:published'
+        assert HD.fire(db, hl.get_exchange(), event) == 0
+        assert HD.poll_podcasts(db, hl.get_exchange(), fetch=lambda _: rss) == 0
+    counts = [len(client.get(f'/huddle/{hid}').json()['theses'][0]['triggers']) for hid in ids]
+    assert counts == [1, 0]
+
+
+@pytest.mark.parametrize('date', ['', 'bad date', '2026-11-01T04:00:00', '2026-11-01T06:00:00+00:00'])
+def test_podcast_invalid_or_future_publication_is_not_reported(client, monkeypatch, date):
+    from app import huddle as HD
+    from app.db import session
+
+    now = dt.datetime(2026, 11, 1, 5, tzinfo=dt.timezone.utc)
+    monkeypatch.setattr(HD, '_now', lambda: now)
+    rss = f'<rss><channel><item><title>Episode</title><link>https://pod.example/timing</link><pubDate>{date}</pubDate><enclosure url="episode.mp3"/></item></channel></rss>'
+    with session() as db:
+        assert HD.poll_podcasts(db, hl.get_exchange(), fetch=lambda _: rss) == 0
+    if date.endswith('06:00:00+00:00'):
+        monkeypatch.setattr(HD, '_now', lambda: now + dt.timedelta(hours=2))
+        with session() as db:
+            assert HD.poll_podcasts(db, hl.get_exchange(), fetch=lambda _: rss) == 1
+
+
+def test_podcast_edits_and_non_audio_posts_are_not_new_episodes(client, monkeypatch):
+    from app import huddle as HD
+    from app.db import session
+
+    now = dt.datetime(2026, 11, 1, 5, tzinfo=dt.timezone.utc)
+    monkeypatch.setattr(HD, '_now', lambda: now)
+    atom = f'''<feed xmlns="http://www.w3.org/2005/Atom"><entry>
+      <title>Edited old episode</title><link href="https://pod.example/old"/>
+      <published>2026-10-01T04:00:00Z</published><updated>{now.isoformat()}</updated>
+      <link rel="enclosure" href="episode.mp3"/></entry></feed>'''
+    assert HD.parse_feed(atom)[0]['published_at'].month == 10
+    with session() as db:
+        assert HD.poll_podcasts(db, hl.get_exchange(), fetch=lambda _: atom) == 0
+        updated_only = atom.replace('<published>2026-10-01T04:00:00Z</published>', '')
+        assert HD.poll_podcasts(db, hl.get_exchange(), fetch=lambda _: updated_only) == 0
+        no_audio = f'<rss><channel><item><title>Blog post</title><pubDate>{now.isoformat()}</pubDate></item></channel></rss>'
+        assert HD.poll_podcasts(db, hl.get_exchange(), fetch=lambda _: no_audio) == 0
+
+
+def test_legacy_podcast_rows_without_publication_proof_cannot_replay(client, monkeypatch):
+    from app import huddle as HD
+    from app.db import session
+
+    def no_open(*args, **kwargs):
+        raise AssertionError('legacy episode must not open a trade')
+
+    monkeypatch.setattr(HD, '_open', no_open)
+    with session() as db:
+        event = HD.HuddleEvent(kind='podcast', label='Legacy episode', reported_by='feed')
+        db.add(event)
+        db.flush()
+        assert HD.fire(db, hl.get_exchange(), event) == 0
+
+
+@pytest.mark.parametrize('mime,path', [('image/jpeg', 'cover.jpg'), ('application/pdf', 'notes.pdf'), ('image/jpeg', 'misleading.mp3'), ('', 'cover.jpg'), ('', 'http://[bad.mp3')])
+def test_podcast_enclosures_must_be_audio(client, monkeypatch, mime, path):
+    from app import huddle as HD
+    from app.db import session
+
+    now = dt.datetime(2026, 11, 1, 5, tzinfo=dt.timezone.utc)
+    monkeypatch.setattr(HD, '_now', lambda: now)
+    rss = f'<rss><channel><item><title>Post</title><pubDate>{now.isoformat()}</pubDate><enclosure type="{mime}" url="{path}"/></item></channel></rss>'
+    atom = f'<feed xmlns="http://www.w3.org/2005/Atom"><entry><title>Post</title><published>{now.isoformat()}</published><link rel="enclosure" type="{mime}" href="{path}"/></entry></feed>'
+    with session() as db:
+        for xml in [rss, atom]:
+            assert not HD.parse_feed(xml)[0]['audio']
+            assert HD.poll_podcasts(db, hl.get_exchange(), fetch=lambda _, xml=xml: xml) == 0
+
+
+def test_audio_type_and_extension_fallback_accept_real_feed_shapes():
+    from app import huddle as HD
+
+    for enclosure in ['<enclosure type="audio/mpeg" url="https://pod.example/download?id=1"/>',
+                      '<enclosure url="https://pod.example/EPISODE.MP3?download=1"/>']:
+        assert HD.parse_feed(f'<rss><channel><item><title>Episode</title>{enclosure}</item></channel></rss>')[0]['audio']
 
 
 def test_events_list_names_each_hack_with_the_move_after_it(client):
