@@ -153,7 +153,10 @@ read -r -s -p 'Telegram bot token: ' TELEGRAM_BOT_TOKEN; export TELEGRAM_BOT_TOK
 .venv/bin/python scripts/telegram_demo.py --live --chat -5535266870 --users 5727530056,8368345119
 ```
 
-   It lists the mapping and waits for you to type LIVE. From then on Telegram is the only interface:
+   It lists the mapping and waits for you to type LIVE. From then on Telegram is the only interface, and it reads the
+   chat like a person: "let's buy unitree, robots are taking over" posts the card, a thumbs up on the card (or "in")
+   backs it, "in for 11" or "$11 each" stakes. For the bot to see plain messages it must be a group admin, or have
+   privacy mode off in BotFather (`/setprivacy`, then remove and re-add it to the group). Slash commands keep working:
    `/demo` -> tap ANT (xyz) only, the other person taps Back this idea, each sends `/pledge 20`. Each copy's receipt
    is read back from Hyperliquid's fill history (size, price, fee, hash) before it is posted; a copy that cannot
    trade (not authorized, no collateral, above the cap) is reported for that person only and the other still goes out.

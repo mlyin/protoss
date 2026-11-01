@@ -296,6 +296,10 @@ def card_text(t: Thesis) -> str:
                   "Thumbs up to back it. When it plays out, say protoss hit " + str(t.n) + " or protoss miss " + str(t.n) + "."]
         return "\n".join(lines)
     s = t.test or {}
+    if s.get("untested"):
+        lines += [f"{s.get('market')} is listed on Hyperliquid; no price history here to test it, so this is a conviction trade.",
+                  "", "Thumbs up this to back it. Say \"$50 each\" to set the stake.", _link(f"/t/{t.id}")]
+        return "\n".join(lines)
     span = f"{dt.date.fromisoformat(s['start']):%b %Y} to {dt.date.fromisoformat(s['end']):%b %Y}" if s.get("start") else ""
     data = "real Hyperliquid candles" if s.get("real") else "simulated prices, mechanics only"
     ev = s.get("events")
@@ -320,7 +324,9 @@ def propose(db: Session, h: Huddle, author: str, text: str, addressed: bool) -> 
 
     s = get_settings()
     source = get_source(s)
-    known = set(source.markets())
+    ex = get_exchange()
+    tradeable = set(ex.markets())  # what can be traded here; the candle source may know fewer markets
+    known = set(source.markets()) | tradeable
     try:
         planned = plan(text, 10_000.0, 365, known)
     except LabError as e:
@@ -337,15 +343,21 @@ def propose(db: Session, h: Huddle, author: str, text: str, addressed: bool) -> 
         return [planned.question] if addressed else []
     market = getattr(planned, "market", None)
     markets = [market] if market else (getattr(planned, "markets", None) or [])
-    missing = [name for name in markets if not source.has(name)]
+    missing = [name for name in markets if not source.has(name) and name not in tradeable]
     if missing:
         return [f"{', '.join(missing)} is not listed on Hyperliquid here, so I cannot test that basket."] if addressed else []
-    try:
-        res = run_backtest(planned, source)
-    except (NoEventsInWindow, SourceUnavailable, ValueError) as e:
-        return [f"Could not test that: {e}"] if addressed else []
-    t = Thesis(huddle_id=h.id, n=n, author=author, text=text, kind="rule", label=res.label[:160],
-               spec=planned.model_dump(mode="json"), test=_test_summary(planned, res))
+    untested = [name for name in markets if not source.has(name)]
+    if untested:
+        # tradeable but no price history on this source: the card still goes up, without a backtest
+        t = Thesis(huddle_id=h.id, n=n, author=author, text=text, kind="rule", label=planned.label()[:160],
+                   spec=planned.model_dump(mode="json"), test={"market": markets[0] if markets else None, "untested": True})
+    else:
+        try:
+            res = run_backtest(planned, source)
+        except (NoEventsInWindow, SourceUnavailable, ValueError) as e:
+            return [f"Could not test that: {e}"] if addressed else []
+        t = Thesis(huddle_id=h.id, n=n, author=author, text=text, kind="rule", label=res.label[:160],
+                   spec=planned.model_dump(mode="json"), test=_test_summary(planned, res))
     db.add(t)
     db.flush()
     _backer(db, t, author).approved = True

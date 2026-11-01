@@ -125,9 +125,11 @@ def setup_demo(live=False, wallet_review=False):
 HELP = ("Protoss practice demo\n/demo (choose a crypto example)\n/idea buy and hold 60% BTC and 40% ETH\n/back 1 (or tap Back this idea)\n"
         "/pledge 20 (your own paper pledge)\n/status\n/join (private wallet connection)\n"
         "Wallet ownership is checked with a signature. Chat backing never authorizes spending.")
-HELP_LIVE = ("Protoss\n/demo (choose an idea)\n/idea buy and hold 60% BTC and 40% ETH\n/idea buy and hold xyz:ANT\n/back 1 (or tap Back this idea)\n"
-             "/pledge 20 (a real order of that size from your own account)\n/status\n/join (private wallet connection)\n"
-             "Orders leave your own Hyperliquid account through an API wallet you authorized. Nothing is pooled. Close any position yourself at any time.")
+HELP_LIVE = ("Protoss listens to this chat.\n"
+             "Say an idea: \"let's buy unitree, robots are taking over\" or \"i think ANT doubles\". I post the card.\n"
+             "Back it: thumbs up the card, or say \"in\". Stake: \"in for 11\" or \"$11 each\".\n"
+             "Each stake is a real order from your own Hyperliquid account through the API wallet you authorized. Nothing is pooled; close a position yourself any time.\n"
+             "Commands still work: /idea, /back 1, /pledge 11, /status, /join.")
 
 
 def friendly(text):
@@ -161,6 +163,21 @@ class Bridge:
             self.state.data["sent"][part_key] = result["message_id"]
             self.state.save()
 
+    def handle_reaction(self, uid, r):
+        """A thumbs up (or heart, fire, 100) on a card from an allowed participant backs that idea."""
+        user = r.get("user") or {}
+        chat = r.get("chat") or {}
+        if user.get("is_bot") or user.get("id") not in self.users or chat.get("id") != self.chat:
+            return
+        n = self.state.data.get("cards", {}).get(str(r.get("message_id")))
+        if not n:
+            return
+        emojis = {x.get("emoji") for x in r.get("new_reaction", []) if x.get("type") == "emoji"}
+        if not emojis & {"\U0001F44D", "\u2764\ufe0f", "\u2764", "\U0001F525", "\U0001F4AF", "\U0001F680"}:
+            return
+        self.protoss.call("POST", f"/huddle/{self.hid}/messages", {"sender": f"tg:{user['id']}", "text": f"protoss back {n}", "guid": f"tg-update:{uid}"})
+        self.drain()
+
     def drain(self):
         rows = self.protoss.call("GET", f"/huddle/{self.hid}/outbox")
         if not rows:
@@ -176,10 +193,17 @@ class Bridge:
             if not self.wallet_review and huddle.get("mode") in ("sim", "paper"):
                 text = "Paper demo. No real funds.\n" + text
             self.send(self.chat, text, f"outbox:{row['id']}", keyboard)
+            if keyboard:
+                mid = self.state.data["sent"].get(f"outbox:{row['id']}:0")
+                if mid:
+                    self.state.data.setdefault("cards", {})[str(mid)] = thesis["n"]
+                    self.state.save()
             self.protoss.call("POST", f"/huddle/{self.hid}/delivered", {"ids": [row["id"]]})
 
     def handle(self, update):
         uid = update["update_id"]
+        if "message_reaction" in update:
+            return self.handle_reaction(uid, update["message_reaction"])
         callback = update.get("callback_query")
         message = callback.get("message", {}) if callback else update.get("message", {})
         user = callback.get("from", {}) if callback else message.get("from", {})
@@ -216,7 +240,14 @@ class Bridge:
             raw = message.get("text", "").strip()
             match = re.fullmatch(r"/([a-z]+)(?:@([A-Za-z0-9_]+))?(?:\s+([\s\S]*))?", raw)
             if not match or (match[2] and match[2].lower() != self.username.lower()):
-                return  # privacy mode works with explicit slash commands; ignore casual chat
+                # Plain chat. The engine decides whether it is a thesis ("let's buy unitree, robots are taking over"),
+                # a backing ("in", "lfg", "in for 11", "$11 each") or nothing. Needs the bot to see group messages:
+                # make it a group admin, or turn privacy mode off in BotFather and re-add it.
+                if private or not raw or raw.startswith("/"):
+                    return
+                self.protoss.call("POST", f"/huddle/{self.hid}/messages", {"sender": f"tg:{user_id}", "text": raw[:2000], "guid": f"tg-update:{uid}"})
+                self.drain()
+                return
             command, argument = match[1], (match[3] or "").strip()
             if private:
                 if command != "start" or argument != f"join_{self.chat}":
@@ -389,7 +420,7 @@ def main():
                 if wallet_review:
                     protoss.call("POST", f"/live/groups/{huddle['id']}/verify", {})
                 bridge.drain()
-                updates = telegram.call("getUpdates", offset=state.data["offset"], timeout=20, allowed_updates=["message", "callback_query"])
+                updates = telegram.call("getUpdates", offset=state.data["offset"], timeout=20, allowed_updates=["message", "callback_query", "message_reaction"])
                 for update in updates:
                     bridge.handle(update)
                     state.data["offset"] = update["update_id"] + 1

@@ -260,3 +260,34 @@ def test_isolated_only_markets_get_isolated_leverage(live):
     assert f.size == 0.12 and f.market == "xyz:UNITREE"
     f2 = ex.place(None, agent, "xyz:ANT", "buy", 0.1, "market", None, False)
     assert e.cross["xyz:ANT"] is True and f2.size == 0.1
+
+
+def test_plain_chat_thesis_thumbs_up_and_in_for_sends_two_real_orders(live, tmp_path):
+    """No slash commands: a sentence proposes, a thumbs up backs, "in for 11" pledges. Two orders, two accounts."""
+    client, ex = live
+    h = client.post("/huddle", headers=ADMIN, json={"chat_id": f"telegram:{CHAT}", "title": "protoss beta testing", "quorum": 2}).json()
+    tg = FakeTelegram()
+    w = bridge.Bridge(tg, LocalAPI(client), bridge.State(tmp_path / "s.json"), CHAT, [111, 222], "ProtossTradingDemoBot", h["id"], live=True)
+    w.handle(msg(1, 111, "lets buy unitree i think robots are gonna take over the world"))
+    card = next(m for m in tg.sent if "reply_markup" in m)
+    assert "xyz:UNITREE" in card["text"]
+    card_id = card["chat_id"] and len(tg.sent)  # FakeTelegram numbers message ids by send order
+    card_mid = next(i + 1 for i, m in enumerate(tg.sent) if "reply_markup" in m)
+    assert w.state.data["cards"][str(card_mid)] == 1
+    # the friend reacts with a thumbs up on the card
+    w.handle({"update_id": 2, "message_reaction": {"chat": {"id": CHAT, "type": "supergroup"}, "message_id": card_mid, "user": {"id": 222},
+                                                    "new_reaction": [{"type": "emoji", "emoji": "\U0001F44D"}]}})
+    w.handle(msg(3, 111, "in for 11"))
+    w.handle(msg(4, 222, "in for 11"))
+    by_master = {e.master: e for e in FakeExchange.made}
+    assert set(by_master) == {ACC1, ACC2}
+    for e in by_master.values():
+        market, is_buy, size = e.orders[0]
+        assert market == "xyz:UNITREE" and is_buy and size == 0.11 and e.cross["xyz:UNITREE"] is False
+    texts = [m["text"] for m in tg.sent]
+    assert sum("Real order, real money" in t for t in texts) == 2
+    assert not any("paper" in t.lower() for t in texts)
+    # a stray chat line that is neither thesis nor backing is ignored, not answered with help
+    before = len(tg.sent)
+    w.handle(msg(5, 111, "lol"))
+    assert len(tg.sent) == before

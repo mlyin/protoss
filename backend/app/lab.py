@@ -225,7 +225,7 @@ def _event_window(dates: list[dt.date] | None, body_days: int, today: dt.date | 
 # ------------------------------------------------------------------------------------------- rule-based planner
 
 WORDS = {
-    "anthropic": "xyz:ANT",
+    "anthropic": "xyz:ANT", "unitree": "xyz:UNITREE", "spacex": "xyz:SPCX", "space x": "xyz:SPCX", "robinhood": "xyz:HOOD", "coinbase": "xyz:COIN", "microsoft": "xyz:MSFT", "google": "xyz:GOOGL", "amazon": "xyz:AMZN", "apple": "xyz:AAPL", "meta": "xyz:META", "palantir": "xyz:PLTR", "oura": "xyz:OURA", "shein": "xyz:SHEIN",
     "bitcoin": "BTC", "btc": "BTC", "ether": "ETH", "ethereum": "ETH", "eth": "ETH", "monero": "XMR", "xmr": "XMR",
     "solana": "SOL", "sol": "SOL", "hype": "HYPE", "doge": "DOGE", "dogecoin": "DOGE",
     "nvidia": "xyz:NVDA", "nvda": "xyz:NVDA", "tesla": "xyz:TSLA", "tsla": "xyz:TSLA", "s&p 500": "xyz:SP500", "s&p": "xyz:SP500", "spx": "xyz:SP500", "sp500": "xyz:SP500",
@@ -261,6 +261,13 @@ def _market(raw: str, low: str, known: set[str]) -> str | None:
     for word in sorted(WORDS, key=len, reverse=True):
         if re.search(rf"(?<![a-z&]){re.escape(word)}(?![a-z])", low):
             return WORDS[word]
+    # any listed market named in plain words: "unitree" -> xyz:UNITREE, "hood" -> xyz:HOOD, "hype" -> HYPE
+    by_name = {}
+    for k in known:
+        by_name.setdefault(k.split(":")[-1].lower(), k)
+    for w in re.findall(r"\b[a-z][a-z0-9]{1,11}\b", low):
+        if w in by_name and w.upper() not in STOP and len(w) >= 3:
+            return by_name[w]
     return cands[0] if cands else None
 
 
@@ -311,6 +318,8 @@ def plan_rules(message: str, starting_equity: float, days: int, known: set[str],
     kind = next((k for k, pat in KINDS if re.search(pat, low)), None)
     if kind is None and iso_dates and re.search(r"\b(after|on|following)\b", low):
         kind = "event_buy"
+    if kind is None and market and re.search(r"\b(buy|long|go long|get|grab|ape|back|bet on)\b", low):
+        kind = "buy_hold"  # "let's buy unitree" is a buy and hold until someone says otherwise
     # Explicit baskets are parsed before the single-market path. Never silently drop the second asset.
     weighted = re.findall(r"(\d+(?:\.\d+)?)\s*%\s*(?:in\s+)?([a-zA-Z][a-zA-Z0-9:]*)", raw)
     mentioned = list(dict.fromkeys(WORDS[word] for word in re.findall(r"\b[a-z][a-z0-9]*\b", low) if word in WORDS))
