@@ -189,7 +189,7 @@ test('historical research shows the ordinary-day baseline', async ({ page }) => 
   await page.route('https://api.hyperliquid.xyz/info', route => route.fulfill({ json: [{ universe: [{ name: 'XMR' }] }, [{ markPx: '200' }]] }))
   await page.route('**/lab/chat', route => route.fulfill({ json: {
     kind: 'backtest', reply: 'Tested the requested 180-day window.', spec: { type: 'event_buy', event_set: 'major_hacks', market: 'XMR', hold_days: 1 },
-    result: { notes: ['baseline: compare the event reaction with the same hold after any day.', 'Internal detail'] }
+    result: { coverage: { source: 'historical', contiguous: true, start: '2026-01-01', end: '2026-06-01' }, stats: { observations: [{ date: '2026-02-01' }] }, notes: ['baseline: compare the event reaction with the same hold after any day.', 'Internal detail'] }
   } }))
   await page.goto('/')
   await page.getByRole('button', { name: 'Run it now' }).click()
@@ -218,4 +218,26 @@ test('an old Dwarkesh snapshot cannot substitute for episode research', async ({
   await expect(page.getByRole('tabpanel')).toContainText('No market or trade has been selected')
   await expect(page.getByRole('tabpanel')).not.toContainText('NVDA')
   await expect(page.getByRole('tabpanel')).not.toContainText('Invented result')
+})
+
+
+test('old live research without verified timing is not displayed as performance', async ({ page }) => {
+  await page.route('https://api.hyperliquid.xyz/info', route => route.fulfill({ json: [{ universe: [{ name: 'XMR' }] }, [{ markPx: '200' }]] }))
+  await page.route('**/lab/chat', route => route.fulfill({ json: { kind: 'backtest', reply: 'Old unverified result +99%', spec: { event_set: 'major_hacks', market: 'XMR' }, result: {} } }))
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Run it now' }).click()
+  await expect(page.getByRole('status')).toContainText('research service update is pending')
+  await expect(page.getByRole('status')).not.toContainText('+99%')
+})
+
+test('old snapshots and a failed snapshot request never show invented research or endless loading', async ({ page }) => {
+  await page.route('https://api.hyperliquid.xyz/info', route => route.fulfill({ json: [{ universe: [{ name: 'XMR' }] }, [{ markPx: '200' }]] }))
+  await page.route('**/ideas/ideas.json', route => route.fulfill({ json: { ideas: [{ id: 'hacks', verdict: ['Old unverified +99%'], label: 'Old research' }] } }))
+  await page.goto('/')
+  await expect(page.getByRole('tabpanel')).toContainText('saved test is unavailable')
+  await expect(page.getByRole('tabpanel')).not.toContainText('+99%')
+  await page.route('**/ideas/ideas.json', route => route.fulfill({ status: 503, body: 'Unavailable' }))
+  await page.reload()
+  await expect(page.getByRole('tabpanel')).toContainText('saved test is unavailable')
+  await expect(page.getByRole('tabpanel')).not.toContainText('Loading the test')
 })

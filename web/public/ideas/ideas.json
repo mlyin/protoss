@@ -1,5 +1,6 @@
 {
- "as_of": "2026-11-01T05:52+00:00",
+ "methodology": 2,
+ "as_of": "2026-11-01T16:30+00:00",
  "source": "Hyperliquid candles, fees and slippage included, funding not",
  "ideas": [
   {
@@ -8,9 +9,10 @@
    "label": "Buy XMR on major hacks, hold 1d",
    "why": "",
    "verdict": [
-    "No edge. XMR averaged -0.5% the day after a hack, +0.3% on any day. 12 of 26 were up.",
-    "As a rule since Nov 2024: -15.4%, worst drop 21.8%. Just holding XMR: +293.0%.",
-    "26 hacks is a small sample."
+    "Historical comparison: XMR averaged -0.5% the day after a hack, +0.3% over the same hold from any bar. 12 of 26 were up.",
+    "As a rule since Nov 2024: -15.4%, worst drop 21.8%. Just holding XMR: +282.9%.",
+    "26 hacks is a small sample.",
+    "Overlapping observations are not independent. This comparison does not establish a predictive edge."
    ],
    "market": "XMR",
    "start": "2024-11-01",
@@ -147,6 +149,238 @@
      "move_pct": -2.86,
      "what": "Binance"
     }
+   ],
+   "notes": [
+    "Hyperliquid 1d candles",
+    "fees: 4.5 bp taker per side plus 3 bp slippage on every fill",
+    "event dataset: illustrative, curated list, verify dates before relying on it",
+    "26 of 59 event dates fall inside the window",
+    "event timing: enter at the first completed candle close at or after recorded publication. Date-only events wait until the next UTC day; their disclosure dates still require source verification. Events without a complete holding period are excluded.",
+    "baseline: mean 1d move after the 26 events -0.47% (win 46%) vs +0.26% (win 53%) from any bar; an observed historical difference, not proof of an edge. Overlapping observations are not independent; no uncertainty estimate is included."
+   ],
+   "coverage": {
+    "bar": "1d",
+    "requested_start": "2024-11-01T00:00:00+00:00",
+    "requested_end": "2026-11-01T00:00:00+00:00",
+    "start": "2024-11-01T00:00:00+00:00",
+    "end": "2026-11-01T00:00:00+00:00",
+    "complete_requested_window": true,
+    "contiguous": true,
+    "source": "historical"
+   },
+   "images": {
+    "desktop": "hacks-desktop-88253d4557970ad6.png",
+    "phone": "hacks-phone-a2d4880d59f155f4.png"
+   },
+   "observations": [
+    {
+     "date": "2024-12-30",
+     "available_at": "2024-12-31T00:00:00+00:00",
+     "entry_at": "2024-12-31T00:00:00+00:00",
+     "exit_at": "2025-01-01T00:00:00+00:00",
+     "source_url": "",
+     "move_pct": 1.49
+    },
+    {
+     "date": "2025-01-07",
+     "available_at": "2025-01-08T00:00:00+00:00",
+     "entry_at": "2025-01-08T00:00:00+00:00",
+     "exit_at": "2025-01-09T00:00:00+00:00",
+     "source_url": "",
+     "move_pct": 3.59
+    },
+    {
+     "date": "2025-02-21",
+     "available_at": "2025-02-22T00:00:00+00:00",
+     "entry_at": "2025-02-22T00:00:00+00:00",
+     "exit_at": "2025-02-23T00:00:00+00:00",
+     "source_url": "",
+     "move_pct": 0.85
+    },
+    {
+     "date": "2025-04-22",
+     "available_at": "2025-04-23T00:00:00+00:00",
+     "entry_at": "2025-04-23T00:00:00+00:00",
+     "exit_at": "2025-04-24T00:00:00+00:00",
+     "source_url": "",
+     "move_pct": 1.45
+    },
+    {
+     "date": "2025-05-15",
+     "available_at": "2025-05-16T00:00:00+00:00",
+     "entry_at": "2025-05-16T00:00:00+00:00",
+     "exit_at": "2025-05-17T00:00:00+00:00",
+     "source_url": "",
+     "move_pct": -0.53
+    },
+    {
+     "date": "2025-05-22",
+     "available_at": "2025-05-23T00:00:00+00:00",
+     "entry_at": "2025-05-23T00:00:00+00:00",
+     "exit_at": "2025-05-24T00:00:00+00:00",
+     "source_url": "",
+     "move_pct": 1.32
+    },
+    {
+     "date": "2025-06-18",
+     "available_at": "2025-06-19T00:00:00+00:00",
+     "entry_at": "2025-06-19T00:00:00+00:00",
+     "exit_at": "2025-06-20T00:00:00+00:00",
+     "source_url": "",
+     "move_pct": -1.59
+    },
+    {
+     "date": "2025-07-02",
+     "available_at": "2025-07-03T00:00:00+00:00",
+     "entry_at": "2025-07-03T00:00:00+00:00",
+     "exit_at": "2025-07-04T00:00:00+00:00",
+     "source_url": "",
+     "move_pct": -0.57
+    },
+    {
+     "date": "2025-07-19",
+     "available_at": "2025-07-20T00:00:00+00:00",
+     "entry_at": "2025-07-20T00:00:00+00:00",
+     "exit_at": "2025-07-21T00:00:00+00:00",
+     "source_url": "",
+     "move_pct": 0.64
+    },
+    {
+     "date": "2025-08-26",
+     "available_at": "2025-08-27T00:00:00+00:00",
+     "entry_at": "2025-08-27T00:00:00+00:00",
+     "exit_at": "2025-08-28T00:00:00+00:00",
+     "source_url": "",
+     "move_pct": -1.85
+    },
+    {
+     "date": "2025-09-02",
+     "available_at": "2025-09-03T00:00:00+00:00",
+     "entry_at": "2025-09-03T00:00:00+00:00",
+     "exit_at": "2025-09-04T00:00:00+00:00",
+     "source_url": "",
+     "move_pct": 0.23
+    },
+    {
+     "date": "2025-09-20",
+     "available_at": "2025-09-21T00:00:00+00:00",
+     "entry_at": "2025-09-21T00:00:00+00:00",
+     "exit_at": "2025-09-22T00:00:00+00:00",
+     "source_url": "",
+     "move_pct": -1.98
+    },
+    {
+     "date": "2025-09-29",
+     "available_at": "2025-09-30T00:00:00+00:00",
+     "entry_at": "2025-09-30T00:00:00+00:00",
+     "exit_at": "2025-10-01T00:00:00+00:00",
+     "source_url": "",
+     "move_pct": 1.13
+    },
+    {
+     "date": "2025-10-15",
+     "available_at": "2025-10-16T00:00:00+00:00",
+     "entry_at": "2025-10-16T00:00:00+00:00",
+     "exit_at": "2025-10-17T00:00:00+00:00",
+     "source_url": "",
+     "move_pct": -5.3
+    },
+    {
+     "date": "2025-11-03",
+     "available_at": "2025-11-04T00:00:00+00:00",
+     "entry_at": "2025-11-04T00:00:00+00:00",
+     "exit_at": "2025-11-05T00:00:00+00:00",
+     "source_url": "",
+     "move_pct": -2.15
+    },
+    {
+     "date": "2025-11-27",
+     "available_at": "2025-11-28T00:00:00+00:00",
+     "entry_at": "2025-11-28T00:00:00+00:00",
+     "exit_at": "2025-11-29T00:00:00+00:00",
+     "source_url": "",
+     "move_pct": 0.31
+    },
+    {
+     "date": "2026-01-20",
+     "available_at": "2026-01-21T00:00:00+00:00",
+     "entry_at": "2026-01-21T00:00:00+00:00",
+     "exit_at": "2026-01-22T00:00:00+00:00",
+     "source_url": "",
+     "move_pct": 3.94
+    },
+    {
+     "date": "2026-03-11",
+     "available_at": "2026-03-12T00:00:00+00:00",
+     "entry_at": "2026-03-12T00:00:00+00:00",
+     "exit_at": "2026-03-13T00:00:00+00:00",
+     "source_url": "",
+     "move_pct": -0.37
+    },
+    {
+     "date": "2026-04-01",
+     "available_at": "2026-04-02T00:00:00+00:00",
+     "entry_at": "2026-04-02T00:00:00+00:00",
+     "exit_at": "2026-04-03T00:00:00+00:00",
+     "source_url": "",
+     "move_pct": -3.36
+    },
+    {
+     "date": "2026-04-23",
+     "available_at": "2026-04-24T00:00:00+00:00",
+     "entry_at": "2026-04-24T00:00:00+00:00",
+     "exit_at": "2026-04-25T00:00:00+00:00",
+     "source_url": "",
+     "move_pct": -2.86
+    },
+    {
+     "date": "2026-05-07",
+     "available_at": "2026-05-08T00:00:00+00:00",
+     "entry_at": "2026-05-08T00:00:00+00:00",
+     "exit_at": "2026-05-09T00:00:00+00:00",
+     "source_url": "",
+     "move_pct": 0.06
+    },
+    {
+     "date": "2026-05-14",
+     "available_at": "2026-05-15T00:00:00+00:00",
+     "entry_at": "2026-05-15T00:00:00+00:00",
+     "exit_at": "2026-05-16T00:00:00+00:00",
+     "source_url": "",
+     "move_pct": -3.71
+    },
+    {
+     "date": "2026-06-23",
+     "available_at": "2026-06-24T00:00:00+00:00",
+     "entry_at": "2026-06-24T00:00:00+00:00",
+     "exit_at": "2026-06-25T00:00:00+00:00",
+     "source_url": "",
+     "move_pct": -1.29
+    },
+    {
+     "date": "2026-08-19",
+     "available_at": "2026-08-20T00:00:00+00:00",
+     "entry_at": "2026-08-20T00:00:00+00:00",
+     "exit_at": "2026-08-21T00:00:00+00:00",
+     "source_url": "",
+     "move_pct": -2.6
+    },
+    {
+     "date": "2026-08-26",
+     "available_at": "2026-08-27T00:00:00+00:00",
+     "entry_at": "2026-08-27T00:00:00+00:00",
+     "exit_at": "2026-08-28T00:00:00+00:00",
+     "source_url": "",
+     "move_pct": 3.88
+    },
+    {
+     "date": "2026-10-29",
+     "available_at": "2026-10-30T00:00:00+00:00",
+     "entry_at": "2026-10-30T00:00:00+00:00",
+     "exit_at": "2026-10-31T00:00:00+00:00",
+     "source_url": "",
+     "move_pct": -2.86
+    }
    ]
   },
   {
@@ -155,13 +389,33 @@
    "label": "Buy and hold xyz:UNITREE",
    "why": "Robots taking over: Unitree, the humanoid robot maker, trades on Hyperliquid as xyz:UNITREE.",
    "verdict": [
-    "Holding xyz:UNITREE since Aug 5: +39.4%, with a 53.2% drop along the way."
+    "Holding xyz:UNITREE since Aug 5: +38.5%, with a 53.2% drop along the way."
    ],
    "market": "xyz:UNITREE",
    "start": "2026-08-05",
    "end": "2026-11-01",
    "hold_days": null,
-   "events": []
+   "events": [],
+   "notes": [
+    "Hyperliquid 1h candles",
+    "fees: 4.5 bp taker per side plus 3 bp slippage on every fill",
+    "xyz:UNITREE history starts 2026-08-05, so the test runs from there"
+   ],
+   "coverage": {
+    "bar": "1h",
+    "requested_start": "2026-05-05T16:00:00+00:00",
+    "requested_end": "2026-11-01T16:00:00+00:00",
+    "start": "2026-08-05T14:00:00+00:00",
+    "end": "2026-11-01T16:00:00+00:00",
+    "complete_requested_window": false,
+    "contiguous": true,
+    "source": "historical"
+   },
+   "images": {
+    "desktop": "robots-desktop-aabb50932e7b254e.png",
+    "phone": "robots-phone-a59b8669a67d57c8.png"
+   },
+   "observations": []
   },
   {
    "id": "anthropic",
@@ -169,14 +423,40 @@
    "label": "Short and hold xyz:ANT",
    "why": "A bubble that pops is a short: xyz:ANT is Hyperliquid's Anthropic-linked perp, not Anthropic shares.",
    "verdict": [
-    "Shorting xyz:ANT since Oct 26: -1.1%, while xyz:ANT moved +0.8%.",
-    "Only 6 days of price history (xyz:ANT listed Oct 26), so this is a snapshot, not evidence."
+    "Shorting xyz:ANT since Oct 26: -0.1%, while xyz:ANT moved -0.2%.",
+    "Only 6 days of available price history, starting Oct 26; too little to judge repeatability."
    ],
    "market": "xyz:ANT",
    "start": "2026-10-26",
    "end": "2026-11-01",
    "hold_days": null,
-   "events": []
+   "events": [],
+   "notes": [
+    "Hyperliquid 1h candles",
+    "fees: 4.5 bp taker per side plus 3 bp slippage on every fill",
+    "xyz:ANT history starts 2026-10-26, so the test runs from there"
+   ],
+   "coverage": {
+    "bar": "1h",
+    "requested_start": "2026-05-05T16:00:00+00:00",
+    "requested_end": "2026-11-01T16:00:00+00:00",
+    "start": "2026-10-26T14:00:00+00:00",
+    "end": "2026-11-01T16:00:00+00:00",
+    "complete_requested_window": false,
+    "contiguous": true,
+    "source": "historical"
+   },
+   "images": {
+    "desktop": "anthropic-desktop-d5da6f745a49cc00.png",
+    "phone": "anthropic-phone-2a8d16a2f9cbdeae.png"
+   },
+   "observations": []
+  },
+  {
+   "id": "dwarkesh",
+   "said": "Research each new Dwarkesh episode and propose a trade",
+   "status": "needs_research",
+   "why": "Which Dwarkesh episode or specific claim should we research? A new episode alone does not choose a market or direction. Episode monitoring and transcript analysis are not connected yet."
   }
  ]
 }
