@@ -159,6 +159,7 @@ ADDRESS = re.compile(r"^\s*(?:@?protoss\b[\s,:]*|p[,:]\s+)", re.I)
 THESIS_CUE = re.compile(
     r"\b(every ?time|whenever|each time|what if|let'?s (?:buy|sell|short|long|go long|go short|bet|try|back|test)|"
     r"should we (?:buy|sell|short|long)|backtest|test this|thesis|bet (?:on|that)|i think)\b", re.I)
+COPY_BASE = 1000  # per-person copies of an idea are numbered above this, out of the way of the ideas people talk about
 EVENTS_ASK = re.compile(r"\b(show|list|see|what (?:are|were)|which (?:are|were))\b.{0,40}\b(events|hacks|episodes)\b", re.I)
 CALL_CUE = re.compile(
     r"\b(injur\w*|injured list|IL|come[s]? off|coming off|return(?:s|ing)? from|win(?:s|ning)?|lose|playoffs?|"
@@ -257,6 +258,18 @@ def _who_line(bs: list[Backer]) -> str:
     if not on:
         return "nobody yet"
     return ", ".join(f"{b.who} {_usd(b.pledge_usd)}" if b.pledge_usd else b.who for b in on)
+
+
+def _and(names: list[str]) -> str:
+    return names[0] if len(names) == 1 else ", ".join(names[:-1]) + " and " + names[-1] if names else "nobody"
+
+
+def _pledge_line(bs: list[Backer]) -> str:
+    """'So far: Lando $11. Waiting on Matthew.' for a copy chat, where each person names their own amount."""
+    on = [b for b in bs if b.approved]
+    paid = [f"{b.who} {_usd(b.pledge_usd)}" for b in on if b.pledge_usd]
+    waiting = [b.who for b in on if not b.pledge_usd]
+    return (f"So far: {', '.join(paid)}." if paid else "Nobody has put in an amount yet.") + (f" Waiting on {_and(waiting)}." if waiting else "")
 
 
 def _link(path: str) -> str:
@@ -370,7 +383,7 @@ def propose(db: Session, h: Huddle, author: str, text: str, addressed: bool) -> 
         planned = plan(text, 10_000.0, 365, known)
     except LabError as e:
         return [str(e)] if addressed else []
-    n = (max((t.n for t in _theses(db, h)), default=0)) + 1
+    n = (max((t.n for t in _theses(db, h) if t.n < COPY_BASE), default=0)) + 1
     if isinstance(planned, Clarify):
         if CALL_CUE.search(text):
             t = Thesis(huddle_id=h.id, n=n, author=author, text=text, kind="call", label=f"Call: {text.strip()[:150]}")
@@ -451,12 +464,13 @@ def _maybe_arm(db: Session, ex: ExchangeAdapter, h: Huddle, t: Thesis, announce_
     total = _pledged(bs)
     if len(approved) < h.quorum or (t.kind == "rule" and total <= 0):
         if announce_backing and len(approved) >= h.quorum and t.kind == "rule":
-            say(db, h, f"Thesis {t.n} is backed by {', '.join(b.who for b in approved)}. How much each? Say \"$50 each\".", thesis_id=t.id)
+            ask = "Now each of you says how much: \"in for 20\"." if is_copy_chat(h) else "How much each? Say \"$50 each\"."
+            say(db, h, f"Idea {t.n} is backed by {_and([b.who for b in approved])}. {ask}", thesis_id=t.id)
         return False
     if is_copy_chat(h) and t.kind == "rule" and sum((b.pledge_usd or 0) > 0 for b in approved) < h.quorum:
         if announce_backing:
             kind = "real order from your own account" if _real(ex) else "paper pledge"
-            say(db, h, f"Thesis {t.n} needs a separate pledge from each participant. Use /pledge 20 to record your own {kind}.", thesis_id=t.id)
+            say(db, h, f"Idea {t.n} needs an amount from each of you, one {kind} per person. {_pledge_line(bs)} Say \"in for 20\".", thesis_id=t.id)
         return False
     arm(db, ex, h, t)
     return True
@@ -484,13 +498,13 @@ def arm(db: Session, ex: ExchangeAdapter, h: Huddle, t: Thesis) -> None:
         # Each copy gets its own thesis, agent, positions and risk ledger. Nothing is pooled.
         original_spec = dict(spec)
         copies = []
-        next_n = max(row.n for row in _theses(db, h)) + 1
+        next_n = max([row.n for row in _theses(db, h)] + [COPY_BASE]) + 1  # copies count from 1001 so ideas stay 1, 2, 3
         for backer in bs:
             if (backer.pledge_usd or 0) <= 0:
                 continue
             child = Thesis(huddle_id=h.id, n=next_n, author=backer.who, text=t.text,
                            kind="rule", label=f"{t.label} ({backer.who} copy)"[:160], test=t.test,
-                           spec={**original_spec, "_telegram_copy_owner": backer.who})
+                           spec={**original_spec, "_telegram_copy_owner": backer.who, "_parent_n": t.n})
             next_n += 1
             db.add(child)
             db.flush()
@@ -506,16 +520,18 @@ def arm(db: Session, ex: ExchangeAdapter, h: Huddle, t: Thesis) -> None:
             for tr in db.scalars(select(Trigger).where(Trigger.thesis_id == child.id)).all():
                 if _real(ex):
                     lf = getattr(ex, "last_fill", None) or {}
-                    stamp = f" Hyperliquid fill {lf.get('hash', '')[:14]}" if lf.get("hash") else ""
+                    stamp = f", Hyperliquid fill {lf.get('hash', '')[:14]}" if lf.get("hash") else ""
                     acct = ex.wallets.get(backer.who, {}).get("address", "")
-                    say(db, h, f"{backer.who}'s order filled from their own account {acct[:6]}...{acct[-4:]}: {tr.size:.6g} {tr.market} at {_px(tr.entry_px)}, "
-                               f"{_usd(tr.size * tr.entry_px)} of the {_usd(backer.pledge_usd)} they pledged.{stamp} Real order, real money.", "result", child.id)
+                    say(db, h, f"{backer.who}'s order filled: {tr.size:.6g} {tr.market} at {_px(tr.entry_px)}, {_usd(tr.size * tr.entry_px)} of their {_usd(backer.pledge_usd)}. "
+                               f"From their own account {acct[:6]}...{acct[-4:]}{stamp}. Real order, real money.", "result", child.id)
                 else:
                     say(db, h, f"{backer.who}'s separate paper copy filled: {tr.size:.6g} {tr.market} at {_px(tr.entry_px)}. "
                                f"Paper allocation {_usd(backer.pledge_usd)}. Agent {child.agent_id}. No real funds moved.", "result", child.id)
         t.spec = {**original_spec, "type": "telegram_copies", "copy_ids": copies}
         if _real(ex):
-            say(db, h, f"Thesis {t.n}: {len(copies)} separate orders, one per account. Each of you owns your own position and can close it from your own account at any time. No shared pot.", thesis_id=t.id)
+            filled = any(db.scalar(select(Trigger).where(Trigger.thesis_id == cid)) for cid in copies)
+            what = "separate orders, one from each account" if filled else "separate copies armed, one per account; each order goes out from its own account when the rule fires"
+            say(db, h, f"Idea {t.n} is live: {len(copies)} {what}. Each of you owns your position and can close it yourself any time. Nothing is pooled.", thesis_id=t.id)
         else:
             say(db, h, f"Thesis {t.n} created {len(copies)} separate paper accounts. Each participant owns their own copy and its result. No shared pot.", thesis_id=t.id)
         return
@@ -550,8 +566,12 @@ def arm(db: Session, ex: ExchangeAdapter, h: Huddle, t: Thesis) -> None:
     elif spec.get("type") not in ("event_buy", "buy_hold"):
         waiting = "No live runtime for this rule type yet, so the agent holds the cash and the card keeps the backtest."
     money = "real money" if _real(ex) else "paper money"
-    say(db, h, f"Thesis {t.n} is live{where}. {_usd(total)} in {money} from {_who_line(bs)}, max {int(lim.max_leverage)}x leverage, flattens at -25%. "
-               f"{waiting} Every fill is public: {_link('/#/feed')}".strip(), thesis_id=t.id)
+    owner, parent = spec.get("_telegram_copy_owner"), spec.get("_parent_n")
+    if owner and spec.get("type") == "buy_hold" and db.scalar(select(Trigger).where(Trigger.thesis_id == t.id)):
+        return  # the fill message already says it went out; one line per person is enough
+    head = f"{owner}'s copy of idea {parent} is armed: {_usd(total)} of {money}" if owner and parent else f"Thesis {t.n} is live{where}. {_usd(total)} in {money} from {_who_line(bs)}"
+    say(db, h, " ".join(x for x in [f"{head}, max {int(lim.max_leverage)}x leverage, flattens at -25%.", waiting,
+                                     f"Every fill is public: {_link('/#/feed')}"] if x), thesis_id=t.id)
 
 
 def _latest_live_rule(db: Session, h: Huddle) -> Thesis | None:
@@ -692,23 +712,41 @@ def report_event(db: Session, ex: ExchangeAdapter, label: str, source: str | Non
 
 # ------------------------------------------------------------------------------------------------ commands
 
-def _status(db: Session, h: Huddle) -> str:
-    rows = [t for t in _theses(db, h) if t.status != "dropped"]
+def _status(db: Session, h: Huddle, ex: ExchangeAdapter | None = None) -> str:
+    """Where each idea stands, in a sentence each. A copy chat's per-person copies roll up under the idea."""
+    rows = [t for t in _theses(db, h) if t.status != "dropped" and not (t.spec or {}).get("_telegram_copy_owner")]
     if not rows:
-        return "No theses yet. Say an idea, like \"let's buy XMR every time a major company gets hacked\"."
+        return "Nothing yet. Say an idea, or tap /demo for the four."
     out = []
     for t in rows[-6:]:
         bs = backers(db, t)
+        label = t.label if len(t.label) <= 60 else t.label[:57].rsplit(" ", 1)[0] + "…"
         if t.kind == "call":
-            state = t.outcome or ("open" if t.status == "live" else "needs backing")
-            label = t.label if len(t.label) <= 70 else t.label[:67].rsplit(" ", 1)[0] + "…"
-            out.append(f"{t.n}. {label}: {state}, backed by {sum(b.approved for b in bs)}")
+            out.append(f"{t.n}. {label}: {t.outcome or ('open' if t.status == 'live' else 'needs backing')}, backed by {sum(b.approved for b in bs)}.")
             continue
-        n, wins, pnl = score(db, t)
-        state = {"proposed": f"needs backing ({sum(b.approved for b in bs)} of {h.quorum})", "live": "live", "closed": "closed"}.get(t.status, t.status)
-        rec = f", {wins} of {n} up, {_signed_usd(pnl)}" if n else ""
-        out.append(f"{t.n}. {t.label[:70]}: {state}, {_usd(_pledged(bs))} in{rec}")
-    return "\n".join(out)
+        ids = (t.spec or {}).get("copy_ids") or [t.id]
+        trigs = db.scalars(select(Trigger).where(Trigger.thesis_id.in_(ids))).all()
+        held = [r for r in trigs if not r.closed]
+        done = [r for r in trigs if r.closed]
+        money = ", ".join(f"{b.who} {_usd(b.pledge_usd)}" for b in bs if b.approved and b.pledge_usd)
+        if t.status == "proposed":
+            state = f"waiting for backing ({sum(b.approved for b in bs)} of {h.quorum})"
+        elif held:
+            cost = sum(r.entry_px * r.size for r in held)
+            try:
+                pnl = sum((1 if r.side == "long" else -1) * (ex.mark(r.market) - r.entry_px) * r.size for r in held) if ex else None
+            except Exception:  # a mark we cannot read right now is left out, not guessed
+                pnl = None
+            state = f"{pnl / cost * 100:+.1f}% so far ({_signed_usd(pnl)})" if pnl is not None and cost else "open"
+        elif t.status == "live":
+            ev = {"major_hacks": "the next hack", "dwarkesh": "the next episode"}.get((t.spec or {}).get("event_set"), "its signal")
+            state = f"armed, waiting for {ev}"
+        else:
+            state = t.status
+        if done:
+            state += f"; closed {sum(1 for r in done if (r.pnl_usd or 0) > 0)} of {len(done)} up, {_signed_usd(sum(r.pnl_usd or 0 for r in done))}"
+        out.append(f"{t.n}. {label}: {state}." + (f" In: {money}." if money else ""))
+    return "Here's where things stand:\n" + "\n".join(out)
 
 
 def _events(db: Session, h: Huddle, n: int | None) -> str:
@@ -751,7 +789,7 @@ def _score_board(db: Session, h: Huddle) -> str:
                 p[1] += wins
                 p[2] += pnl
     if not people:
-        return "Nothing has resolved yet. Rules score when they close; calls score on protoss hit or miss."
+        return "No results yet. A trade counts once it closes; a hold counts when you close it."
     rows = sorted(people.items(), key=lambda kv: (-(kv[1][1] / kv[1][0]), -kv[1][2]))
     return "Score, by whose idea it was:\n" + "\n".join(f"{who}: {int(w)} of {int(n)} right" + (f", {_signed_usd(p)}" if p else "") for who, (n, w, p) in rows)
 
@@ -763,7 +801,7 @@ def command(db: Session, ex: ExchangeAdapter, h: Huddle, sender: str, body: str)
         say(db, h, HELP)
         return True
     if low in ("status", "theses", "board", "what's live", "whats live"):
-        say(db, h, _status(db, h))
+        say(db, h, _status(db, h, ex))
         return True
     if m := re.fullmatch(r"(?:show\s+(?:me\s+)?(?:the\s+)?)?events?(?:\s+(?:for\s+)?(?:idea\s+)?#?(\d+))?", low):
         say(db, h, _events(db, h, int(m.group(1)) if m.group(1) else None))
@@ -860,7 +898,7 @@ def ingest(db: Session, ex: ExchangeAdapter, h: Huddle, sender: str, text: str =
         approve(db, ex, h, t, sender, True, _money(m.group(1) or m.group(2)))
         bs = backers(db, t)
         if t.status == "proposed":
-            say(db, h, f"{sender} is in for {_usd(_backer(db, t, sender).pledge_usd or 0)} on thesis {t.n}. {_usd(_pledged(bs))} total from {_who_line(bs)}.", thesis_id=t.id)
+            say(db, h, f"{sender} is in for {_usd(_backer(db, t, sender).pledge_usd or 0)} on idea {t.n}. {_pledge_line(bs)}", thesis_id=t.id)
         return row
     if t and YES.match(body):
         row.thesis_id = t.id

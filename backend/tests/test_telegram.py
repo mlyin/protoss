@@ -98,7 +98,7 @@ def test_two_accounts_to_paper_fill_and_retry(client, tmp_path):
     assert {copy["author"] for copy in copies} == {"tg:111", "tg:222"}
     assert all(copy["pledged_usd"] == 20 and len(copy["triggers"]) == 1 for copy in copies)
     assert any("separate paper copy filled" in m["text"] for m in tg.sent)
-    assert any("practice money" in m["text"] for m in tg.sent)
+    assert any("No real funds moved" in m["text"] for m in tg.sent)  # paper copies say so on the fill line
     assert client.get(f"/huddle/{hid}/outbox", headers=ADMIN).json() == []
     old_count = len(tg.sent)
     worker.drain()
@@ -276,7 +276,7 @@ def test_crypto_basket_has_four_independent_fills(client, tmp_path):
     frozen = [row["proposal"] for row in rows[1:]]
     worker.handle(message(5, 111, "/idea buy and hold SOL"))
     after = client.get(f"/huddle/{hid}", headers=ADMIN).json()["theses"]
-    assert [row["proposal"] for row in after[1:3]] == frozen
+    assert [row["proposal"] for row in after if row["n"] > 1000] == frozen  # copies are numbered from 1001
 
 
 def test_browser_crypto_demo_uses_the_same_engine(client):

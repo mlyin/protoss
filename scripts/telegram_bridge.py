@@ -296,6 +296,8 @@ class Bridge:
         chat = r.get("chat") or {}
         if user.get("is_bot") or user.get("id") not in self.users or chat.get("id") != self.chat:
             return
+        if user.get("first_name"):
+            self.state.data.setdefault("names", {})[str(user["id"])] = user["first_name"][:40]
         n = self.state.data.get("cards", {}).get(str(r.get("message_id")))
         if not n:
             return
