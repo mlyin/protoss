@@ -179,7 +179,9 @@ def test_dedicated_provider_key_does_not_enable_lab_provider(monkeypatch):
 
 @pytest.mark.parametrize('failure', [None, 'prose', 'truncated', 'wrong_tool', 'multiple_tools'])
 def test_provider_requires_one_complete_structured_report(monkeypatch, failure):
-    report = {'type': 'tool_use', 'name': 'report_episode_research', 'input': ANALYSIS}
+    provider_data = {k: v for k, v in ANALYSIS.items() if k != 'claims'}
+    provider_data['claim'] = {'claim': ANALYSIS['claims'][0]['claim'], 'evidence_id': 0}
+    report = {'type': 'tool_use', 'name': 'report_episode_research', 'input': provider_data}
     data = {'stop_reason': 'tool_use', 'content': [report]}
     if failure == 'prose':
         data = {'stop_reason': 'end_turn', 'content': [{'type': 'text', 'text': '# Research summary'}]}
@@ -200,4 +202,30 @@ def test_provider_requires_one_complete_structured_report(monkeypatch, failure):
         with pytest.raises(research.ResearchUnavailable, match='complete research report'):
             research.model_analysis({'text': TEXT}, {'BTC'}, 'test-provider-key')
     else:
-        assert research.model_analysis({'text': TEXT}, {'BTC'}, 'test-provider-key') == ANALYSIS
+        result = research.model_analysis({'text': TEXT}, {'BTC'}, 'test-provider-key')
+        assert result['claims'] == [{'claim': ANALYSIS['claims'][0]['claim'], 'quote': research.evidence_options(TEXT)[0]}]
+        assert result['proposal'] == ANALYSIS['proposal']
+
+
+def test_evidence_choices_are_bounded_exact_source_excerpts():
+    options = research.evidence_options(TEXT * 100)
+    assert len(options) == 128
+    assert all(quote in TEXT * 100 and len(quote.split()) == 8 for quote in options)
+    schema = research.report_schema(len(options))
+    encoded = __import__('json').dumps(schema)
+    assert '"maxLength":' not in encoded and '"maxItems":' not in encoded
+    assert 'claims' not in schema['properties']
+    assert schema['properties']['claim']['properties']['evidence_id']['enum'] == list(range(128))
+
+
+@pytest.mark.parametrize('index', [-1, 999, True, '0'])
+def test_unknown_evidence_selection_cannot_be_displayed(monkeypatch, index):
+    data = {k: v for k, v in ANALYSIS.items() if k != 'claims'}
+    data['claim'] = {'claim': 'This is an episode claim.', 'evidence_id': index}
+    def post(url, **kwargs):
+        assert kwargs['json']['tools'][0]['strict'] is True
+        return httpx.Response(200, request=httpx.Request('POST', url), json={
+            'stop_reason': 'tool_use', 'content': [{'type': 'tool_use', 'name': 'report_episode_research', 'input': data}]})
+    monkeypatch.setattr(research.httpx, 'post', post)
+    with pytest.raises(research.ResearchUnavailable, match='unknown source evidence'):
+        research.model_analysis({'text': TEXT}, {'BTC'}, 'test-provider-key')
