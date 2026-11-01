@@ -371,3 +371,24 @@ def test_a_thumbs_up_below_quorum_gets_an_answer(client):
     card = bot(client, hid)[-1]
     say(client, hid, "Bo", reaction="like", target_guid=card["guid"])
     assert bot(client, hid)[-1]["text"] == "Ana and Bo are in on idea 1. One more and it's on."
+
+
+def test_a_reply_to_the_bots_question_is_read_as_the_answer(client):
+    hid = client.get("/huddle/web/answers").json()["id"]
+    say(client, hid, "Ana", "protoss what about bitcoin")  # addressed but not an idea yet: the bot asks
+    ask = bot(client, hid)[-1]
+    assert ask["kind"] == "ask" and ask["text"].startswith("What should I do with BTC")
+    say(client, hid, "Bo", "buy and hold ETH")  # someone else talking is not Ana's answer
+    assert bot(client, hid)[-1]["id"] == ask["id"]
+    say(client, hid, "Ana", "buy and hold")  # Ana's reply completes her first message: buy and hold BTC
+    t = client.get(f"/huddle/{hid}").json()["theses"][-1]
+    assert t["author"] == "Ana" and t["label"] == "Buy and hold BTC"
+
+
+def test_the_dwarkesh_question_gets_a_reply_to_the_follow_up(client):
+    hid = client.get("/huddle/web/pod-follow").json()["id"]
+    say(client, hid, "Matthew", "research a dwarkesh podcast")
+    first = bot(client, hid)[-1]
+    assert first["kind"] == "ask"
+    say(client, hid, "Matthew", "figure out for the ones where we want to backtest")
+    assert bot(client, hid)[-1]["id"] != first["id"]  # it answers instead of going quiet
