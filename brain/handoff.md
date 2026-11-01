@@ -35,16 +35,20 @@ amount and the order goes out from their own account; the money is never combine
   `~/protoss-bot` (launchd cannot read `~/Documents`: exit 126 "Operation not permitted"). Put a dev commit on it with
   `deploy/macbook/update_bot.sh` from `~/Documents/protoss2` (local fetch, copies `web/dist`, restarts). It waits for
   `~/.protoss/telegram.env` (TELEGRAM_BOT_TOKEN, mode 600, written by Matthew; never read it). Group "protoss beta testing"
-  became a supergroup when the bot was made admin: chat id -1004329810936. Log: `~/.protoss/telegram-live.log`. Python comes
+  became a supergroup when the bot was made admin (new chat id; it is in the launchd plist, not in the repo). Log: `~/.protoss/telegram-live.log`. Python comes
   from `~/protoss-demo/.venv`.
-  In the chat: cards are a chart image with a plain verdict; "show the events" or the button lists an event rule's events;
-  status shows live P&L; copies are numbered from 1001; the bot calls `POST /huddle/tick` every minute (closes holds, reads the
-  hack and Dwarkesh feeds).
+  In the chat: every answer is a Telegram reply to what caused it; cards are a phone-size chart image with a plain verdict and
+  buttons (Back, Show the events, I'm in for $10/$20/$50); fills carry My position; "my position" or /mine shows only yours with
+  Close buttons; "close idea N" closes only your own copy; status shows live P&L; copies are numbered from 1001; one bad
+  message is skipped after 3 failures; the bot calls `POST /huddle/tick` every minute (closes holds, reads the hack and
+  Dwarkesh feeds). Hyperliquid rejects orders under $10, so amount buttons start at $10.
 - Mac mini (user `aaaa`): API and fleet under launchd from `/Users/aaaa/protoss` on `claude/project-thread-495i0w` with a large
   uncommitted tree (huddle, onboarding, a data-quality gate that refuses incomplete history, iOS). On no remote. The live Lab
   runs that code, so it still fails long windows until the mini runs main.
 - MacBook clone: `~/Documents/protoss2`. Node there is 18; run Playwright with a temporary Node 20
-  (`npx -y -p node@20 -c 'command -v node'`, then that node on `node_modules/@playwright/test/cli.js test`).
+  (`npx -y -p node@20 -c 'command -v node'`, then that node on `node_modules/@playwright/test/cli.js test`), built and pointed
+  the way CI does: `VITE_API_ORIGIN=https://api.protoss.trade npm run build:pages`, `E2E_API_URL=https://api.protoss.trade`,
+  `E2E_BASE_URL=http://127.0.0.1:4173` with the preview running. A build against a local API fails the private-link test.
 - Supabase project `koinon` (ref hgegigtdjkkclexqnuoy): migrations 0001 to 0004 applied, RLS on.
 
 ## Waiting on Matthew

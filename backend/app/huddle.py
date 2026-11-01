@@ -476,6 +476,10 @@ def _maybe_arm(db: Session, ex: ExchangeAdapter, h: Huddle, t: Thesis, announce_
     approved = [b for b in bs if b.approved]
     total = _pledged(bs)
     if len(approved) < h.quorum or (t.kind == "rule" and total <= 0):
+        if announce_backing and len(approved) < h.quorum:  # a thumbs up gets an answer even before it is enough
+            need = h.quorum - len(approved)
+            say(db, h, f"{_and([b.who for b in approved])} {'is' if len(approved) == 1 else 'are'} in on idea {t.n}. "
+                       f"{'One more' if need == 1 else f'{need} more'} and it's on.", thesis_id=t.id)
         if announce_backing and len(approved) >= h.quorum and t.kind == "rule":
             ask = "Now each of you says how much: \"in for 20\"." if is_copy_chat(h) else "How much each? Say \"$50 each\"."
             say(db, h, f"Idea {t.n} is backed by {_and([b.who for b in approved])}. {ask}", thesis_id=t.id)

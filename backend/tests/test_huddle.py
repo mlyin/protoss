@@ -334,3 +334,16 @@ def test_events_list_names_each_hack_with_the_move_after_it(client):
     # an idea that only mentions hacks is still an idea, not an events request
     say(client, hid, "Bo", "what if I bought BTC on hacks and held 3 days")
     assert len(client.get(f"/huddle/{hid}").json()["theses"]) == 2
+
+
+def test_a_thumbs_up_below_quorum_gets_an_answer(client):
+    from app.db import session
+    from app.huddle import Huddle
+
+    hid = client.get("/huddle/web/three").json()["id"]
+    with session() as db:
+        db.get(Huddle, hid).quorum = 3
+    say(client, hid, "Ana", "let's buy xmr every time a major company gets hacked")
+    card = bot(client, hid)[-1]
+    say(client, hid, "Bo", reaction="like", target_guid=card["guid"])
+    assert bot(client, hid)[-1]["text"] == "Ana and Bo are in on idea 1. One more and it's on."
