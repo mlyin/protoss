@@ -171,6 +171,123 @@ def test_private_sim_backend_never_reports_fake_results(client, tmp_path):
     assert "No simulated result" in tg.sent[-1]["text"]
 
 
+def test_private_research_keeps_timing_and_baseline_caveats(client, tmp_path):
+    worker, tg, _ = make_bridge(client, tmp_path)
+    worker.live = True
+    notes = ['baseline: Observed difference, not proof of an edge.', 'event timing: Wait for publication.',
+             'event dataset: Verify disclosure dates.', 'history coverage: Stops at the available final candle.',
+             'Real Hyperliquid candles cached in the repo.']
+
+    class ResearchOnly:
+        def call(self, method, path, body=None):
+            assert method == 'POST' and path == '/lab/chat'
+            return {'kind': 'backtest', 'reply': 'Historical comparison. Funding is not modelled.', 'result': {'notes': notes}}
+
+    worker.protoss = ResearchOnly()
+    worker.handle(message(302, 111, 'buy XMR after major hacks', chat=111))
+    response = '\n'.join(row['text'] for row in tg.sent)
+    assert all(note in response for note in notes)
+    assert all(row['chat_id'] == 111 for row in tg.sent)
+    assert 'No order placed' in response
+
+
+def test_private_research_rejects_simulated_notes_even_if_reply_omits_them(client, tmp_path):
+    worker, tg, _ = make_bridge(client, tmp_path)
+    worker.live = True
+
+    class Simulated:
+        def call(self, method, path, body=None):
+            return {'kind': 'backtest', 'reply': 'Result: +99.0%', 'result': {'notes': [backtest.SIM_NOTE]}}
+
+    worker.protoss = Simulated()
+    worker.handle(message(303, 111, 'buy XMR', chat=111))
+    assert '+99.0%' not in tg.sent[-1]['text']
+    assert 'Real market history is unavailable' in tg.sent[-1]['text']
+
+
+def test_long_research_card_keeps_image_and_all_caveats_without_duplicate_delivery(client, tmp_path):
+    worker, _, _ = make_bridge(client, tmp_path)
+    text = 'Historical comparison\n' + ('Publication and disclosure timing must be verified.\n' * 30) + 'Funding is not modelled.'
+
+    class PhotoTelegram(FakeTelegram):
+        def upload(self, method, fields, *args):
+            assert method == 'sendPhoto' and len(fields['caption']) <= 1024
+            self.sent.append({'photo': True, 'text': fields['caption']})
+            return {'message_id': len(self.sent)}
+
+    class QueuedResearch:
+        def call(self, method, path, body=None):
+            if path.endswith('/outbox'):
+                return [{'id': 1, 'kind': 'card', 'thesis_id': 1, 'text': text}]
+            if path.endswith('/delivered'):
+                return {'delivered': 1}
+            return {'mode': 'paper', 'theses': [{'id': 1, 'n': 1, 'status': 'proposed', 'test': {}}]}
+
+        def get_bytes(self, path):
+            return b'test image payload'
+
+    worker.telegram, worker.protoss = PhotoTelegram(), QueuedResearch()
+    worker.drain()
+    sent = worker.telegram.sent
+    assert sum(bool(row.get('photo')) for row in sent) == 1
+    assert 'Funding is not modelled.' in sent[-1]['text']
+    assert sum(row['text'].count('Publication and disclosure timing must be verified.') for row in sent) == 30
+    count = len(sent)
+    worker.drain()
+    assert len(sent) == count
+
+
+@pytest.mark.parametrize('image_first', [True, False])
+def test_card_retry_keeps_caveats_when_image_availability_changes(client, tmp_path, image_first):
+    worker, _, _ = make_bridge(client, tmp_path)
+    text = 'Historical comparison\n' + ('Verify publication timing.\n' * 60) + 'Funding is not modelled.'
+
+    class FlakyTelegram(FakeTelegram):
+        failed = False
+
+        def upload(self, method, fields, *args):
+            self.sent.append({'photo': True, 'text': fields['caption']})
+            return {'message_id': len(self.sent)}
+
+        def call(self, method, **body):
+            if method == 'sendMessage' and 'Funding is not modelled.' in body.get('text', '') and not self.failed:
+                self.failed = True
+                raise bridge.APIError('temporary text failure')
+            return super().call(method, **body)
+
+    class QueuedResearch:
+        attempts = 0
+        delivered = 0
+
+        def call(self, method, path, body=None):
+            if path.endswith('/outbox'):
+                return [{'id': 1, 'kind': 'card', 'thesis_id': 1, 'text': text}]
+            if path.endswith('/delivered'):
+                self.delivered += 1
+                return {'delivered': 1}
+            return {'mode': 'paper', 'theses': [{'id': 1, 'n': 1, 'status': 'proposed', 'test': {}}]}
+
+        def get_bytes(self, path):
+            self.attempts += 1
+            if (self.attempts == 1) != image_first:
+                raise bridge.APIError('image unavailable')
+            return b'test image payload'
+
+    worker.telegram, worker.protoss = FlakyTelegram(), QueuedResearch()
+    with pytest.raises(bridge.APIError):
+        worker.drain()
+    assert worker.protoss.delivered == 0
+    worker.drain()
+    sent = worker.telegram.sent
+    assert worker.protoss.delivered == 1
+    assert sum(row['text'].count('Funding is not modelled.') for row in sent) == 1
+    assert sum(row['text'].count('Verify publication timing.') for row in sent) == 60
+    assert sum(bool(row.get('photo')) for row in sent) == int(image_first)
+    count = len(sent)
+    worker.drain()
+    assert len(sent) == count
+
+
 def test_group_upgrade_preserves_checkpoint_and_rejects_other_identities(tmp_path):
     state = bridge.State(tmp_path / "upgrade.json")
     old = {"bot": 123, "chat": CHAT, "users": [111, 222]}

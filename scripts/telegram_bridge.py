@@ -281,8 +281,15 @@ class Bridge:
         try:
             result = self.protoss.call("POST", "/lab/chat", {"message": raw[:2000]})
             reply = result.get("reply") or "Research returned no result. Try a market and holding period."
-            if result.get("kind") == "backtest" and "simulated" in reply.lower():
+            notes = (result.get('result') or {}).get('notes') or []
+            simulated = "simulated" in reply.lower() or any(isinstance(note, str) and 'simulated prices' in note.lower() for note in notes)
+            if result.get("kind") == "backtest" and simulated:
                 reply = "Real market history is unavailable. I won't substitute a simulated performance result."
+            elif result.get('kind') == 'backtest':
+                details = [note for note in notes if isinstance(note, str) and note not in reply
+                           and (note.startswith(('baseline:', 'event dataset:', 'event timing:', 'history coverage:')) or 'cached in the repo' in note)]
+                if details:
+                    reply += '\n\n' + '\n'.join(details)
         except APIError:
             reply = "Research is unavailable right now. Please try again shortly."
         self.send(chat, reply + "\nResearch only. No order placed and nothing posted to your group.", key)
@@ -363,13 +370,22 @@ class Bridge:
             if not self.wallet_review and huddle.get("mode") in ("sim", "paper"):
                 text = "Paper demo. No real funds.\n" + text
             png = None
-            if row["kind"] == "card" and thesis and len(text) <= 1024 and hasattr(self.telegram, "upload"):
+            if row["kind"] == "card" and thesis and hasattr(self.telegram, "upload"):
                 try:
                     png = self.protoss.get_bytes(f"/og/t/{thesis['id']}.png?format=phone")
                 except (APIError, AttributeError):
                     png = None
-            if png:
-                self.send_card(self.chat, png, text, f"outbox:{row['id']}", keyboard, reply_to)
+            if row["kind"] == "card":
+                # Keep caption and details checkpoints stable when image availability changes on retry.
+                cut = text.rfind('\n', 0, 1000) if len(text) > 1024 else len(text)
+                if cut < 1:
+                    cut = 1000
+                if png:
+                    self.send_card(self.chat, png, text[:cut], f"outbox:{row['id']}", keyboard, reply_to)
+                else:
+                    self.send(self.chat, text[:cut], f"outbox:{row['id']}", keyboard, reply_to)
+                if text[cut:].strip():
+                    self.send(self.chat, text[cut:].strip(), f"outbox:{row['id']}:details", reply_to=reply_to)
             else:
                 self.send(self.chat, text, f"outbox:{row['id']}", keyboard, reply_to)
             if keyboard and row["kind"] == "card":

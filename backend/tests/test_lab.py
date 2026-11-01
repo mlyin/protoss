@@ -52,9 +52,25 @@ def test_examples(client):
     assert len(ex) == 4 and all(isinstance(e, str) and e for e in ex)  # the four demo ideas, nothing else
 
 
+def test_public_research_does_not_substitute_simulation_for_missing_history(client, monkeypatch):
+    from app import lab
+
+    monkeypatch.setenv('ARENA_MODE', 'paper')
+    get_settings.cache_clear()
+    monkeypatch.setattr(lab, 'get_source', lambda settings: B.SimCandles(settings))
+    result = chat(client, 'buy and hold XMR')
+    assert result['kind'] == 'error' and result['result'] is None
+    assert result['deployable'] is None
+    assert 'No simulated performance result was substituted' in result['reply']
+
+
 def test_hack_events_backtest(client):
     j = chat(client, "what if I bought XMR every time a major company got hacked and held 7 days")  # no window stated
     assert j["kind"] == "backtest", j["reply"]
+    assert 'baseline:' in j['reply'] and 'not proof of an edge' in j['reply']
+    assert 'event timing:' in j['reply'] and 'cached in the repo' in j['reply']
+    assert all(note in j['reply'] for note in j['result']['notes'] if note.startswith('event dataset:'))
+    assert 'Prices are simulated' not in j['reply']
     assert j["spec"]["type"] == "event_buy" and j["spec"]["event_set"] == "major_hacks" and j["spec"]["hold_days"] == 7
     assert j["spec"]["days"] == 730  # the hack list reaches back years, so the window widens to the cap
     res = j["result"]
@@ -68,7 +84,7 @@ def test_hack_events_backtest(client):
     assert any("illustrative" in n for n in res["notes"])
     assert res["trades_sample"][0]["side"] == "buy" and res["trades_sample"][-1]["side"] == "sell"
     assert j["deployable"]["markets"] == ["XMR"]
-    assert "#" not in j["reply"] and 2 <= j["reply"].count(". ") + 1 <= 5
+    assert "#" not in j["reply"] and len(j['reply']) < 2500  # retain material research caveats
     # an explicit window keeps the user's choice, and one with no events asks instead of printing a flat 0%
     # (the list is live and now has events in the last 90 days, so pin the list for this check)
     import app.backtest as B

@@ -54,6 +54,30 @@ def make_legion(c, slug="hack-club"):
     assert r.status_code == 201, r.text
 
 
+def test_group_research_preserves_event_caveats_without_claiming_an_edge(client):
+    hid = client.get('/huddle/web/research-notes').json()['id']
+    say(client, hid, 'Ana', "let's buy XMR every time a company gets hacked")
+    h = client.get(f'/huddle/{hid}').json()
+    research = h['theses'][0]['test']
+    assert research['real'] and research['coverage']['source'] == 'historical'
+    assert any('event timing:' in note for note in research['notes'])
+    card = bot(client, hid)[-1]['text']
+    assert 'illustrative' in card and 'funding not' in card
+    assert 'not independent' in card and 'does not establish a predictive edge' in card
+    assert 'Some edge.' not in card and 'No edge.' not in card
+
+
+def test_non_sim_group_does_not_create_an_idea_from_simulated_history(client, monkeypatch):
+    monkeypatch.setenv('ARENA_MODE', 'paper')
+    get_settings.cache_clear()
+    monkeypatch.setattr(B, 'get_source', lambda settings: B.SimCandles(settings))
+    hid = client.get('/huddle/web/missing-history').json()['id']
+    say(client, hid, 'Ana', 'protoss buy and hold XMR')
+    h = client.get(f'/huddle/{hid}').json()
+    assert h['theses'] == []
+    assert 'No simulated result or trade was created' in bot(client, hid)[-1]['text']
+
+
 def test_thesis_to_result_in_a_web_huddle(client):
     make_legion(client)
     h = client.get("/huddle/web/hack-club").json()
