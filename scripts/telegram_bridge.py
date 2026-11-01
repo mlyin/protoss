@@ -201,7 +201,7 @@ HELP_LIVE = ("Protoss listens to this chat.\n"
              "Say an idea, or tap /demo for the four: XMR on every hack, robots (Unitree), the Anthropic bubble (short ANT), NVDA on each new Dwarkesh episode.\n"
              "Back it: thumbs up the card, or say \"in\". Then each of you says \"in for 11\" with your own amount.\n"
              "Each amount is a real order from your own Hyperliquid account, through the API wallet you authorized. Nothing is pooled; close a position yourself any time.\n"
-             "Also: \"show the events\", \"protoss status\", \"protoss score\", \"protoss hack: <what happened>\".")
+             "Also: \"close idea 1\" (closes your own position), \"show the events\", \"protoss status\", \"protoss score\", \"protoss hack: <what happened>\".")
 
 
 # this bot's own links: anything on the local API, and Protoss page shapes (/t/1, /h/x, /l/x, /#/feed) anywhere.
@@ -458,10 +458,15 @@ class Bridge:
                           [[{"text": "Connect my wallet privately", "url": url}]])
                 return
             if command == "status":
-                connections = self.protoss.call("GET", f"/telegram/huddles/{self.hid}/connections")
-                lines = [f"tg:{r['telegram_user_id']}: wallet ownership verified ({r['wallet'][:8]}…{r['wallet'][-4:]}). Deposit not checked." for r in connections]
-                self.send(self.chat, "Wallet connections\n" + ("\n".join(lines) or "No verified wallets yet. Each participant can use /join."), key)
+                if not self.live:  # live accounts come from wallets.json, not /join, so this block would only confuse
+                    connections = self.protoss.call("GET", f"/telegram/huddles/{self.hid}/connections")
+                    lines = [f"tg:{r['telegram_user_id']}: wallet ownership verified ({r['wallet'][:8]}…{r['wallet'][-4:]}). Deposit not checked." for r in connections]
+                    self.send(self.chat, "Wallet connections\n" + ("\n".join(lines) or "No verified wallets yet. Each participant can use /join."), key)
                 text = "protoss status"
+            elif command == "close" and re.fullmatch(r"[1-9][0-9]*", argument):
+                text = "protoss close " + argument
+            elif command == "events":
+                text = "protoss events" + (" " + argument if re.fullmatch(r"[1-9][0-9]*", argument) else "")
             elif command == "idea" and argument:
                 text = "protoss " + argument
             elif command == "back" and re.fullmatch(r"[1-9][0-9]*", argument):
