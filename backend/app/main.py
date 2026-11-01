@@ -389,9 +389,11 @@ def health(ex: ExchangeAdapter = Depends(exchange)):
 
 from .routes_orgs import router as orgs_router  # noqa: E402
 from .lab import router as lab_router  # noqa: E402
+from .podcast_research import router as research_router  # noqa: E402
 
 app.include_router(orgs_router)
 app.include_router(lab_router)
+app.include_router(research_router)
 
 from .social import router as social_router  # noqa: E402
 from .onboard import router as onboard_router  # noqa: E402

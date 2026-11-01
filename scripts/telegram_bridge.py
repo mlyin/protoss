@@ -103,7 +103,7 @@ class Protoss:
     def call(self, method, path, body=None):
         if method not in ("GET", "POST"):
             raise ValueError("unsupported method")
-        return request(self.base + path, body, self.headers)
+        return request(self.base + path, body, self.headers, timeout=120 if path == '/research/podcast' else 35)
 
     def get_bytes(self, path):
         try:
@@ -269,10 +269,10 @@ class Bridge:
                       "Private messages stay here. Research does not place an order.", key, menu)
             return
         if "dwarkesh" in raw.lower():
-            self.send(chat, "For each new Dwarkesh episode: extract its claims, find a related tradable market, "
-                      "and review the evidence before proposing a trade. There is no automatic NVDA purchase. "
-                      "Episode monitoring and transcript analysis are not connected yet. No trade was placed.", key)
-            return
+            if user['id'] not in self.users:
+                self.send(chat, 'Episode research is currently available to invited group participants. No market or trade has been selected.', key)
+                return
+            return self.episode_reply(chat, raw, key)
         # The Lab is read-only. Never create a private huddle against a live copies engine.
         if not self.live:
             self.send(chat, "Real-data research is not available on this bot's current backend. "
@@ -293,6 +293,28 @@ class Bridge:
         except APIError:
             reply = "Research is unavailable right now. Please try again shortly."
         self.send(chat, reply + "\nResearch only. No order placed and nothing posted to your group.", key)
+
+    def episode_reply(self, chat, raw, key, reply_to=None):
+        # Research is delivered only to the requesting chat. No huddle mutation,
+        # backing button, wallet lookup or order handler is involved.
+        if self.state.data['sent'].get(f'{key}:research-done'):
+            return
+        pending = self.state.data.setdefault('episode_replies', {})
+        reply = pending.get(key)
+        if reply is None and self.live:
+            try:
+                result = self.protoss.call('POST', '/research/podcast', {'message': raw[:2000]})
+                reply = result.get('reply')
+            except APIError:
+                pass
+        if key not in pending:
+            reply = reply or 'Episode research is unavailable on this backend. No market or trade has been selected.'
+            pending[key] = reply + '\n\nSupply a public Dwarkesh episode link to choose an episode; otherwise I use the latest published audio episode. This analyzes that episode, not a custom research question. Automatic episode monitoring is not enabled. No order was placed.'
+            self.state.save()
+        self.send(chat, pending[key], key, reply_to=reply_to)
+        self.state.data['sent'][f'{key}:research-done'] = True
+        pending.pop(key, None)
+        self.state.save()
 
     def send_card(self, chat, png, caption, key, keyboard=None, reply_to=None):
         """The card as one photo: the backtest chart with the text as its caption. Falls back to text on any failure."""
@@ -422,6 +444,15 @@ class Bridge:
             self.state.save()
         if not private and (chat.get("id") != self.chat or chat.get("type") not in ("group", "supergroup")):
             return
+        # The fourth idea is read-only in both trading modes. Resolve it before
+        # either legacy huddle or wallet-review handlers can create a trade.
+        if not private:
+            episode_text = next((said for _, data, said in IDEAS if callback and callback.get('data') == data == 'idea:dwarkesh'), '') if callback else raw
+            other_command = re.match(r'/\w+@([A-Za-z0-9_]+)', episode_text)
+            if 'dwarkesh' in episode_text.lower() and not (other_command and other_command[1].lower() != self.username.lower()):
+                if callback:
+                    self.telegram.call('answerCallbackQuery', callback_query_id=callback['id'], text='Research only. No order placed.')
+                return self.episode_reply(self.chat, episode_text, f'update:{uid}', message.get('message_id'))
         if self.wallet_review:
             try:
                 return self.handle_live(update, user, message, private, callback)
