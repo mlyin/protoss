@@ -34,6 +34,6 @@ def test_redirect_only_old_ui_and_preserve_query(monkeypatch):
     assert r.headers['location'] == 'https://protoss.trade/app/?session=example'
     assert c.get('https://app.protoss.trade/health').json() == {'ok': True}
     assert c.get('https://api.protoss.trade/health').json() == {'ok': True}
-    monkeypatch.delenv('REDIRECT_LEGACY_FRONTEND')
+    monkeypatch.setenv('REDIRECT_LEGACY_FRONTEND', '0')  # override a deployed .env too
     get_settings.cache_clear()
     assert c.get('https://app.protoss.trade/', follow_redirects=False).status_code == 404
