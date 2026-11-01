@@ -175,3 +175,29 @@ def test_dedicated_provider_key_does_not_enable_lab_provider(monkeypatch):
     assert not lab.os.environ.get('ANTHROPIC_API_KEY')
     monkeypatch.setenv('ANTHROPIC_API_KEY', 'test-existing-lab-provider')
     assert research.provider_key() == 'test-podcast-provider'
+
+
+@pytest.mark.parametrize('failure', [None, 'prose', 'truncated', 'wrong_tool', 'multiple_tools'])
+def test_provider_requires_one_complete_structured_report(monkeypatch, failure):
+    report = {'type': 'tool_use', 'name': 'report_episode_research', 'input': ANALYSIS}
+    data = {'stop_reason': 'tool_use', 'content': [report]}
+    if failure == 'prose':
+        data = {'stop_reason': 'end_turn', 'content': [{'type': 'text', 'text': '# Research summary'}]}
+    elif failure == 'truncated':
+        data['stop_reason'] = 'max_tokens'
+    elif failure == 'wrong_tool':
+        report['name'] = 'place_order'
+    elif failure == 'multiple_tools':
+        data['content'] = [report, report]
+    def post(url, **kwargs):
+        body = kwargs['json']
+        assert body['tool_choice']['name'] == 'report_episode_research'
+        assert body['tool_choice']['disable_parallel_tool_use'] is True
+        assert body['tools'][0]['input_schema']['additionalProperties'] is False
+        return httpx.Response(200, request=httpx.Request('POST', url), json=data)
+    monkeypatch.setattr(research.httpx, 'post', post)
+    if failure:
+        with pytest.raises(research.ResearchUnavailable, match='complete research report'):
+            research.model_analysis({'text': TEXT}, {'BTC'}, 'test-provider-key')
+    else:
+        assert research.model_analysis({'text': TEXT}, {'BTC'}, 'test-provider-key') == ANALYSIS
