@@ -38,8 +38,8 @@ amount and the order goes out from their own account; the money is never combine
   became a supergroup when the bot was made admin (new chat id; it is in the launchd plist, not in the repo). Log: `~/.protoss/telegram-live.log`. Python comes
   from `~/protoss-demo/.venv`.
   In the chat: every answer is a Telegram reply to what caused it; cards are a phone-size chart image with a plain verdict and
-  buttons (Back, Show the events, I'm in for $10/$20/$50); fills carry My position; "my position" or /mine shows only yours with
-  Close buttons; "close idea N" closes only your own copy; status shows live P&L; copies are numbered from 1001; one bad
+  buttons (Back, Show the events, I'm in for $10/$20/$50); My position links to the owner-only account view and posts no
+  balances in the group (#23); "close idea N" closes only your own copy; status shows live P&L; copies are numbered from 1001; one bad
   message is skipped after 3 failures; the bot calls `POST /huddle/tick` every minute (closes holds, reads the hack and
   Dwarkesh feeds). Hyperliquid rejects orders under $10, so amount buttons start at $10.
 - Mac mini (user `aaaa`): API and fleet under launchd from `/Users/aaaa/protoss` on `claude/project-thread-495i0w` with a large
@@ -52,8 +52,9 @@ amount and the order goes out from their own account; the money is never combine
 - Supabase project `koinon` (ref hgegigtdjkkclexqnuoy): migrations 0001 to 0004 applied, RLS on.
 
 ## Waiting on Matthew
-1. Save the bot token once: `read -rs "T?Bot token: " && mkdir -p ~/.protoss && umask 077 && printf 'TELEGRAM_BOT_TOKEN=%s\n' "$T" > ~/.protoss/telegram.env && unset T`.
-   The launchd agent starts the bot within 5 seconds.
+1. Save the bot token once, in a real terminal on the MacBook (a chat `!` command cannot take typed input):
+   `~/Documents/protoss2/deploy/macbook/save_token.sh`. The launchd agent starts the bot within 5 seconds. As of 2026-11-01
+   11:20 it was still not saved, so the bot has never run on the new code and the group flow is unproven live.
 2. Mac mini: commit and push the dirty `/Users/aaaa/protoss` tree to a branch, then run main there (`protossctl restart`), so the
    live Lab gets the bar-size fix and the four ideas. Stop the demo fleet (`protossctl`), nothing shows it any more.
 3. Builder wallet: a separate standard-mode Hyperliquid account with >= 100 USDC; address in `HL_BUILDER_ADDRESS`.
