@@ -2,6 +2,14 @@
 
 This page replaces the older runtime checklist. Do not stop the fleet, reset databases, submit acceptance trades, or ask for the Telegram token again. The latest observed runtime state below supersedes earlier token-missing notes.
 
+## Runtime acceptance, 2026-11-01 18:58 UTC
+
+PRs #37 and #38 are merged. The MacBook bot checkout at `/Users/mlyin/protoss-bot` is now at `3497a8d66867f1bafe0efd94ca322f14227d3511`. Its existing launchd service has the dedicated `PODCAST_ANTHROPIC_API_KEY`; the shared `ANTHROPIC_API_KEY` remains absent, preserving the Lab planner configuration. The user supplied the credential through the private hidden prompt. Do not request or print it.
+
+The actual authenticated localhost endpoint returned `kind=research` for the latest published Robert Caro episode at 18:58 UTC, with one exact eight-word source excerpt, no proposed trade, and null spec/deployable/result. Coverage is truncated public text, not the full transcript or independent verification. This verifies the running research backend; no new Telegram message was sent by this agent. Matthew previously confirmed both private/group replies. Automatic episode monitoring remains unimplemented.
+
+Full local harness: 232 tests passed. Independent review approved; GitHub PR #38 checks passed. Only `com.protoss.telegram` was restarted. Health remains `copies`, `telegram_live_enabled=false`, and exactly one poller is running. Database/checkpoints were backed up privately before restart; fleet untouched. Private deployment and acceptance receipts are in `~/.protoss/episode-evidence-deployment.json` and `~/.protoss/episode-research-runtime-acceptance.json`. This section supersedes older provider-missing or runtime-acceptance-pending notes below.
+
 ## Product and authorization
 
 The homepage has four Telegram-style research ideas: XMR after hacks, robotics/Unitree, Anthropic downside, and research each new Dwarkesh episode. Matthew explicitly chose episode-specific research and a proposed trade, not a fixed NVDA release-date rule. No defensible trade is a valid research result. Do not imply Unitree or Anthropic perpetuals are company shares, or claim a backtest predicts returns.
