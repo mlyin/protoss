@@ -150,3 +150,25 @@ def test_deterministic(client):
     b = chat(client, "backtest a 3/10 momentum crossover on BTC over the last 30 days")
     assert a["result"]["final_equity"] == b["result"]["final_equity"]
     assert a["result"]["equity_curve"] == b["result"]["equity_curve"]
+
+
+def test_dip_buy_on_cached_history(client):
+    import csv
+
+    j = chat(client, "buy XMR after it drops 8% in a day and sell 5 days later")
+    assert j["kind"] == "backtest", j["reply"]
+    spec, res = j["spec"], j["result"]
+    assert spec["type"] == "dip_buy" and spec["drop_pct"] == 8 and spec["over_days"] == 1 and spec["hold_days"] == 5
+    assert spec["days"] == 730 and res["bars"] > 300  # drops are rare, so the window reaches back to the cap on daily bars
+    # every entry is a cached close 8% or more below the one before it, counted here straight from the file
+    start, end = (dt.datetime.fromisoformat(res[k]).timestamp() for k in ("start", "end"))
+    with open(B.FileCandles.DIR / "XMR_1d.csv", newline="") as f:
+        closes = [float(r["c"]) for r in csv.DictReader(f) if start <= int(r["t"]) < end]
+    dips = sum(closes[i] / closes[i - 1] - 1 <= -0.08 for i in range(1, len(closes)))
+    assert dips and any(n.startswith(f"{dips} closes 8% or more below") for n in res["notes"]), res["notes"]
+    assert any(n.startswith("baseline:") for n in res["notes"]) and 0 < res["trades"] <= dips
+    assert "Buy XMR after any 8% drop within 1 day, hold 5d" in j["reply"]
+    weekly = chat(client, "what if I bought XMR every time it fell 15% in a week and held 2 weeks")
+    assert (weekly["spec"]["over_days"], weekly["spec"]["hold_days"]) == (7, 14)
+    never = chat(client, "buy XMR when it drops 80% in a day")
+    assert never["kind"] == "clarify" and never["reply"].startswith("XMR did not fall 80%")

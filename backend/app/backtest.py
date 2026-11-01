@@ -516,6 +516,11 @@ def event_stats(candles: list[Candle], dates: list[dt.date], hold_days: int, sid
     }
 
 
+def dip_dates(candles: list[Candle], drop_pct: float, over_days: int) -> list[dt.date]:
+    """Daily bars whose close is drop_pct or more below the close over_days bars earlier. The date is the bar that completed the drop."""
+    return [candles[i].ts.date() for i in range(over_days, len(candles)) if candles[i].c / candles[i - over_days].c - 1 <= -drop_pct / 100]
+
+
 def _event_baseline(candles: list[Candle], dates: list[dt.date], hold_days: int, bar: str, side: str) -> str:
     """Time in market is not edge. Compare the mean forward move after the event days with the mean from any bar."""
     st = event_stats(candles, dates, hold_days, side)
@@ -551,6 +556,12 @@ def run_backtest(spec, source: PriceSource, now: dt.datetime | None = None) -> B
     candles = cached_candles(source, spec.market, bar, start, end)
     if len(candles) < 2:
         raise ValueError(f"not enough {bar} candles for {spec.market}")
+    if spec.type == "dip_buy":
+        in_window = dip_dates(candles, spec.drop_pct, spec.over_days)
+        span = f"{spec.over_days} day{'s' if spec.over_days != 1 else ''}"
+        if not in_window:
+            raise NoEventsInWindow(f"{spec.market} did not fall {spec.drop_pct:g}% within {span} at any point in the last {spec.days} days")
+        notes.append(f"{len(in_window)} closes {spec.drop_pct:g}% or more below the close {span} earlier; each entry is at that close")
     if spec.type == "event_buy":
         dates = list(spec.custom_dates or []) if spec.event_set == "custom" else [r["date"] for r in load_hacks()]
         in_window = [d for d in dates if start.date() <= d <= end.date()]
@@ -558,6 +569,7 @@ def run_backtest(spec, source: PriceSource, now: dt.datetime | None = None) -> B
             raise NoEventsInWindow(f"none of the {len(dates)} event dates fall in the last {spec.days} days")
         notes.append(HACKS_NOTE if spec.event_set == "major_hacks" else f"custom event dates: {len(dates)} supplied")
         notes.append(f"{len(in_window)} of {len(dates)} event dates fall inside the window")
+    if spec.type in ("event_buy", "dip_buy"):
         notes.append(_event_baseline(candles, in_window, spec.hold_days, bar, spec.side))
         stats = event_stats(candles, in_window, spec.hold_days, spec.side)
         build: Callable = lambda cs, bk: _event_buy(spec, cs, bk, in_window)  # noqa: E731

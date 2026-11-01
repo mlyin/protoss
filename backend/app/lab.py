@@ -62,6 +62,18 @@ class EventBuySpec(_Common):
     size_pct: float = Field(default=1.0, gt=0, le=1.0)
 
 
+class DipBuySpec(_Common):
+    """Buy after the market fell drop_pct over over_days daily closes, hold hold_days. Entry at the close that completed the drop."""
+    type: Literal["dip_buy"] = "dip_buy"
+    market: str
+    drop_pct: float = Field(default=5.0, gt=0, le=90)
+    over_days: int = Field(default=1, ge=1, le=30)
+    hold_days: int = Field(default=5, ge=1, le=365)
+    side: Literal["long", "short"] = "long"
+    size_pct: float = Field(default=1.0, gt=0, le=1.0)
+    bar: Literal["1d"] = "1d"
+
+
 class TailWalletSpec(_Common):
     type: Literal["tail_wallet"] = "tail_wallet"
     address: str = Field(pattern=r"^0x[0-9a-fA-F]{40}$")
@@ -149,6 +161,7 @@ class LabError(Exception):
 
 LABELS = {
     "event_buy": lambda s: f"{'Buy' if s.side == 'long' else 'Short'} {s.market} on {'major hacks' if s.event_set == 'major_hacks' else f'{len(s.custom_dates or [])} custom dates'}, hold {s.hold_days}d",
+    "dip_buy": lambda s: f"Buy {s.market} after any {s.drop_pct:g}% drop within {s.over_days} day{'s' if s.over_days != 1 else ''}, hold {s.hold_days}d",
     "tail_wallet": lambda s: f"Tail {s.address[:6]}…{s.address[-4:]}",
     "momentum": lambda s: f"{s.fast}/{s.slow} momentum crossover on {s.market} ({s.bar})",
     "meanrev": lambda s: f"Mean reversion on {s.market}: fade {s.z:g} sd of {s.lookback}-bar mean ({s.bar})",
@@ -157,12 +170,13 @@ LABELS = {
     "buy_hold": lambda s: f"Buy and hold {s.market}",
     "basket_hold": lambda s: "Buy and hold " + ", ".join(f"{holding.weight * 100:g}% {holding.market}" for holding in s.holdings),
 }
-SPECS = (EventBuySpec, TailWalletSpec, MomentumSpec, MeanRevSpec, DcaSpec, WeekdaySpec, BuyHoldSpec, BasketHoldSpec)
+SPECS = (EventBuySpec, DipBuySpec, TailWalletSpec, MomentumSpec, MeanRevSpec, DcaSpec, WeekdaySpec, BuyHoldSpec, BasketHoldSpec)
 Spec = Annotated[Union[SPECS], Field(discriminator="type")]
 PlanAdapter: TypeAdapter = TypeAdapter(Annotated[Union[SPECS + (Clarify,)], Field(discriminator="type")])
 
 EXAMPLES = [
     "What if I bought XMR every time a major company got hacked and held 7 days?",
+    "Buy SOL after it drops 10% in a day and sell 5 days later",
     "Backtest a 3/10 momentum crossover on BTC over the last 90 days with $25k",
     "DCA $100 into HYPE every week since January",
     "What if I bought NVDA perps every Monday open and sold Friday close?",
@@ -177,6 +191,7 @@ EXAMPLES = [
 SYSTEM = """You turn a trader's what-if question into ONE JSON object and nothing else (no prose, no code fences).
 Return exactly one of:
 {"type":"event_buy","market":str,"event_set":"major_hacks"|"custom","custom_dates":[YYYY-MM-DD]|null,"hold_days":int,"side":"long"|"short","size_pct":float}
+{"type":"dip_buy","market":str,"drop_pct":float,"over_days":int,"hold_days":int}   buy after a drop of drop_pct % over over_days days
 {"type":"tail_wallet","address":"0x..40 hex","scale":float|null,"markets":[str]|null}
 {"type":"momentum","market":str,"fast":int,"slow":int,"bar":"1h"|"4h"|"1d"}
 {"type":"meanrev","market":str,"lookback":int,"z":float,"bar":"1h"|"4h"|"1d"}
@@ -209,6 +224,8 @@ def _plan_llm(message: str, defaults: dict) -> Union[Spec, Clarify, None]:
         planned = PlanAdapter.validate_python(data)
         if isinstance(planned, EventBuySpec) and "days" not in data:
             planned.days = _event_window(planned.custom_dates, defaults["days"])
+        if isinstance(planned, DipBuySpec) and "days" not in data:
+            planned.days = 730  # drops worth testing are rare; reach back as far as the window allows
         return planned
     except Exception as e:  # any failure falls through to the rule-based parser
         log.warning("lab llm planner failed: %s", e)
@@ -238,6 +255,7 @@ MONTHS = ["january", "february", "march", "april", "may", "june", "july", "augus
 UNITS = {"day": 1, "week": 7, "month": 30, "year": 365}
 KINDS = [  # first match wins; tail_wallet is handled before these
     ("event_buy", r"hack|breach|exploit|cyber ?attack|ransomware"),
+    ("dip_buy", None),  # DIP_RE below
     ("momentum", r"momentum|crossover|ma cross|moving average"),
     ("meanrev", r"mean[\s-]?rev|reversion|\bfade\b|z[\s-]?score|standard deviation|\bsigma\b"),
     ("dca", r"\bdca\b|dollar[\s-]cost"),
@@ -245,6 +263,13 @@ KINDS = [  # first match wins; tail_wallet is handled before these
     ("dca", r"every\s+(?:other\s+)?(?:week|day|month|\d+\s*days?)|\b(weekly|daily|monthly)\b"),
     ("buy_hold", r"buy (?:and|&) hold|hodl|just bought|bought and held|held it|\bhold\b"),
 ]
+DIP_RE = re.compile(
+    r"(?:drops?|dropped|dips?|dipped|falls?|fell|down|crash(?:es|ed)?|tanks?|tanked|plunges?|plunged|sinks?|sank)\s+"
+    r"(?:by\s+|more than\s+|over\s+|at least\s+)?(\d+(?:\.\d+)?)\s*%"
+    r"|(\d+(?:\.\d+)?)\s*%\s+(?:drop|dip|fall|decline|crash|down day|sell-?off)"
+)
+OVER_RE = re.compile(r"\b(?:in|within|over)\s+(?:(a|one|1)\s+(day|week)|(\d+)\s*(day|week)s?)\b|\b(?:in a single day|daily)\b")
+SELL_AFTER_RE = re.compile(r"(?:sell|exit|close|get out)\w*\s+(?:it\s+|out\s+)?(?:after|in)\s+(\d+)\s*(day|week)s?|(\d+)\s*(day|week)s?\s+later")
 HOLD_RE = re.compile(r"(?:hold|held|holding)\b[^0-9]{0,24}?(\d+)\s*-?\s*(day|week)s?|\bfor\s+(\d+)\s*(day|week)s?\b|(\d+)\s*-?\s*(day|week)\s+hold")
 
 
@@ -315,7 +340,7 @@ def plan_rules(message: str, starting_equity: float, days: int, known: set[str],
             raise LabError(f"{address.group(0)[:12]}… is not a valid wallet address: expected 0x followed by 40 hex characters.")
         return TailWalletSpec(address=address.group(0), **common)
 
-    kind = next((k for k, pat in KINDS if re.search(pat, low)), None)
+    kind = next((k for k, pat in KINDS if (DIP_RE.search(low_nd) if pat is None else re.search(pat, low))), None)
     if kind is None and iso_dates and re.search(r"\b(after|on|following)\b", low):
         kind = "event_buy"
     if kind is None and market and re.search(r"\b(buy|long|go long|get|grab|ape|back|bet on)\b", low):
@@ -358,6 +383,20 @@ def plan_rules(message: str, starting_equity: float, days: int, known: set[str],
         if m := re.search(r"(\d+(?:\.\d+)?)\s*%\s*of", low_nd):
             extra["size_pct"] = min(1.0, float(m.group(1)) / 100)
         return EventBuySpec(market=market, **extra, **common)
+    if kind == "dip_buy":
+        m = DIP_RE.search(low_nd)
+        extra["drop_pct"] = float(m.group(1) or m.group(2))
+        if o := OVER_RE.search(low_nd):
+            n, unit = (1, o.group(2)) if o.group(1) else (int(o.group(3)), o.group(4)) if o.group(3) else (1, "day")
+            n *= 7 if unit == "week" else 1
+            if n <= 30:
+                extra["over_days"] = n
+        if m := SELL_AFTER_RE.search(low_nd) or HOLD_RE.search(low_nd):
+            n, unit = next((g, u) for g, u in zip(m.groups()[::2], m.groups()[1::2]) if g)
+            extra["hold_days"] = int(n) * (7 if unit == "week" else 1)
+        if not explicit_days:
+            common["days"] = 730
+        return DipBuySpec(market=market, **extra, **common)
     if kind == "momentum":
         m = re.search(r"(\d+)\s*/\s*(\d+)", low_nd) or re.search(r"(\d+)\s*(?:and|&|-)\s*(\d+)\s*(?:bar|period|hour|day)?s?\s*(?:ma|sma|ema|moving)", low_nd)
         f, s = (int(m.group(1)), int(m.group(2))) if m else (3, 10)
@@ -462,7 +501,8 @@ def chat(body: ChatIn) -> dict:
     try:
         res = run_backtest(planned, source)
     except NoEventsInWindow as e:
-        return _out("clarify", f"{str(e).capitalize()}. Which window should I use (for example 'over the last 730 days'), or which event dates?")
+        msg = str(e)
+        return _out("clarify", f"{msg[:1].upper()}{msg[1:]}. Which window should I use (for example 'over the last 730 days'), or which event dates?")
     except (SourceUnavailable, ValueError) as e:
         return _out("error", f"Could not run that backtest: {e}", spec=planned.model_dump(mode="json"))
     if planned.type not in ("momentum", "meanrev"):
