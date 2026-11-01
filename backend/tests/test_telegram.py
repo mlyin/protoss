@@ -117,6 +117,82 @@ def test_uninvited_users_wrong_groups_and_bot_messages_are_ignored(client, tmp_p
     assert client.get(f"/huddle/{hid}", headers=ADMIN).json()["theses"] == []
 
 
+def test_private_research_is_separate_from_group_and_accepts_new_users(client, tmp_path):
+    worker, tg, hid = make_bridge(client, tmp_path)
+    worker.live = True
+    calls = []
+
+    class ResearchOnly:
+        def call(self, method, path, body=None):
+            calls.append((method, path, body))
+            assert (method, path) == ("POST", "/lab/chat")
+            return {"kind": "clarify", "reply": "Which holding period should I test?"}
+
+    worker.protoss = ResearchOnly()
+    worker.handle(message(101, 333, "hi", chat=333))
+    assert len(tg.sent[-1]["reply_markup"]["inline_keyboard"]) == 4
+    worker.handle(message(102, 333, "buy XMR after a hack", chat=333))
+    assert len(calls) == 1 and "Which holding period" in tg.sent[-1]["text"]
+    worker.handle(message(103, 111, "/pledge 50", chat=111))
+    worker.handle(message(104, 333, "/status", chat=333))
+    worker.handle(message(105, 333, "Dwarkesh is always right", chat=333))
+    worker.handle(message(106, 333, f"/start join_{CHAT}", chat=333))
+    assert len(calls) == 1
+    assert all(m["chat_id"] in (111, 333) for m in tg.sent)
+    assert client.get(f"/huddle/{hid}", headers=ADMIN).json()["theses"] == []
+    assert client.get(f"/telegram/huddles/{hid}/connections", headers=ADMIN).json() == []
+
+
+def test_private_buttons_failures_and_replay_do_not_reach_orders(client, tmp_path):
+    worker, tg, hid = make_bridge(client, tmp_path)
+    worker.live = True
+
+    class Unavailable:
+        def call(self, method, path, body=None):
+            assert path == "/lab/chat"
+            raise bridge.APIError("unavailable")
+
+    worker.protoss = Unavailable()
+    update = {"update_id": 201, "callback_query": {"id": "p1", "from": {"id": 111},
+              "data": "research:unitree", "message": {"chat": {"id": 111, "type": "private"}}}}
+    worker.handle(update)
+    worker.handle(update)
+    assert len(tg.sent) == 1 and "unavailable" in tg.sent[0]["text"]
+    update["update_id"] = 202
+    update["callback_query"]["data"] = "back:1"
+    worker.handle(update)
+    assert "Choose one" in tg.sent[-1]["text"]
+    assert client.get(f"/huddle/{hid}", headers=ADMIN).json()["theses"] == []
+
+
+def test_private_sim_backend_never_reports_fake_results(client, tmp_path):
+    worker, tg, _ = make_bridge(client, tmp_path)
+    worker.handle(message(301, 111, "buy XMR", chat=111))
+    assert "No simulated result" in tg.sent[-1]["text"]
+
+
+def test_group_upgrade_preserves_checkpoint_and_rejects_other_identities(tmp_path):
+    state = bridge.State(tmp_path / "upgrade.json")
+    old = {"bot": 123, "chat": CHAT, "users": [111, 222]}
+    state.data.update(identity=old, offset=987, sent={"outbox:1:0": 12})
+    new = {**old, "chat": -100456}
+    with pytest.raises(bridge.APIError):
+        bridge.bind_identity(state, new)
+    with pytest.raises(bridge.APIError):
+        bridge.bind_identity(state, {**new, "users": [111, 333]}, CHAT)
+    bridge.bind_identity(state, new, CHAT)
+    saved = bridge.State(state.path).data
+    assert saved["identity"] == new and saved["offset"] == 987
+    assert saved["sent"] == {"outbox:1:0": 12}
+
+
+def test_group_greeting_replies_without_creating_idea(client, tmp_path):
+    worker, tg, hid = make_bridge(client, tmp_path)
+    worker.handle(message(401, 111, "yo"))
+    assert tg.sent[-1]["chat_id"] == CHAT and "I'm here" in tg.sent[-1]["text"]
+    assert client.get(f"/huddle/{hid}", headers=ADMIN).json()["theses"] == []
+
+
 def private_token(tg):
     url = tg.sent[-1]["reply_markup"]["inline_keyboard"][0][0]["url"]
     return parse_qs(urlsplit(url).fragment.split("?", 1)[1])["token"][0]
