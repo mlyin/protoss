@@ -32,7 +32,8 @@ from .models import Org
 
 router = APIRouter(tags=["share"])
 FONTS = Path(__file__).resolve().parent / "data" / "fonts"
-FALLBACK_PNG = Path(__file__).resolve().parents[2] / "brand" / "ad-1200x628.png"
+FALLBACK_PNG = Path(__file__).resolve().parents[2] / "web" / "public" / "probe-social.png"
+PROBE_PNG = Path(__file__).resolve().parents[2] / "web" / "public" / "probe.png"
 W, H = 1200, 630
 INK, SURFACE, TEXT, SECOND, MUTED, RED, POS, NEG = "#121211", "#181816", "#efe9de", "#aaa398", "#8a847a", "#c8102e", "#4cc38a", "#e5484d"
 _png_cache: dict[str, tuple[float, bytes]] = {}
@@ -73,7 +74,9 @@ def page(*, title: str, description: str, image: str, url: str, to: str) -> HTML
 <meta name="twitter:title" content="{e(title)}">
 <meta name="twitter:description" content="{e(description)}">
 <meta name="twitter:image" content="{e(image)}">
-<link rel="icon" href="/mark.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon.svg?v=probe1" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png?v=probe1">
+<meta name="theme-color" content="{INK}">
 <meta http-equiv="refresh" content="0; url={e(to)}">
 <style>body{{background:{INK};color:{TEXT};font:16px Inter,system-ui,sans-serif;display:grid;place-items:center;min-height:100vh;margin:0}}a{{color:{TEXT}}}</style>
 </head><body><p><a href="{e(to)}">{e(title)}</a></p><script>location.replace({to!r})</script></body></html>"""
@@ -122,7 +125,14 @@ def render_card(*, kicker: str, headline: str, stats: list[tuple[str, str, str |
     im = Image.new("RGB", (W, H), INK)
     d = ImageDraw.Draw(im)
     pad = 72
-    d.text((pad, 56), "PROTOSS", font=_font("Anton-Regular.ttf", 34), fill=TEXT)
+    brand_x = pad
+    if PROBE_PNG.exists():
+        with Image.open(PROBE_PNG) as source:
+            mascot = source.convert("RGBA")
+            mascot.thumbnail((62, 62))
+            im.paste(mascot, (pad - 8, 40), mascot)
+        brand_x += 66
+    d.text((brand_x, 56), "PROTOSS", font=_font("Anton-Regular.ttf", 34), fill=TEXT)
     k = _font("Inter-Variable.ttf", 26, "Medium")
     d.text((W - pad - d.textlength(kicker, font=k), 64), kicker, font=k, fill=SECOND)
     big = _font("Anton-Regular.ttf", 76)

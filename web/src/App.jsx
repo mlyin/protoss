@@ -3,22 +3,18 @@ import Approve from './Approve.jsx'
 import Lab from './Lab.jsx'
 import Join from './Join.jsx'
 import Huddle from './Huddle.jsx'
+import TelegramConnect from './TelegramConnect.jsx'
+import TradeReview from './TradeReview.jsx'
+import Probe, { ProbeGallery } from './Probe.jsx'
+import Demo from './Demo.jsx'
 import { Feed, Profile, Legion, useMe } from './Social.jsx'
 import NewLegion from './NewLegion.jsx'
-import heroRaw from '../../brand/hero.svg?raw'
 import { SkelLines, SkelRows } from './ui.jsx'
 
 const fmtUsd = (v) => (v == null ? '—' : '$' + Number(v).toLocaleString(undefined, { maximumFractionDigits: v < 100 ? 2 : 0 }))
 const fmtPct = (v) => (v == null ? '—' : (v > 0 ? '+' : '') + Number(v).toFixed(2) + '%')
 const cls = (v) => (v > 0 ? 'pos' : v < 0 ? 'neg' : '')
 const time = (iso) => new Date(iso).toLocaleTimeString([], { hour12: false })
-
-// brand/hero.svg, inlined: drop its own <style> so the page's ink/paper tokens color it, let it scale, and
-// prefix its classes (.ink -> .hero-ink) because descendant selectors do not reach inside <use> instances.
-const HERO = heroRaw
-  .replace(/<style>[\s\S]*?<\/style>/, '')
-  .replace(/\swidth="1600"\sheight="600"/, '')
-  .replace(/class="([^"]*)"/g, (_, c) => `class="${c.split(/\s+/).map((x) => 'hero-' + x).join(' ')}"`)
 
 function usePoll(url, ms = 3000) {
   const [data, setData] = useState(null)
@@ -162,7 +158,7 @@ function OrgDrawer({ slug, onClose }) {
         </div>
       </div>
       <div className="actions" style={{ margin: 0 }}>
-        <a className="btn sm" href={`#/p/${d.slug}`}>Open legion page</a>
+        <a className="btn sm" href={`#/p/${d.slug}`}>Open group page</a>
         <a className="btn sm ghost" href={`#/join?legion=${encodeURIComponent(d.slug)}`}>Join with card</a>
         <a className="btn sm ghost" href={`#/huddle/${encodeURIComponent(d.slug)}`}>Group chat</a>
       </div>
@@ -181,7 +177,7 @@ function useHash() {
 }
 
 function Mark() {
-  return <img src="/mark.svg" alt="" onError={(e) => { e.currentTarget.style.display = 'none' }} />
+  return <img src="/probe.png" alt="" width="40" height="40" />
 }
 
 // ink or paper. The stored choice wins; otherwise the system setting (see styles.css).
@@ -214,21 +210,65 @@ const MODE_NOTE = {
   sim: 'Sim mode: synthetic prices, no real money.',
   paper: 'Paper mode: real Hyperliquid prices, simulated fills, no real money.',
   testnet: 'Testnet: real orders on Hyperliquid testnet, no real money.',
+  mainnet: 'Mainnet: real Hyperliquid accounts. Trading requires local owner activation.',
 }
 
-function Hero({ mode }) {
+const FLOW = [
+  { title: 'Start with an idea', text: 'Say it in Telegram. “Buy and hold Anthropic on trade.xyz.” Protoss turns the message into a proposal.', label: 'Your group chat', detail: 'Matthew: Buy and hold xyz:ANT', note: 'A proposal is not an order.' },
+  { title: 'Look before you buy', text: 'Use Test an idea to explore a backtest. For a real trade, your private review page shows a current exchange quote, your wallet and the maximum cost.', label: 'Review the idea', detail: 'Market · price · amount · your wallet', note: 'A backtest and a live quote answer different questions.' },
+  { title: 'Choose your amount', text: 'Choose how much you want to put in and the most you are prepared to lose. Your friend makes their own choice. Clicking Back records interest only.', label: 'Your choice', detail: 'You: $20 · Your friend: $50', note: 'Example amounts. Each person confirms for themselves.' },
+  { title: 'Keep your own account', text: 'Each friend chooses their own amount and keeps a separate trade. Real money stays in each person’s account. Shared vaults are a separate option.', label: 'Your money, your trade', detail: 'One idea → your trade + your friend’s trade', note: 'Copying an idea does not combine your money.' },
+  { title: 'Trade, then verify', text: 'Approve your own real trade in your wallet. Protoss checks the exchange fill and posts your receipt to Telegram. The practice demo stays clearly labeled.', label: 'Your receipt', detail: 'Review → wallet approval → exchange → verified fill', note: 'Only an exchange fill counts as a completed real trade.' },
+]
+
+function ProductFlow() {
+  const [active, setActive] = useState(0)
+  useEffect(() => {
+    const observer = new IntersectionObserver((entries) => {
+      const visible = entries.filter((entry) => entry.isIntersecting).sort((a, b) => b.intersectionRatio - a.intersectionRatio)
+      if (visible[0]) setActive(Number(visible[0].target.dataset.step))
+    }, { rootMargin: '-20% 0px -35% 0px', threshold: [0, 0.3, 0.6] })
+    document.querySelectorAll('.flow-step').forEach((step) => observer.observe(step))
+    return () => observer.disconnect()
+  }, [])
+  const go = (index) => {
+    const reduced = globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    document.getElementById(`protoss-step-${index}`)?.scrollIntoView({ behavior: reduced ? 'instant' : 'smooth', block: 'center' })
+  }
+  return <section className="product-flow" aria-label="How Protoss works">
+    <div className="flow-intro"><span className="sub">From a message to your own trade</span><h2>One idea.<br />Follow it all the way.</h2><p>Scroll to see every step, or choose a step below.</p></div>
+    <div className="flow-layout">
+      <aside className="flow-preview">
+        <div className="flow-counter mono">0{active + 1} / 05</div>
+        <nav aria-label="Product walkthrough">{FLOW.map((step, index) => <button key={step.title} onClick={() => go(index)} aria-current={active === index ? 'step' : undefined}>{String(index + 1).padStart(2, '0')} <span>{step.title}</span></button>)}</nav>
+        <div className="flow-receipt"><span className="sub">{FLOW[active].label}</span><strong>{FLOW[active].detail}</strong><p>{FLOW[active].note}</p></div>
+      </aside>
+      <div className="flow-story">{FLOW.map((step, index) => <article className="flow-step" id={`protoss-step-${index}`} data-step={index} key={step.title}>
+        <span className="flow-counter mono">Step 0{index + 1}</span><h3>{step.title}</h3><p>{step.text}</p>
+        <div className="flow-mobile-note sub">{step.note}</div>
+        {index < FLOW.length - 1 ? <button className="ghost" onClick={() => go(index + 1)}>Next: {FLOW[index + 1].title} ↓</button> : <a className="btn primary" href="#/demo">Try it yourself →</a>}
+      </article>)}</div>
+    </div>
+  </section>
+}
+
+function Hero({ mode, live }) {
   return (
     <section className="hero">
       <div className="hero-copy">
-        <h1>Your friends.<br />One wall.</h1>
-        <p>Pool $100 each with your friends. Agents trade it inside the lines you drew. Every fill and every rejected order is public.</p>
+        <span className="hero-product">Protoss</span>
+        <h1>One idea.<br />Your own trade.</h1>
+        <p>Share a trade idea with a friend. Test it, choose your own amounts and follow what happens. Same idea. Separate trades.</p>
         <div className="hero-cta">
-          <a className="btn primary lg" href="#/new">Start a legion</a>
-          <a className="btn lg" href="#/join">Join with card</a>
+          {live && <a className="btn primary lg" href="https://t.me/ProtossTradingDemoBot" target="_blank" rel="noopener noreferrer">Open Telegram</a>}
+          <a className={`btn ${live ? '' : 'primary'} lg`} href="#/demo">Try the practice demo</a>
+          <a className="btn lg" href="#/lab">Test an idea</a>
+          <a className="btn ghost" href="#/probe">Meet your Probe</a>
         </div>
-        {MODE_NOTE[mode] && <div className="hero-mode">{MODE_NOTE[mode]}</div>}
+        {live ? <div className="hero-mode">Real-trade review is enabled. In your Telegram group, send /idea buy and hold ANT, then each person sends /pledge 20 and opens their private review link.</div> : MODE_NOTE[mode] && <div className="hero-mode">{MODE_NOTE[mode]}</div>}
+        <button className="flow-scroll ghost" onClick={() => document.querySelector('.product-flow')?.scrollIntoView({ behavior: globalThis.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth' })}>Scroll to see how it works ↓</button>
       </div>
-      <div className="hero-art" aria-hidden="true" dangerouslySetInnerHTML={{ __html: HERO }} />
+      <div className="hero-art probe-hero"><Probe size={420} /></div>
     </section>
   )
 }
@@ -245,7 +285,7 @@ function Strip({ stats, halted, loading }) {
   )
 }
 
-function Arena({ onAgent, onOrg, sel, selOrg, mode }) {
+function Arena({ onAgent, onOrg, sel, selOrg, mode, live }) {
   const [window, setWindow] = useState(7)
   const [lb, lbErr] = usePoll(`/leaderboard?window_days=${window}`, 3000)
   const [stats] = usePoll('/stats', 5000)
@@ -256,20 +296,23 @@ function Arena({ onAgent, onOrg, sel, selOrg, mode }) {
   const loading = !lb && !lbErr
   return (
     <>
-      <Hero mode={mode} />
-      {lbErr && <div className="notice warn">API unreachable ({lbErr}). Start it with <code>cd backend && uvicorn app.main:app</code></div>}
+      <Hero mode={mode} live={live} />
+      <ProductFlow />
+      <details className="advanced-activity"><summary>See trading activity and advanced controls</summary>
+      <p className="sub">This arena uses {mode || 'loading'} mode. Independent Telegram wallet trades are verified on their private review pages.</p>
+      {lbErr && <div className="notice warn">Trading activity is unavailable. Please try again shortly.</div>}
 
       <Strip stats={stats} halted={halted} loading={loading && !stats} />
 
       <section>
-        <div className="sec-head"><h2>Legions</h2><span className="sub">pooled money under one mandate, traded by agents inside hard limits</span><span className="spacer" /><a className="btn" href="#/new">Start a legion</a></div>
+        <div className="sec-head"><h2>Groups</h2><span className="sub">pooled money under one mandate, traded by agents inside hard limits</span><span className="spacer" /><a className="btn" href="#/new">Start a group</a></div>
         {!orgs && !orgsErr ? (
           <div className="orgs-grid"><div className="card org" aria-hidden="true"><SkelLines n={4} /></div></div>
         ) : (!orgs || orgs.length === 0) ? (
           <div className="card empty">
             <b>No legions yet</b>
             <span>Write a mandate, draw the lines, invite your friends. <code>python scripts/demo.py</code> fills the arena with a sample.</span>
-            <a className="btn primary" href="#/new">Start a legion</a>
+            <a className="btn primary" href="#/new">Start a group</a>
           </div>
         ) : (
           <div className="orgs-grid">
@@ -353,6 +396,7 @@ function Arena({ onAgent, onOrg, sel, selOrg, mode }) {
           </div>
         </aside>
       </div>
+      </details>
     </>
   )
 }
@@ -372,7 +416,7 @@ export default function App() {
 
   const [route, qs] = hash.split('?')
   const query = new URLSearchParams(qs || '')
-  const page = route.startsWith('#/lab') ? 'lab' : route.startsWith('#/feed') ? 'feed' : route.startsWith('#/u/') ? 'user' : route.startsWith('#/p/') ? 'legion' : route.startsWith('#/approve') ? 'approve' : route.startsWith('#/new') ? 'new' : route.startsWith('#/join') ? 'join' : route.startsWith('#/huddle') ? 'huddle' : 'arena'
+  const page = route.startsWith('#/probe') ? 'probe' : route.startsWith('#/trade') ? 'trade' : route.startsWith('#/demo') ? 'demo' : route.startsWith('#/telegram/connect') ? 'telegram' : route.startsWith('#/lab') ? 'lab' : route.startsWith('#/feed') ? 'feed' : route.startsWith('#/u/') ? 'user' : route.startsWith('#/p/') ? 'legion' : route.startsWith('#/approve') ? 'approve' : route.startsWith('#/new') ? 'new' : route.startsWith('#/join') ? 'join' : route.startsWith('#/huddle') ? 'huddle' : 'arena'
   const param = decodeURIComponent(route.split('/')[2] || '')
   const is = (p) => (page === p ? 'on' : '')
 
@@ -382,15 +426,14 @@ export default function App() {
         <div className="header-in">
           <a className="brand" href="#/" aria-label="Protoss, home"><Mark /><span className="word">PROTOSS</span></a>
           <nav className="nav" aria-label="Main">
-            <a className={is('arena')} href="#/">Arena</a>
-            <a className={is('feed')} href="#/feed">Feed</a>
-            <a className={is('lab')} href="#/lab">Lab</a>
-            <a className={is('huddle')} href="#/huddle/demo">Group chat</a>
-            <a className={is('approve')} href="#/approve">Builder fee</a>
+            <a className={is('arena')} href="#/">Home</a>
+            <a className={is('demo')} href="#/demo">Try the demo</a>
+            <a className={is('feed')} href="#/feed">Activity</a>
+            <a className={is('lab')} href="#/lab">Test an idea</a>
           </nav>
           <span className="spacer" />
           <div className="header-right">
-            {health && <span className={`mode ${health.mode}`}><i /><b>{health.mode}</b><span>· {health.markets} markets</span></span>}
+            {page === 'trade' ? <span className="mode mainnet"><b>Real money · mainnet</b></span> : page === 'arena' && health?.telegram_live_enabled ? <span className="mode mainnet"><b>Wallet approvals enabled</b></span> : health && <span className={`mode ${health.mode}`}><i /><b>{health.mode}</b><span>· {health.markets} markets</span></span>}
             <a className="api-link" href="/docs">API</a>
             <ThemeToggle />
           </div>
@@ -398,13 +441,17 @@ export default function App() {
       </header>
 
       <main className={`page ${page === 'arena' ? 'arena' : ''}`}>
-        {page === 'arena' && <Arena sel={sel} selOrg={selOrg} mode={health?.mode} onAgent={(id) => { setSel(id); if (id) setSelOrg(null) }} onOrg={(s) => { setSelOrg(s); if (s) setSel(null) }} />}
+        {page === 'arena' && <Arena sel={sel} selOrg={selOrg} mode={health?.mode} live={health?.telegram_live_enabled} onAgent={(id) => { setSel(id); if (id) setSelOrg(null) }} onOrg={(s) => { setSelOrg(s); if (s) setSel(null) }} />}
         {page === 'lab' && <Lab />}
         {page === 'feed' && <Feed me={me} setMe={setMe} />}
         {page === 'user' && <Profile handle={param} me={me} />}
         {page === 'legion' && <Legion slug={param} me={me} setMe={setMe} />}
         {page === 'new' && <NewLegion me={me} setMe={setMe} />}
         {page === 'join' && <Join legion={query.get('legion')} me={me} />}
+        {page === 'telegram' && <TelegramConnect key={query.get('token')} token={query.get('token')} />}
+        {page === 'trade' && <TradeReview key={query.get('token')} token={query.get('token')} />}
+        {page === 'probe' && <ProbeGallery />}
+        {page === 'demo' && <Demo key={query.get('room') || 'new'} room={query.get('room')} />}
         {page === 'huddle' && <Huddle key={param || 'demo'} name={param || 'demo'} me={me} />}
         {page === 'approve' && <div className="one"><Approve /><a className="back" href="#/">Back to the arena</a></div>}
       </main>

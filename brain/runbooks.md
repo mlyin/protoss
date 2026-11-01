@@ -1,5 +1,13 @@
 # Runbooks
 
+- 2026-10-31: Two-account Telegram and browser demo: `docs/telegram-demo.md`. `scripts/telegram_demo.py`
+  starts an isolated sim API and optional Telegram bridge. It forces mainnet execution off. Browser entry: `/#/demo`.
+  Each participant gets a separate practice trade. Wallet signatures prove ownership only.
+
+- 2026-10-31: Anthropic / Messages acceptance steps are in `docs/live-imessage-test.md`. `scripts/live_check.py`
+  reads mainnet market metadata, public-account positions and fills for `xyz:ANT`, without keys or signing.
+  Explicit mainnet vault mode now exists with execution off by default. Live verification and chat reconciliation of real fills remain outstanding.
+
 ## Run locally
 `pip install -r requirements.txt` then `python scripts/demo.py` (any OS; `run_protoss.bat` on Windows).
 Sim mode, SQLite, opens http://localhost:8000. `DATABASE_URL=postgresql+psycopg://... python scripts/demo.py` for Postgres (truncates tables).
@@ -82,3 +90,10 @@ Env: `PROTOSS_API` (default http://127.0.0.1:8000), `ADMIN_TOKEN`, `BRIDGE_ME`. 
 (JSON list of RSS URLs read for hack headlines), `HUDDLE_QUORUM` (default 2), `APP_URL` (links in chat).
 - 2026-10-31: iMessage extension (in-thread cards) scaffolded in `ios/` (XcodeGen spec, SwiftUI). Build and Simulator steps in
   `ios/README.md`. Written without a Mac in the loop: the first `xcodebuild` on the mini is its first compile.
+
+## Live Telegram copies (added 2026-10-31)
+
+See docs/telegram-demo.md, section "Live copies". Short form: per participant `scripts/wallets.py add tg:<id> --name .. --address 0x..`
+(key at a hidden prompt), `scripts/wallets.py check tg:<id>`, collateral on the xyz dex, then
+`scripts/telegram_demo.py --live --chat <group> --users <id1>,<id2>` and type LIVE. Receipts come from Hyperliquid fill history.
+Matthew's rule: the only thing a participant should touch is Telegram; the one-time authorization is the exception because it is their signature.

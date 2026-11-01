@@ -260,8 +260,16 @@ def _link(path: str) -> str:
     return f"{get_settings().app_url.rstrip('/')}{path}"
 
 
+def is_copy_chat(h: Huddle) -> bool:
+    return h.chat_id.startswith(("telegram:", "web:copies-"))
+
+
 def _can_trade(ex: ExchangeAdapter) -> bool:
-    return ex.name in ("sim", "paper")
+    return ex.name in ("sim", "paper", "copies")
+
+
+def _real(ex: ExchangeAdapter) -> bool:
+    return ex.name == "copies"
 
 
 # ------------------------------------------------------------------------------------------------ the card
@@ -288,6 +296,10 @@ def card_text(t: Thesis) -> str:
                   "Thumbs up to back it. When it plays out, say protoss hit " + str(t.n) + " or protoss miss " + str(t.n) + "."]
         return "\n".join(lines)
     s = t.test or {}
+    if s.get("untested"):
+        lines += [f"{s.get('market')} is listed on Hyperliquid; no price history here to test it, so this is a conviction trade.",
+                  "", "Thumbs up this to back it. Say \"$50 each\" to set the stake.", _link(f"/t/{t.id}")]
+        return "\n".join(lines)
     span = f"{dt.date.fromisoformat(s['start']):%b %Y} to {dt.date.fromisoformat(s['end']):%b %Y}" if s.get("start") else ""
     data = "real Hyperliquid candles" if s.get("real") else "simulated prices, mechanics only"
     ev = s.get("events")
@@ -312,7 +324,9 @@ def propose(db: Session, h: Huddle, author: str, text: str, addressed: bool) -> 
 
     s = get_settings()
     source = get_source(s)
-    known = set(source.markets())
+    ex = get_exchange()
+    tradeable = set(ex.markets())  # what can be traded here; the candle source may know fewer markets
+    known = set(source.markets()) | tradeable
     try:
         planned = plan(text, 10_000.0, 365, known)
     except LabError as e:
@@ -328,14 +342,22 @@ def propose(db: Session, h: Huddle, author: str, text: str, addressed: bool) -> 
             return ["call"]
         return [planned.question] if addressed else []
     market = getattr(planned, "market", None)
-    if market and not source.has(market):
-        return [f"{market} is not listed on Hyperliquid here, so I cannot test that one."] if addressed else []
-    try:
-        res = run_backtest(planned, source)
-    except (NoEventsInWindow, SourceUnavailable, ValueError) as e:
-        return [f"Could not test that: {e}"] if addressed else []
-    t = Thesis(huddle_id=h.id, n=n, author=author, text=text, kind="rule", label=res.label[:160],
-               spec=planned.model_dump(mode="json"), test=_test_summary(planned, res))
+    markets = [market] if market else (getattr(planned, "markets", None) or [])
+    missing = [name for name in markets if not source.has(name) and name not in tradeable]
+    if missing:
+        return [f"{', '.join(missing)} is not listed on Hyperliquid here, so I cannot test that basket."] if addressed else []
+    untested = [name for name in markets if not source.has(name)]
+    if untested:
+        # tradeable but no price history on this source: the card still goes up, without a backtest
+        t = Thesis(huddle_id=h.id, n=n, author=author, text=text, kind="rule", label=planned.label()[:160],
+                   spec=planned.model_dump(mode="json"), test={"market": markets[0] if markets else None, "untested": True})
+    else:
+        try:
+            res = run_backtest(planned, source)
+        except (NoEventsInWindow, SourceUnavailable, ValueError) as e:
+            return [f"Could not test that: {e}"] if addressed else []
+        t = Thesis(huddle_id=h.id, n=n, author=author, text=text, kind="rule", label=res.label[:160],
+                   spec=planned.model_dump(mode="json"), test=_test_summary(planned, res))
     db.add(t)
     db.flush()
     _backer(db, t, author).approved = True
@@ -376,7 +398,7 @@ def set_each(db: Session, ex: ExchangeAdapter, h: Huddle, t: Thesis, who: str, a
             b.pledge_usd = t.each_usd
     db.flush()
     bs = backers(db, t)
-    capped = f" (capped at {_usd(cap)} a person in paper mode)" if amount > cap else ""
+    capped = f" (capped at {_usd(cap)} a person{'' if _real(ex) else ' in paper mode'})" if amount > cap else ""
     if not _maybe_arm(db, ex, h, t):
         need = max(0, h.quorum - sum(b.approved for b in bs))
         more = f" Need {need} more to back it." if need else ""
@@ -391,6 +413,11 @@ def _maybe_arm(db: Session, ex: ExchangeAdapter, h: Huddle, t: Thesis, announce_
     if len(approved) < h.quorum or (t.kind == "rule" and total <= 0):
         if announce_backing and len(approved) >= h.quorum and t.kind == "rule":
             say(db, h, f"Thesis {t.n} is backed by {', '.join(b.who for b in approved)}. How much each? Say \"$50 each\".", thesis_id=t.id)
+        return False
+    if is_copy_chat(h) and t.kind == "rule" and sum((b.pledge_usd or 0) > 0 for b in approved) < h.quorum:
+        if announce_backing:
+            kind = "real order from your own account" if _real(ex) else "paper pledge"
+            say(db, h, f"Thesis {t.n} needs a separate pledge from each participant. Use /pledge 20 to record your own {kind}.", thesis_id=t.id)
         return False
     arm(db, ex, h, t)
     return True
@@ -408,13 +435,57 @@ def arm(db: Session, ex: ExchangeAdapter, h: Huddle, t: Thesis) -> None:
     spec = t.spec or {}
     market = spec.get("market")
     if not _can_trade(ex):
+        if is_copy_chat(h):
+            say(db, h, f"Thesis {t.n} is backed for separate accounts. No real order was sent. Each participant must authorize their own trade in their own wallet; this Telegram demo cannot execute mainnet copies.", thesis_id=t.id)
+            return
         say(db, h, f"Thesis {t.n} is armed: {_usd(total)} pledged by {_who_line(bs)}. This server trades real money, so nothing moves "
                    f"from here: each of you stakes your own share into the legion yourself. {_link('/#/join' + (f'?legion={h.org_slug}' if h.org_slug else ''))}", thesis_id=t.id)
         return
+    if is_copy_chat(h) and not spec.get("_telegram_copy_owner"):
+        # Each copy gets its own thesis, agent, positions and risk ledger. Nothing is pooled.
+        original_spec = dict(spec)
+        copies = []
+        next_n = max(row.n for row in _theses(db, h)) + 1
+        for backer in bs:
+            if (backer.pledge_usd or 0) <= 0:
+                continue
+            child = Thesis(huddle_id=h.id, n=next_n, author=backer.who, text=t.text,
+                           kind="rule", label=f"{t.label} ({backer.who} copy)"[:160], test=t.test,
+                           spec={**original_spec, "_telegram_copy_owner": backer.who})
+            next_n += 1
+            db.add(child)
+            db.flush()
+            db.add(Backer(thesis_id=child.id, who=backer.who, approved=True, pledge_usd=backer.pledge_usd))
+            db.flush()
+            try:
+                arm(db, ex, h, child)
+            except Exception as e:  # a copy that cannot trade (no authorized wallet, cap, exchange refusal) must not stop the others
+                child.status = "halted"
+                say(db, h, f"{backer.who}'s copy did not go out: {e}", "result", child.id)
+                continue
+            copies.append(child.id)
+            for tr in db.scalars(select(Trigger).where(Trigger.thesis_id == child.id)).all():
+                if _real(ex):
+                    lf = getattr(ex, "last_fill", None) or {}
+                    stamp = f" Hyperliquid fill {lf.get('hash', '')[:14]}" if lf.get("hash") else ""
+                    acct = ex.wallets.get(backer.who, {}).get("address", "")
+                    say(db, h, f"{backer.who}'s order filled from their own account {acct[:6]}...{acct[-4:]}: {tr.size:.6g} {tr.market} at {_px(tr.entry_px)}, "
+                               f"{_usd(tr.size * tr.entry_px)} of the {_usd(backer.pledge_usd)} they pledged.{stamp} Real order, real money.", "result", child.id)
+                else:
+                    say(db, h, f"{backer.who}'s separate paper copy filled: {tr.size:.6g} {tr.market} at {_px(tr.entry_px)}. "
+                               f"Paper allocation {_usd(backer.pledge_usd)}. Agent {child.agent_id}. No real funds moved.", "result", child.id)
+        t.spec = {**original_spec, "type": "telegram_copies", "copy_ids": copies}
+        if _real(ex):
+            say(db, h, f"Thesis {t.n}: {len(copies)} separate orders, one per account. Each of you owns your own position and can close it from your own account at any time. No shared pot.", thesis_id=t.id)
+        else:
+            say(db, h, f"Thesis {t.n} created {len(copies)} separate paper accounts. Each participant owns their own copy and its result. No shared pot.", thesis_id=t.id)
+        return
     name = f"huddle{h.id}-t{t.n}-{secrets.token_hex(2)}"
     org = db.scalar(select(Org).where(Org.slug == h.org_slug)) if h.org_slug else None
-    in_org = bool(org and org.status == "live" and market in (org.limits.allowed_markets or []))
-    lim = LimitsIn(max_leverage=2.0, drawdown_flatten_pct=25.0, daily_loss_pct=20.0, allowed_markets=[market] if market else None)
+    in_org = bool(org and not spec.get("_telegram_copy_owner") and org.status == "live" and market in (org.limits.allowed_markets or []))
+    holdings = spec.get("holdings") or []
+    allowed = [item["market"] for item in holdings] if holdings else ([market] if market else None)
+    lim = LimitsIn(max_leverage=1.0 if (holdings or _real(ex)) else 2.0, drawdown_flatten_pct=25.0, daily_loss_pct=20.0, allowed_markets=allowed)  # real money: 1x, always
     body = AgentCreate(name=name, owner=t.author, runtime="huddle rule", strategy=f"{t.label} (thesis {t.n}, {h.title})"[:280], starting_equity=total, limits=lim)
     if in_org:
         from . import orgs as O
@@ -429,12 +500,18 @@ def arm(db: Session, ex: ExchangeAdapter, h: Huddle, t: Thesis) -> None:
     t.agent_id = out["id"]
     where = f" inside {org.name}" if in_org else ""
     waiting = "Waiting for the next major hack." if spec.get("type") == "event_buy" and spec.get("event_set") == "major_hacks" else ""
-    if spec.get("type") == "buy_hold" and market:
+    if spec.get("type") == "basket_hold":
+        # Reserve a small fee/slippage allowance. Each participant keeps their own positions.
+        budget = total * 0.998
+        for holding in holdings:
+            _open(db, ex, h, t, None, f"idea {t.n}: basket copy", holding["market"], budget * holding["weight"])
+    elif spec.get("type") == "buy_hold" and market:
         _open(db, ex, h, t, None, f"thesis {t.n}: buy and hold")
         waiting = ""
     elif spec.get("type") not in ("event_buy", "buy_hold"):
         waiting = "No live runtime for this rule type yet, so the agent holds the cash and the card keeps the backtest."
-    say(db, h, f"Thesis {t.n} is live{where}. {_usd(total)} in paper money from {_who_line(bs)}, max 2x leverage, flattens at -25%. "
+    money = "real money" if _real(ex) else "paper money"
+    say(db, h, f"Thesis {t.n} is live{where}. {_usd(total)} in {money} from {_who_line(bs)}, max {int(lim.max_leverage)}x leverage, flattens at -25%. "
                f"{waiting} Every fill is public: {_link('/#/feed')}".strip(), thesis_id=t.id)
 
 
@@ -472,19 +549,21 @@ def join_live(db: Session, ex: ExchangeAdapter, h: Huddle, t: Thesis, who: str, 
 
 # ------------------------------------------------------------------------------------------------ firing and settling
 
-def _open(db: Session, ex: ExchangeAdapter, h: Huddle, t: Thesis, ev: HuddleEvent | None, reason: str) -> Trigger | None:
+def _open(db: Session, ex: ExchangeAdapter, h: Huddle, t: Thesis, ev: HuddleEvent | None, reason: str,
+          market_override: str | None = None, allocation_usd: float | None = None) -> Trigger | None:
     from .router import submit
 
     agent = db.get(Agent, t.agent_id) if t.agent_id else None
     spec = t.spec or {}
-    market = spec.get("market")
+    market = market_override or spec.get("market")
     if not agent or not market or agent.status != "live":
         return None
     side = spec.get("side", "long")
     mark = ex.mark(market)
     eq = ex.equity(db, agent)
     gross = sum(abs(sz) * ex.mark(m) for m, (sz, _) in ex.positions(db, agent).items())
-    notional = min(float(spec.get("size_pct", 1.0)) * eq, max(0.0, eq - gross))
+    target = allocation_usd if allocation_usd is not None else float(spec.get("size_pct", 1.0)) * eq
+    notional = min(target, max(0.0, eq - gross))
     if notional <= 1:
         say(db, h, f"Thesis {t.n} saw {ev.label if ev else 'its signal'} but its cash is already in a position, so it skipped this one.", thesis_id=t.id)
         return None
@@ -624,6 +703,13 @@ def command(db: Session, ex: ExchangeAdapter, h: Huddle, sender: str, body: str)
     if low in ("score", "scoreboard", "leaderboard", "who's right", "whos right"):
         say(db, h, _score_board(db, h))
         return True
+    if m := re.fullmatch(r"back\s+#?(\d+)", low):
+        t = _by_n(db, h, int(m.group(1)))
+        if not t or t.status != "proposed":
+            say(db, h, f"Thesis {m.group(1)} is not open for backing.")
+        else:
+            approve(db, ex, h, t, sender, True)
+        return True
     if m := re.match(r"^(?:hack|breach|event)\s*[:\-]?\s*(.+)$", body.strip(), re.I):
         rest = m.group(1).strip()
         url = re.search(r"https?://\S+", rest)
@@ -716,6 +802,9 @@ def ingest(db: Session, ex: ExchangeAdapter, h: Huddle, sender: str, text: str =
         return row
     live = _latest_live_rule(db, h) if not t else None
     if live and (YES.match(body) or IN_FOR.search(body)):
+        if is_copy_chat(h):
+            say(db, h, "These separate demo copies are already live. Start a new /idea to change the allocation. No additional funds moved.")
+            return row
         m = IN_FOR.search(body)
         row.thesis_id = live.id
         join_live(db, ex, h, live, sender, _money(m.group(1) or m.group(2)) if m else None)
@@ -809,7 +898,7 @@ def _require_admin(token: str | None) -> None:
 
 def _guard(h: Huddle, token: str | None) -> None:
     """Web huddles are open in sim/paper (a demo of the flow). Real chats only through the bridge's admin token."""
-    if h.is_web and get_settings().arena_mode != "testnet":
+    if h.is_web and get_settings().arena_mode in ("sim", "paper"):
         return
     _require_admin(token)
 
@@ -823,11 +912,14 @@ def thesis_out(db: Session, t: Thesis) -> dict:
     bs = backers(db, t)
     n, wins, pnl = score(db, t)
     trig = db.scalars(select(Trigger).where(Trigger.thesis_id == t.id).order_by(Trigger.id)).all()
+    spec = t.spec or {}
+    holdings = spec.get("holdings") or ([{"market": spec["market"], "weight": 1.0}] if spec.get("market") else [])
     return {
         "id": t.id, "n": t.n, "author": t.author, "text": t.text, "kind": t.kind, "label": t.label, "status": t.status, "outcome": t.outcome,
         "each_usd": t.each_usd, "agent_id": t.agent_id, "test": t.test, "created_at": _aware(t.created_at).isoformat(),
         "backers": [{"who": b.who, "approved": b.approved, "pledge_usd": b.pledge_usd} for b in bs],
         "pledged_usd": round(_pledged(bs), 2), "record": {"closed": n, "up": wins, "pnl_usd": round(pnl, 2)},
+        "proposal": {"version": 1, "holdings": holdings, "instrument": "perpetual", "automatic_updates": False},
         "triggers": [{"market": r.market, "side": r.side, "size": r.size, "entry_px": r.entry_px, "exit_px": r.exit_px, "pnl_usd": r.pnl_usd,
                       "opened_at": _aware(r.opened_at).isoformat(), "exit_at": _aware(r.exit_at).isoformat(), "closed": r.closed} for r in trig],
     }
@@ -836,7 +928,8 @@ def thesis_out(db: Session, t: Thesis) -> dict:
 def huddle_out(db: Session, h: Huddle, limit: int = 200) -> dict:
     msgs = db.scalars(select(HuddleMessage).where(HuddleMessage.huddle_id == h.id).order_by(HuddleMessage.id.desc()).limit(limit)).all()
     people = sorted({m.sender for m in db.scalars(select(HuddleMessage).where(HuddleMessage.huddle_id == h.id, HuddleMessage.from_bot.is_(False))).all()})
-    return {"id": h.id, "chat_id": h.chat_id if h.is_web else "imessage", "title": h.title, "org_slug": h.org_slug, "quorum": h.quorum,
+    return {"id": h.id, "chat_id": h.chat_id if h.is_web else ("telegram" if h.chat_id.startswith("telegram:") else "imessage"), "title": h.title, "org_slug": h.org_slug, "quorum": h.quorum,
+            "mode": get_settings().arena_mode,
             "people": people, "messages": [_msg_out(m) for m in reversed(msgs)], "theses": [thesis_out(db, t) for t in _theses(db, h)]}
 
 
@@ -864,7 +957,7 @@ class EventIn(BaseModel):
 
 @router.post("/huddle", status_code=201)
 def create_huddle(body: HuddleIn, x_admin_token: str | None = Header(default=None), db: Session = DbDep):
-    if not body.chat_id.startswith("web:") or get_settings().arena_mode == "testnet":
+    if not body.chat_id.startswith("web:") or get_settings().arena_mode in ("testnet", "mainnet"):
         _require_admin(x_admin_token)
     h = get_or_create(db, body.chat_id, body.title, body.org_slug)
     if body.quorum:

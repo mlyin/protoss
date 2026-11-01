@@ -445,7 +445,7 @@ class BacktestResult:
         d["final_equity"] = round(self.final_equity, 2)
         for k in ("equity_curve", "benchmark_curve"):
             d[k] = None if d[k] is None else [[ts.isoformat(), round(v, 2)] for ts, v in d[k]]
-        d["trades_sample"] = [{"ts": f.ts.isoformat(), "side": f.side, "px": round(f.px, 6), "size": round(f.size, 6), "reason": f.reason} for f in self.trades_sample]
+        d["trades_sample"] = [{"ts": f.ts.isoformat(), "market": f.market, "side": f.side, "px": round(f.px, 6), "size": round(f.size, 6), "reason": f.reason} for f in self.trades_sample]
         return d
 
 
@@ -546,6 +546,8 @@ def run_backtest(spec, source: PriceSource, now: dt.datetime | None = None) -> B
     notes = [_source_note(source, getattr(spec, "market", None), bar), f"fees: {spec.fee_bps} bp taker per side plus {SLIPPAGE_BPS:g} bp slippage on every fill"]
     if spec.type == "tail_wallet":
         return _run_tail(spec, source, start, end, notes)
+    if spec.type == "basket_hold":
+        return _run_basket(spec, source, start, end, bar)
     candles = cached_candles(source, spec.market, bar, start, end)
     if len(candles) < 2:
         raise ValueError(f"not enough {bar} candles for {spec.market}")
@@ -570,6 +572,27 @@ def run_backtest(spec, source: PriceSource, now: dt.datetime | None = None) -> B
     res = _result(spec.label(), spec.market, start, end, bar, spec.starting_equity, book, curve, bench, notes)
     res.stats = stats
     return res
+
+
+def _run_basket(spec, source, start, end, bar):
+    series = {holding.market: {candle.ts: candle for candle in cached_candles(source, holding.market, bar, start, end)} for holding in spec.holdings}
+    times = sorted(set.intersection(*(set(candles) for candles in series.values())))
+    if len(times) < 2:
+        raise ValueError("not enough overlapping candles for this basket")
+    book, curve = Book(spec.starting_equity, spec.fee_bps), []
+    # Book stores perpetual equity, so it does not deduct the notional itself from cash.
+    for index, timestamp in enumerate(times):
+        marks = {market: candles[timestamp].c for market, candles in series.items()}
+        if index == 0:
+            for holding in spec.holdings:
+                book.fill(timestamp, holding.market, "buy", spec.starting_equity * holding.weight / marks[holding.market], marks[holding.market], "initial basket allocation")
+        if index == len(times) - 1:
+            for holding in spec.holdings:
+                book.close(timestamp, holding.market, marks[holding.market], "end of window")
+        curve.append((timestamp, book.equity(marks)))
+    notes = [_source_note(source, holding.market, bar) for holding in spec.holdings]
+    notes += [f"fees: {spec.fee_bps} bp per side plus {SLIPPAGE_BPS:g} bp slippage", "Fixed initial weights, no rebalancing. Perpetual-market simulation; funding is not modelled."]
+    return _result(spec.label(), ",".join(spec.markets), start, end, bar, spec.starting_equity, book, curve, list(curve), notes)
 
 
 def _run_tail(spec, source: PriceSource, start: dt.datetime, end: dt.datetime, notes: list[str]) -> BacktestResult:

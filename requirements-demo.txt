@@ -1,0 +1,5 @@
+-r requirements.txt
+# Versions exercised by the two-account demo. Keep SDK signing dependencies compatible.
+hyperliquid-python-sdk==0.24.0
+eth-account==0.13.7
+eth-utils<6
