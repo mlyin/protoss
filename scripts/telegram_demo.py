@@ -24,6 +24,13 @@ def main():
     parser.add_argument("--live", action="store_true",
                         help="REAL orders: each participant's own Hyperliquid account through the API wallet they authorized (~/.protoss/wallets.json)")
     args = parser.parse_args()
+    # ~/.protoss/telegram.env (mode 600, outside the repo) holds TELEGRAM_BOT_TOKEN so a restart needs no pasting
+    env_file = Path.home() / ".protoss" / "telegram.env"
+    if not os.environ.get("TELEGRAM_BOT_TOKEN") and env_file.exists():
+        for line in env_file.read_text().splitlines():
+            key, _, value = line.partition("=")
+            if key.strip() == "TELEGRAM_BOT_TOKEN" and value.strip():
+                os.environ["TELEGRAM_BOT_TOKEN"] = value.strip()
     if args.live and args.wallet_review:
         parser.error("choose --live for API wallets OR --wallet-review for per-trade browser approval")
     if args.setup:
