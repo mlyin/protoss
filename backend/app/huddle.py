@@ -315,6 +315,8 @@ def _test_summary(spec, res) -> dict:
         "bench_pct": round(res.benchmark_curve[-1][1] / res.starting_equity * 100 - 100, 2) if res.benchmark_curve else None,
         "real": not any("simulated" in n for n in res.notes),
         "source": res.notes[0] if res.notes else "",
+        "notes": list(res.notes),
+        "coverage": res.coverage,
         "curve": _thin(res.equity_curve),
         "bench": _thin(res.benchmark_curve or []),
     }
@@ -326,7 +328,7 @@ def _test_summary(spec, res) -> dict:
 
 
 def _verdict(t: Thesis, s: dict) -> list[str]:
-    """Plain words first: is there an edge, how did the plain market do, and how much history is behind it."""
+    """Describe observed performance without treating a mean difference as proof of predictability."""
     spec, mk = t.spec or {}, s.get("market", "")
     start, end = (dt.date.fromisoformat(s["start"]), dt.date.fromisoformat(s["end"])) if s.get("start") else (None, None)
     days = (end - start).days if start else 0
@@ -337,14 +339,13 @@ def _verdict(t: Thesis, s: dict) -> list[str]:
         what, many = {"major_hacks": ("a hack", "hacks"), "dwarkesh": ("an episode", "episodes")}.get(s.get("event_set"), ("an event", "events"))
         hold = s.get("hold_days") or 1
         after = f"the day after {what}" if hold == 1 else f"over the {hold} days after {what}"
-        gap = ev["event_mean_pct"] - ev["any_mean_pct"]
-        word = "No edge." if gap <= 0 else "Barely an edge." if gap < 0.5 else "Some edge."
-        out.append(f"{word} {mk} averaged {ev['event_mean_pct']:+.1f}% {after}, {ev['any_mean_pct']:+.1f}% on any day. "
+        out.append(f"Historical comparison: {mk} averaged {ev['event_mean_pct']:+.1f}% {after}, {ev['any_mean_pct']:+.1f}% over the same hold from any bar. "
                    f"{ev['event_up']} of {ev['events']} were up.")
         hold_line = f" Just holding {mk}: {s['bench_pct']:+.1f}%." if s.get("bench_pct") is not None else ""
         out.append(f"As a rule since {since}: {s['return_pct']:+.1f}%, worst drop {s['max_drawdown_pct']:.1f}%.{hold_line}")
         if ev["events"] < 40:
             out.append(f"{ev['events']} {many} is a small sample.")
+        out.append("Overlapping observations are not independent. This comparison does not establish a predictive edge.")
     elif spec.get("type") == "buy_hold" and spec.get("side") == "short":
         bench = s.get("bench_pct")
         out.append(f"Shorting {mk} since {since}: {s['return_pct']:+.1f}%" + (f", while {mk} moved {bench:+.1f}%." if bench is not None else "."))
@@ -354,7 +355,7 @@ def _verdict(t: Thesis, s: dict) -> list[str]:
         bench = f", just holding {mk} {s['bench_pct']:+.1f}%" if s.get("bench_pct") is not None else ""
         out.append(f"As a rule since {since}: {s.get('return_pct', 0):+.1f}%{bench}, worst drop {s.get('max_drawdown_pct', 0):.1f}%, {s.get('trades', 0)} trades.")
     if start and days < 60:
-        out.append(f"Only {days} days of price history ({mk} listed {start:%b %-d}), so this is a snapshot, not evidence.")
+        out.append(f"Only {days} days of available price history, starting {start:%b %-d}; too little to judge repeatability.")
     return out
 
 
@@ -374,7 +375,8 @@ def card_text(t: Thesis) -> str:
         return "\n".join(lines)
     lines += _verdict(t, s)
     data = "Real Hyperliquid prices. Fees and slippage included, funding not." if s.get("real") else "Simulated prices: this shows the mechanics only."
-    lines += [data, "", "Thumbs up to back it, then each of you says \"in for 20\" with your own amount.", _link(f"/t/{t.id}")]
+    caveats = [note for note in s.get('notes', []) if note.startswith(('event dataset:', 'event timing:', 'history coverage:')) or 'cached in the repo' in note]
+    lines += [data, *caveats, "", "Thumbs up to back it, then each of you says \"in for 20\" with your own amount.", _link(f"/t/{t.id}")]
     return "\n".join(lines)
 
 
@@ -421,6 +423,9 @@ def propose(db: Session, h: Huddle, author: str, text: str, addressed: bool) -> 
             res = run_backtest(planned, source)
         except (NoEventsInWindow, SourceUnavailable, ValueError) as e:
             return [f"Could not test that: {e}"] if addressed else []
+        if s.arena_mode != 'sim' and any('simulated prices' in note.lower() for note in res.notes):
+            say(db, h, 'Real market history is unavailable. No simulated result or trade was created.')
+            return ['unavailable']
         t = Thesis(huddle_id=h.id, n=n, author=author, text=text, kind="rule", label=res.label[:160],
                    spec=planned.model_dump(mode="json"), test=_test_summary(planned, res))
     db.add(t)

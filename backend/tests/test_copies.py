@@ -130,6 +130,12 @@ def live(tmp_path, monkeypatch):
     cache.mkdir()
     monkeypatch.setattr(backtest.FileCandles, "DIR", cache)
     backtest._source = None
+    class FixtureHistory(backtest.SimCandles):
+        # Deterministic stand-in for the historical-data contract. Never call
+        # the public market API from these isolated execution-path tests.
+        name = 'hyperliquid'
+
+    monkeypatch.setattr(backtest, 'get_source', lambda settings: FixtureHistory(settings))
     get_settings.cache_clear()
     dbmod.reset_engine_for_tests()
     ex = make_copies(get_settings())

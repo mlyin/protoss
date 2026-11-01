@@ -547,6 +547,7 @@ def _reply(spec, res: BacktestResult, simulated: bool) -> str:
     ]
     if spec.type == "event_buy" and spec.event_set == "major_hacks":
         caveats.append("The hack list is a curated, illustrative set, so verify the dates before relying on it.")
+    caveats.extend(note for note in res.notes if note.startswith(('baseline:', 'event dataset:', 'event timing:', 'history coverage:')) or 'cached in the repo' in note)
     return " ".join([s1, s2] + caveats)
 
 
@@ -578,4 +579,7 @@ def chat(body: ChatIn) -> dict:
     except (SourceUnavailable, ValueError) as e:
         return _out("error", f"Could not run that backtest: {e}", spec=planned.model_dump(mode="json"))
     why = (theme(body.message) or (None, ""))[1]
-    return _out("backtest", " ".join(filter(None, [why, _reply(planned, res, source.name != "hyperliquid")])), planned.model_dump(mode="json"), res.as_dict(), _deployable(planned, res))
+    simulated = any('simulated prices' in note.lower() for note in res.notes)
+    if simulated and get_settings().arena_mode != 'sim':
+        return _out('error', 'Real market history is unavailable. No simulated performance result was substituted.', spec=planned.model_dump(mode='json'))
+    return _out("backtest", " ".join(filter(None, [why, _reply(planned, res, simulated)])), planned.model_dump(mode="json"), res.as_dict(), _deployable(planned, res))
