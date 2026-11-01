@@ -4,6 +4,10 @@ The website and Telegram use the same practice engine. Each person confirms thei
 gets a separate practice account and fill. Money is not pooled. Neither demo places a real order.
 The browser's You / Your friend buttons are demo roles. Telegram uses two allowlisted numeric user IDs.
 
+The default crypto example is 60% Bitcoin and 40% Ethereum. The complete percentage split is shown before
+confirmation and kept with each copy. These are Hyperliquid perpetual markets, not ownership of BTC or ETH.
+Each participant confirms their own practice amount. Copying version 1 does not authorize future changes.
+
 ## Install the demo in a separate folder on the Mac
 
 Once the branch is available on GitHub, run these commands in Terminal. Keep your existing live checkout running.
@@ -28,12 +32,25 @@ The demo needs Python 3.11 or newer and Node/npm. If `~/protoss-demo` already ex
 .venv/bin/python scripts/telegram_demo.py --web-only
 ```
 
-Open http://127.0.0.1:8001/#/demo on the same computer. Click Test this idea, confirm $20 as You,
-switch to Your friend and confirm $50. The two result cards show independently simulated fills.
+Open http://127.0.0.1:8001/#/demo on the same computer. Pick Crypto starter, click Test this idea,
+review the 60/40 split and confirm $20 as You. Switch to Your friend and confirm $50. The two result
+cards each show independently simulated BTC and ETH fills. A small allowance is left for trading costs.
 Share this demo copies the room link; the other browser must be able to reach the same host.
 Stop with Ctrl-C before running the Telegram version on the same port.
 
 ## Connect the Telegram bot
+
+The easiest route after installation is the guided setup:
+
+```sh
+.venv/bin/python scripts/telegram_demo.py --setup
+```
+
+Paste the bot token into the hidden terminal prompt. The setup prints your bot's username. Add that bot
+and both accounts to a private Telegram group, send the displayed `/help@YOUR_BOT_USERNAME` command from
+each account, then press Enter in Terminal. The setup finds and pins the group and two human user IDs,
+then starts the isolated practice server and bridge. The token stays in process memory and is not saved.
+If you prefer to enter the IDs yourself, use the manual route below.
 
 1. Create a private group. Add your two Telegram accounts and the bot. Keep bot privacy mode on.
 2. In that group, send `/help@YOUR_BOT_USERNAME` once from each account. Replace the username with the bot's real username.
@@ -68,7 +85,8 @@ It does not change the live server's environment. First startup skips old Telegr
 From the first Telegram account:
 
 ```text
-/idea buy and hold Anthropic
+/demo
+/idea buy and hold 60% BTC and 40% ETH
 /pledge 20
 ```
 
@@ -79,9 +97,11 @@ From the second:
 /pledge 50
 ```
 
-You can tap Back this idea instead of `/back 1`. Idea numbers increase on later runs; use the number
+`/demo` shows crypto example buttons; tapping the 60/40 button replaces typing the `/idea` command.
+Do one or the other to create a single idea. You can tap Back this idea instead of `/back 1`. Idea numbers increase on later runs; use the number
 on the current card. After both participants confirm amounts, expect two separate practice-fill
-receipts: $20 for the first account, $50 for the second. Same display names do not merge the accounts.
+receipts: a BTC/ETH copy with a $20 practice budget for the first account, and a separate BTC/ETH copy
+with a $50 budget for the second. The exact fill values can be smaller because of costs. Same display names do not merge the accounts.
 `/status` shows the ideas and wallet connections. `/help` lists commands. Plain messages are ignored.
 
 ## Optional: prove that each participant controls their wallet
@@ -108,4 +128,5 @@ be described as working. The existing shared-vault adapter is a different produc
 - Outgoing chunks are checkpointed before acknowledging the API outbox. A crash between Telegram accepting
   a send and the local checkpoint can duplicate a receipt; Telegram sendMessage has no idempotency key.
 - The website uses the same idea/backing/copy engine, in its own browser demo room. It is not a live mirror of the Telegram group.
+- Basket history uses overlapping candles for every asset, includes estimated fees/slippage, and does not model funding. It does not rebalance automatically. Unknown assets or invalid percentages are rejected rather than silently substituted.
 - Cryptographic wallet checks are tested locally. Live Telegram delivery still requires your token and the two accounts.

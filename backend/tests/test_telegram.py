@@ -177,3 +177,87 @@ def test_link_creation_needs_admin_and_a_telegram_group(client):
     body = {"huddle_id": 999, "telegram_user_id": "111", "display_name": "A"}
     assert client.post("/telegram/links", json=body).status_code == 403
     assert client.post("/telegram/links", json=body, headers=ADMIN).status_code == 404
+
+
+def test_crypto_basket_has_four_independent_fills(client, tmp_path):
+    worker, tg, hid = make_bridge(client, tmp_path)
+    worker.handle(message(1, 111, "/demo"))
+    assert tg.sent[-1]["reply_markup"]["inline_keyboard"][0][0]["callback_data"] == "idea:crypto"
+    worker.handle({"update_id": 2, "callback_query": {"id": "crypto", "from": {"id": 111}, "data": "idea:crypto",
+        "message": {"chat": {"id": CHAT, "type": "supergroup"}}}})
+    worker.handle(message(3, 111, "/pledge 20"))
+    worker.handle(message(4, 222, "/pledge 50"))
+    worker.handle(message(4, 222, "/pledge 50"))
+    rows = client.get(f"/huddle/{hid}", headers=ADMIN).json()["theses"]
+    assert rows[0]["proposal"]["holdings"] == [{"market": "BTC", "weight": 0.6}, {"market": "ETH", "weight": 0.4}]
+    assert rows[0]["proposal"]["automatic_updates"] is False
+    assert {row["author"] for row in rows[1:]} == {"tg:111", "tg:222"}
+    assert len({row["agent_id"] for row in rows[1:]}) == 2
+    for row, total in zip(rows[1:], [20, 50]):
+        assert row["pledged_usd"] == total
+        assert {fill["market"] for fill in row["triggers"]} == {"BTC", "ETH"}
+        values = {fill["market"]: fill["size"] * fill["entry_px"] for fill in row["triggers"]}
+        assert values["BTC"] / sum(values.values()) == pytest.approx(0.6, abs=0.001)
+        assert sum(values.values()) <= total
+    # A new idea does not silently change the existing copies.
+    frozen = [row["proposal"] for row in rows[1:]]
+    worker.handle(message(5, 111, "/idea buy and hold SOL"))
+    after = client.get(f"/huddle/{hid}", headers=ADMIN).json()["theses"]
+    assert [row["proposal"] for row in after[1:3]] == frozen
+
+
+def test_browser_crypto_demo_uses_the_same_engine(client):
+    room = client.get("/huddle/web/copies-basket-test").json()
+    for sender, text in [("You", "protoss buy and hold 60% BTC and 40% ETH"), ("You", "in for 20"), ("Your friend", "in for 50")]:
+        assert client.post(f"/huddle/{room['id']}/messages", json={"sender": sender, "text": text}).status_code == 201
+    result = client.get(f"/huddle/{room['id']}").json()
+    assert len(result["theses"]) == 3
+    assert all(len(copy["triggers"]) == 2 for copy in result["theses"][1:])
+
+
+def test_invalid_basket_is_not_silently_replaced(client):
+    for text in ["Buy and hold 60% BTC and 60% ETH", "Buy and hold 60% BTC and 40% ETH and SOL",
+                 "Buy and hold 60% BTC and 40% NONEXISTENT"]:
+        result = client.post("/lab/chat", json={"message": text}).json()
+        assert result["kind"] in ("clarify", "error"), result
+
+
+def test_basket_backtest_contains_both_assets_and_costs(client):
+    result = client.post("/lab/chat", json={"message": "Buy and hold 60% BTC and 40% ETH", "days": 30}).json()
+    assert result["kind"] == "backtest", result
+    assert {fill["market"] for fill in result["result"]["trades_sample"]} == {"BTC", "ETH"}
+    assert any("funding is not modelled" in note for note in result["result"]["notes"])
+    assert result["deployable"]["markets"] == ["BTC", "ETH"]
+
+
+def test_setup_discovers_only_human_group_participants():
+    updates = [message(1, 111, "/help"), message(2, 222, "/help"), message(3, 999, "/start", chat=999)]
+    bot = message(4, 777, "/help")
+    bot["message"]["from"]["is_bot"] = True
+    updates += [bot, {"update_id": 5, "channel_post": {"chat": {"id": -999, "type": "channel"}}}]
+    groups = bridge.discover_groups(updates)
+    assert set(groups) == {CHAT}
+    assert groups[CHAT]["users"] == {111, 222}
+
+
+def test_guided_setup_keeps_token_out_of_output(monkeypatch, capsys):
+    token = "unit-test-token-not-a-real-credential"
+    monkeypatch.delenv("TELEGRAM_BOT_TOKEN", raising=False)
+    monkeypatch.setattr(bridge.getpass, "getpass", lambda prompt: token)
+    monkeypatch.setattr("builtins.input", lambda prompt: "")
+    class SetupTelegram:
+        def __init__(self, supplied):
+            assert supplied == token
+        def call(self, method, **body):
+            if method == "getMe":
+                return {"username": "demo_bot"}
+            if method == "getWebhookInfo":
+                return {}
+            assert method == "getUpdates"
+            return [message(1, 111, "/help"), message(2, 222, "/help")]
+    monkeypatch.setattr(bridge, "Telegram", SetupTelegram)
+    monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "")
+    assert bridge.setup_demo() == (CHAT, "111,222")
+    assert token not in capsys.readouterr().out
+    # Restore via monkeypatch rather than leaving a token in the process environment.
+    monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "")

@@ -1,5 +1,7 @@
 # Decisions
 
+- 2026-10-31: Matthew wants the idea-to-portfolio flow demonstrated socially in the website and Telegram. Start with an explicit 60% BTC / 40% ETH practice basket, separate budgets and approvals, and independent receipts. Label perpetual markets and simulation clearly. Add guided local bot setup so the token never needs to enter chat. Real per-account execution remains a separate acceptance step.
+
 - 2026-10-31: Matthew chose Telegram for the working two-account demo, with a playable browser version. iMessage stays a visual demo for now. Each person copies the same idea into a separate account; no shared stake or payout split. Use simple product language: idea, group, practice money, trade copy. Implementation names can stay unchanged.
 
 - 2026-10-31: Staking signs vaultTransfer in the browser with web/src/hlsign.js (L1 phantom-agent EIP-712, hash and r/s/v verified against hyperliquid-python-sdk). Provider is window.protossWallet (Privy embedded, still to wire, needs PRIVY_APP_ID) or an injected wallet; injected wallets may refuse chain-1337 typed data and the UI says so.

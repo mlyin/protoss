@@ -7,6 +7,7 @@ Set TELEGRAM_BOT_TOKEN and ADMIN_TOKEN locally. `inspect` prints chat/user IDs o
 from __future__ import annotations
 
 import argparse
+import getpass
 import json
 import os
 import re
@@ -70,7 +71,55 @@ class State:
         temp.replace(self.path)
 
 
-HELP = ("Protoss demo\n/idea buy and hold Anthropic\n/back 1 (or tap Back this idea)\n"
+def discover_groups(updates):
+    """Find actual human senders in groups, never channels, anonymous posts or private chats."""
+    groups = {}
+    for update in updates:
+        message = update.get("message", {})
+        chat, user = message.get("chat", {}), message.get("from", {})
+        if chat.get("type") not in ("group", "supergroup") or user.get("is_bot") or not user.get("id"):
+            continue
+        group = groups.setdefault(chat["id"], {"title": chat.get("title", "Demo group"), "users": set()})
+        group["users"].add(user["id"])
+    return groups
+
+
+def setup_demo():
+    """Run only in the owner's terminal. The token is hidden and never written to disk."""
+    token = os.environ.get("TELEGRAM_BOT_TOKEN") or getpass.getpass("Telegram bot token (hidden): ").strip()
+    if not token:
+        raise APIError("a bot token is required")
+    telegram = Telegram(token)
+    me = telegram.call("getMe")
+    if telegram.call("getWebhookInfo").get("url"):
+        raise APIError("use a dedicated demo bot without a webhook")
+    print(f"Add @{me['username']} and both accounts to one private Telegram group.")
+    print(f"Send /help@{me['username']} in that group once from EACH account. Keep privacy mode enabled.")
+    while True:
+        answer = input("Press Enter when both accounts have sent it, or type q to cancel: ").strip()
+        if answer.lower() == "q":
+            raise APIError("setup cancelled")
+        groups = discover_groups(telegram.call("getUpdates", timeout=0, allowed_updates=["message", "callback_query"]))
+        if not groups:
+            print("No group messages found. Check that the bot is a member and both commands mention its exact username.")
+            continue
+        for chat_id, group in groups.items():
+            title = re.sub(r"[\x00-\x1f\x7f]", "", group["title"])
+            print(f"Group {chat_id}: {title}; participant IDs: {','.join(str(user) for user in sorted(group['users']))}")
+        chat_id = next(iter(groups)) if len(groups) == 1 else int(input("Enter the intended group ID: "))
+        if chat_id not in groups:
+            print("That group was not found. Try again.")
+            continue
+        users = sorted(groups[chat_id]["users"])
+        if len(users) != 2:
+            print("The demo needs exactly two human accounts in the pending messages. Use a new private demo group.")
+            continue
+        print(f"Using group {chat_id} with participant IDs {users[0]} and {users[1]}. Practice trading only.")
+        os.environ["TELEGRAM_BOT_TOKEN"] = token
+        return chat_id, ",".join(str(user) for user in users)
+
+
+HELP = ("Protoss practice demo\n/demo (choose a crypto example)\n/idea buy and hold 60% BTC and 40% ETH\n/back 1 (or tap Back this idea)\n"
         "/pledge 20 (your own paper pledge)\n/status\n/join (private wallet connection)\n"
         "Wallet ownership is checked with a signature. Chat backing never authorizes spending.")
 
@@ -134,10 +183,16 @@ class Bridge:
             return
         key = f"update:{uid}"
         if callback:
-            match = re.fullmatch(r"back:([1-9][0-9]*)", callback.get("data", ""))
-            if not match or private:
+            payload = callback.get("data", "")
+            match = re.fullmatch(r"back:([1-9][0-9]*)", payload)
+            if private:
                 return
-            text = f"protoss back {match[1]}"
+            if match:
+                text = f"protoss back {match[1]}"
+            elif payload in ("idea:crypto", "idea:bitcoin"):
+                text = "protoss buy and hold " + ("60% BTC and 40% ETH" if payload == "idea:crypto" else "BTC")
+            else:
+                return
         else:
             raw = message.get("text", "").strip()
             match = re.fullmatch(r"/([a-z]+)(?:@([A-Za-z0-9_]+))?(?:\s+([\s\S]*))?", raw)
@@ -157,6 +212,11 @@ class Bridge:
                 return
             if command in ("start", "help"):
                 self.send(self.chat, HELP, key)
+                return
+            if command == "demo":
+                self.send(self.chat, "Choose a practice idea. You and your friend each choose your own amount. No real money moves. These examples use perpetual markets, not coin ownership.", key,
+                    [[{"text": "60% Bitcoin + 40% Ethereum", "callback_data": "idea:crypto"}],
+                     [{"text": "Bitcoin only", "callback_data": "idea:bitcoin"}]])
                 return
             if command == "join":
                 url = f"https://t.me/{self.username}?start=join_{self.chat}"
@@ -181,7 +241,7 @@ class Bridge:
                           "guid": f"tg-update:{uid}"})
         self.drain()
         if callback:
-            self.telegram.call("answerCallbackQuery", callback_query_id=callback["id"], text="Backing recorded. No funds moved.")
+            self.telegram.call("answerCallbackQuery", callback_query_id=callback["id"], text="Demo step recorded. No funds moved.")
 
 
 def main():

@@ -15,10 +15,19 @@ import urllib.request
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--web-only", action="store_true")
+    parser.add_argument("--setup", action="store_true", help="guided local token, group and two-account setup")
     parser.add_argument("--chat", type=int)
     parser.add_argument("--users")
     parser.add_argument("--port", type=int, default=8001)
     args = parser.parse_args()
+    if args.setup:
+        if args.web_only or args.chat or args.users:
+            parser.error("use --setup on its own, without --web-only, --chat or --users")
+        from telegram_bridge import setup_demo, APIError
+        try:
+            args.chat, args.users = setup_demo()
+        except (APIError, ValueError, EOFError) as exc:
+            parser.exit(1, str(exc) + "\n")
     if not args.web_only and (not args.chat or not args.users or not os.environ.get("TELEGRAM_BOT_TOKEN")):
         parser.error("set TELEGRAM_BOT_TOKEN locally and supply --chat and --users, or use --web-only")
     root = Path(__file__).resolve().parents[1]

@@ -332,8 +332,10 @@ def propose(db: Session, h: Huddle, author: str, text: str, addressed: bool) -> 
             return ["call"]
         return [planned.question] if addressed else []
     market = getattr(planned, "market", None)
-    if market and not source.has(market):
-        return [f"{market} is not listed on Hyperliquid here, so I cannot test that one."] if addressed else []
+    markets = [market] if market else (getattr(planned, "markets", None) or [])
+    missing = [name for name in markets if not source.has(name)]
+    if missing:
+        return [f"{', '.join(missing)} is not listed on Hyperliquid here, so I cannot test that basket."] if addressed else []
     try:
         res = run_backtest(planned, source)
     except (NoEventsInWindow, SourceUnavailable, ValueError) as e:
@@ -440,17 +442,18 @@ def arm(db: Session, ex: ExchangeAdapter, h: Huddle, t: Thesis) -> None:
             db.flush()
             arm(db, ex, h, child)
             copies.append(child.id)
-            tr = db.scalar(select(Trigger).where(Trigger.thesis_id == child.id))
-            if tr:
+            for tr in db.scalars(select(Trigger).where(Trigger.thesis_id == child.id)).all():
                 say(db, h, f"{backer.who}'s separate paper copy filled: {tr.size:.6g} {tr.market} at {_px(tr.entry_px)}. "
                            f"Paper allocation {_usd(backer.pledge_usd)}. Agent {child.agent_id}. No real funds moved.", "result", child.id)
-        t.spec = {"type": "telegram_copies", "market": market, "copy_ids": copies}
+        t.spec = {**original_spec, "type": "telegram_copies", "copy_ids": copies}
         say(db, h, f"Thesis {t.n} created {len(copies)} separate paper accounts. Each participant owns their own copy and its result. No shared pot.", thesis_id=t.id)
         return
     name = f"huddle{h.id}-t{t.n}-{secrets.token_hex(2)}"
     org = db.scalar(select(Org).where(Org.slug == h.org_slug)) if h.org_slug else None
     in_org = bool(org and not spec.get("_telegram_copy_owner") and org.status == "live" and market in (org.limits.allowed_markets or []))
-    lim = LimitsIn(max_leverage=2.0, drawdown_flatten_pct=25.0, daily_loss_pct=20.0, allowed_markets=[market] if market else None)
+    holdings = spec.get("holdings") or []
+    allowed = [item["market"] for item in holdings] if holdings else ([market] if market else None)
+    lim = LimitsIn(max_leverage=1.0 if holdings else 2.0, drawdown_flatten_pct=25.0, daily_loss_pct=20.0, allowed_markets=allowed)
     body = AgentCreate(name=name, owner=t.author, runtime="huddle rule", strategy=f"{t.label} (thesis {t.n}, {h.title})"[:280], starting_equity=total, limits=lim)
     if in_org:
         from . import orgs as O
@@ -465,7 +468,12 @@ def arm(db: Session, ex: ExchangeAdapter, h: Huddle, t: Thesis) -> None:
     t.agent_id = out["id"]
     where = f" inside {org.name}" if in_org else ""
     waiting = "Waiting for the next major hack." if spec.get("type") == "event_buy" and spec.get("event_set") == "major_hacks" else ""
-    if spec.get("type") == "buy_hold" and market:
+    if spec.get("type") == "basket_hold":
+        # Reserve a small fee/slippage allowance. Each participant keeps their own positions.
+        budget = total * 0.998
+        for holding in holdings:
+            _open(db, ex, h, t, None, f"idea {t.n}: basket copy", holding["market"], budget * holding["weight"])
+    elif spec.get("type") == "buy_hold" and market:
         _open(db, ex, h, t, None, f"thesis {t.n}: buy and hold")
         waiting = ""
     elif spec.get("type") not in ("event_buy", "buy_hold"):
@@ -508,19 +516,21 @@ def join_live(db: Session, ex: ExchangeAdapter, h: Huddle, t: Thesis, who: str, 
 
 # ------------------------------------------------------------------------------------------------ firing and settling
 
-def _open(db: Session, ex: ExchangeAdapter, h: Huddle, t: Thesis, ev: HuddleEvent | None, reason: str) -> Trigger | None:
+def _open(db: Session, ex: ExchangeAdapter, h: Huddle, t: Thesis, ev: HuddleEvent | None, reason: str,
+          market_override: str | None = None, allocation_usd: float | None = None) -> Trigger | None:
     from .router import submit
 
     agent = db.get(Agent, t.agent_id) if t.agent_id else None
     spec = t.spec or {}
-    market = spec.get("market")
+    market = market_override or spec.get("market")
     if not agent or not market or agent.status != "live":
         return None
     side = spec.get("side", "long")
     mark = ex.mark(market)
     eq = ex.equity(db, agent)
     gross = sum(abs(sz) * ex.mark(m) for m, (sz, _) in ex.positions(db, agent).items())
-    notional = min(float(spec.get("size_pct", 1.0)) * eq, max(0.0, eq - gross))
+    target = allocation_usd if allocation_usd is not None else float(spec.get("size_pct", 1.0)) * eq
+    notional = min(target, max(0.0, eq - gross))
     if notional <= 1:
         say(db, h, f"Thesis {t.n} saw {ev.label if ev else 'its signal'} but its cash is already in a position, so it skipped this one.", thesis_id=t.id)
         return None
@@ -869,11 +879,14 @@ def thesis_out(db: Session, t: Thesis) -> dict:
     bs = backers(db, t)
     n, wins, pnl = score(db, t)
     trig = db.scalars(select(Trigger).where(Trigger.thesis_id == t.id).order_by(Trigger.id)).all()
+    spec = t.spec or {}
+    holdings = spec.get("holdings") or ([{"market": spec["market"], "weight": 1.0}] if spec.get("market") else [])
     return {
         "id": t.id, "n": t.n, "author": t.author, "text": t.text, "kind": t.kind, "label": t.label, "status": t.status, "outcome": t.outcome,
         "each_usd": t.each_usd, "agent_id": t.agent_id, "test": t.test, "created_at": _aware(t.created_at).isoformat(),
         "backers": [{"who": b.who, "approved": b.approved, "pledge_usd": b.pledge_usd} for b in bs],
         "pledged_usd": round(_pledged(bs), 2), "record": {"closed": n, "up": wins, "pnl_usd": round(pnl, 2)},
+        "proposal": {"version": 1, "holdings": holdings, "instrument": "perpetual", "automatic_updates": False},
         "triggers": [{"market": r.market, "side": r.side, "size": r.size, "entry_px": r.entry_px, "exit_px": r.exit_px, "pnl_usd": r.pnl_usd,
                       "opened_at": _aware(r.opened_at).isoformat(), "exit_at": _aware(r.exit_at).isoformat(), "closed": r.closed} for r in trig],
     }

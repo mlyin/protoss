@@ -111,6 +111,33 @@ class BuyHoldSpec(_Common):
     market: str
 
 
+class BasketHolding(BaseModel):
+    market: str
+    weight: float = Field(gt=0, le=1, allow_inf_nan=False)
+
+    @field_validator("market")
+    @classmethod
+    def normalize(cls, value):
+        return norm_market(value)
+
+
+class BasketHoldSpec(_Common):
+    type: Literal["basket_hold"] = "basket_hold"
+    holdings: list[BasketHolding] = Field(min_length=2, max_length=5)
+
+    @property
+    def markets(self):
+        return [holding.market for holding in self.holdings]
+
+    @model_validator(mode="after")
+    def check_weights(self):
+        if len(set(self.markets)) != len(self.markets):
+            raise ValueError("each basket market must appear once")
+        if abs(sum(holding.weight for holding in self.holdings) - 1) > 1e-8:
+            raise ValueError("basket percentages must add up to 100%")
+        return self
+
+
 class Clarify(BaseModel):
     type: Literal["clarify"] = "clarify"
     question: str
@@ -128,8 +155,9 @@ LABELS = {
     "dca": lambda s: f"DCA ${s.amount:,.0f} into {s.market} every {s.every_days}d",
     "weekday": lambda s: f"Buy {s.market} {WD[s.buy_weekday]} open, sell {WD[s.sell_weekday]} close",
     "buy_hold": lambda s: f"Buy and hold {s.market}",
+    "basket_hold": lambda s: "Buy and hold " + ", ".join(f"{holding.weight * 100:g}% {holding.market}" for holding in s.holdings),
 }
-SPECS = (EventBuySpec, TailWalletSpec, MomentumSpec, MeanRevSpec, DcaSpec, WeekdaySpec, BuyHoldSpec)
+SPECS = (EventBuySpec, TailWalletSpec, MomentumSpec, MeanRevSpec, DcaSpec, WeekdaySpec, BuyHoldSpec, BasketHoldSpec)
 Spec = Annotated[Union[SPECS], Field(discriminator="type")]
 PlanAdapter: TypeAdapter = TypeAdapter(Annotated[Union[SPECS + (Clarify,)], Field(discriminator="type")])
 
@@ -155,6 +183,7 @@ Return exactly one of:
 {"type":"dca","market":str,"every_days":int,"amount":float}
 {"type":"weekday","market":str,"buy_weekday":int,"sell_weekday":int}   (0=Monday)
 {"type":"buy_hold","market":str}
+{"type":"basket_hold","holdings":[{"market":str,"weight":float}]} (2-5 unique markets; weights sum to 1)
 {"type":"clarify","question":str}   when the message cannot be mapped; ask ONE specific question.
 Every spec may also carry "days" (lookback window, 2-730) and "starting_equity" when the user states them.
 Markets are Hyperliquid perp names: BTC, ETH, SOL, HYPE, XMR, DOGE; stocks/indices are HIP-3 names like xyz:NVDA, xyz:TSLA, xyz:SP500.
@@ -282,6 +311,22 @@ def plan_rules(message: str, starting_equity: float, days: int, known: set[str],
     kind = next((k for k, pat in KINDS if re.search(pat, low)), None)
     if kind is None and iso_dates and re.search(r"\b(after|on|following)\b", low):
         kind = "event_buy"
+    # Explicit baskets are parsed before the single-market path. Never silently drop the second asset.
+    weighted = re.findall(r"(\d+(?:\.\d+)?)\s*%\s*(?:in\s+)?([a-zA-Z][a-zA-Z0-9:]*)", raw)
+    mentioned = list(dict.fromkeys(WORDS[word] for word in re.findall(r"\b[a-z][a-z0-9]*\b", low) if word in WORDS))
+    if kind == "buy_hold" and (len(weighted) >= 2 or len(mentioned) >= 2):
+        if weighted:
+            holdings = [{"market": WORDS.get(name.lower(), norm_market(name)), "weight": float(pct) / 100} for pct, name in weighted]
+            if set(mentioned) - {holding["market"] for holding in holdings}:
+                return Clarify(question="Give a percentage for every asset in your basket, adding up to 100%.")
+        elif re.search(r"equal|50\s*/\s*50", low):
+            holdings = [{"market": market, "weight": 1 / len(mentioned)} for market in mentioned]
+        else:
+            return Clarify(question="How would you split the basket? For example: buy and hold 60% BTC and 40% ETH.")
+        try:
+            return BasketHoldSpec(holdings=holdings, **common)
+        except ValueError as exc:
+            raise LabError("Use 2 to 5 different assets with percentages adding up to 100%.") from exc
     if kind is None and market is None:
         return Clarify(question="Which idea should I test (buy and hold, a momentum crossover, mean reversion, DCA, a weekday pattern, or buying on hack events), and on which market, e.g. BTC?")
     if market is None:
