@@ -144,15 +144,14 @@ def test_research_is_sourced_and_non_executable(monkeypatch, proposal, truncated
     assert 'NVDA' not in result['reply']
     assert result['analysis']['claims'] == ANALYSIS['claims']
     assert ANALYSIS['summary'] not in result['reply'] and QUOTE not in result['reply']
+    assert result['analysis']['proposal'] == proposal
+    assert result['analysis']['missing_evidence'] == ANALYSIS['missing_evidence']
+    source_line = ('Partial source: ' if truncated else 'Source: ') + URL
     if proposal is None:
-        assert result['reply'].splitlines() == [
-            'No clear trade from this episode’s ' + ('partial public text.' if truncated else 'public text.'), URL]
+        assert result['reply'].splitlines() == ['No trade.', source_line]
     else:
-        assert result['reply'].startswith('Idea: SHORT BTC perpetual\nWhy: ')
-        assert 'Risk: ' + proposal['risk'] in result['reply']
-        assert 'Before trading: ' + ANALYSIS['missing_evidence'][0] in result['reply']
-        assert 'Unverified idea; no order placed.' in result['reply']
-        assert ('Partial public text.' if truncated else 'Public text.') in result['reply']
+        assert result['reply'].splitlines() == [
+            'Idea: SHORT BTC perp. ' + proposal['reasoning'], source_line]
 
 
 def test_api_requires_admin_before_any_research(monkeypatch):

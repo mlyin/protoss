@@ -1,5 +1,7 @@
 # Corrections
 
+- 2026-11-01: Matthew asked to shorten episode replies again: default to direction, ticker, and one short reason, or just "No trade." Keep the source link and partial-source label. Risks, pre-trade checks, and evidence remain in the full authenticated analysis. This supersedes the longer default trade-card format below.
+
 - 2026-11-01: Episode replies should be concise and trade-focused: instrument/direction, why, main risk, and the key pre-trade check. Keep episode recaps and evidence lists out of the default chat reply. If there is no clear trade, say so briefly. Preserve source links, partial-coverage disclosure and the validated analysis internally.
 
 - 2026-11-01: Matthew explicitly resolved the fourth-idea ambiguity: "Research each episode and propose a trade." Do not default Dwarkesh episodes to NVDA or a seven-day hold. Research the actual claims, cite evidence, identify an available instrument, and require individual approval. A generic episode prompt must not create an executable release-date rule. Existing explicitly configured rules and runtime trading settings are not changed by this correction.
