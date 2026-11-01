@@ -93,6 +93,8 @@ class Settings(BaseSettings):
     huddle_quorum: int = 2  # people backing a thesis, author included, before it arms
     huddle_max_pledge_usd: float = 1_000.0  # per person per thesis, paper money
     huddle_hack_feeds: list[str] = Field(default_factory=list)  # RSS/Atom URLs read for hack headlines; empty = off
+    # podcast feeds whose new episodes fire "Dwarkesh is always right" rules (read outside sim mode only)
+    huddle_podcast_feeds: list[str] = Field(default_factory=lambda: ["https://api.substack.com/feed/podcast/69345.rss"])
     onboard_blocked_regions: list[str] = Field(default_factory=lambda: ["US"])  # ISO 3166-1 alpha-2; perps are not offered here
 
 

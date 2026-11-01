@@ -7,9 +7,8 @@ The browser's You / Your friend buttons are demo roles. Telegram uses two allowl
 For the opt-in real-trade flow with individual wallet approval, see [Real Telegram trades](telegram-live.md).
 That flow uses current mainnet quotes and verifies actual fills. It does not use practice receipts.
 
-The default crypto example is 60% Bitcoin and 40% Ethereum. The complete percentage split is shown before
-confirmation and kept with each copy. These are Hyperliquid perpetual markets, not ownership of BTC or ETH.
-Each participant confirms their own practice amount. Copying version 1 does not authorize future changes.
+`/demo` offers the four ideas: XMR on every major hack, robots (buy Unitree), the Anthropic bubble (short xyz:ANT),
+and Dwarkesh (NVDA on each new episode). Saying any of them in plain words in the group does the same.
 
 ## Install the demo in a separate folder on the Mac
 

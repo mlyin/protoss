@@ -21,7 +21,7 @@ import httpx
 from fastapi import APIRouter
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, field_validator, model_validator
 
-from .backtest import BacktestResult, NoEventsInWindow, SourceUnavailable, auto_bar, get_source, load_hacks, run_backtest
+from .backtest import BacktestResult, NoEventsInWindow, SourceUnavailable, auto_bar, get_source, load_events, run_backtest
 from .config import get_settings
 
 log = logging.getLogger("protoss.lab")
@@ -55,7 +55,7 @@ class _Common(BaseModel):
 class EventBuySpec(_Common):
     type: Literal["event_buy"] = "event_buy"
     market: str
-    event_set: Literal["major_hacks", "custom"] = "major_hacks"
+    event_set: Literal["major_hacks", "dwarkesh", "custom"] = "major_hacks"
     custom_dates: list[dt.date] | None = None
     hold_days: int = Field(default=7, ge=1, le=365)
     side: Literal["long", "short"] = "long"
@@ -121,6 +121,7 @@ class WeekdaySpec(_Common):
 class BuyHoldSpec(_Common):
     type: Literal["buy_hold"] = "buy_hold"
     market: str
+    side: Literal["long", "short"] = "long"
 
 
 class BasketHolding(BaseModel):
@@ -159,30 +160,27 @@ class LabError(Exception):
     """The message was understood but cannot be run (bad address, unlisted market)."""
 
 
+EVENT_NAMES = {"major_hacks": "major hacks", "dwarkesh": "each new Dwarkesh Podcast episode"}
 LABELS = {
-    "event_buy": lambda s: f"{'Buy' if s.side == 'long' else 'Short'} {s.market} on {'major hacks' if s.event_set == 'major_hacks' else f'{len(s.custom_dates or [])} custom dates'}, hold {s.hold_days}d",
+    "event_buy": lambda s: f"{'Buy' if s.side == 'long' else 'Short'} {s.market} on {EVENT_NAMES.get(s.event_set) or f'{len(s.custom_dates or [])} custom dates'}, hold {s.hold_days}d",
     "dip_buy": lambda s: f"Buy {s.market} after any {s.drop_pct:g}% drop within {s.over_days} day{'s' if s.over_days != 1 else ''}, hold {s.hold_days}d",
     "tail_wallet": lambda s: f"Tail {s.address[:6]}…{s.address[-4:]}",
     "momentum": lambda s: f"{s.fast}/{s.slow} momentum crossover on {s.market} ({s.bar})",
     "meanrev": lambda s: f"Mean reversion on {s.market}: fade {s.z:g} sd of {s.lookback}-bar mean ({s.bar})",
     "dca": lambda s: f"DCA ${s.amount:,.0f} into {s.market} every {s.every_days}d",
     "weekday": lambda s: f"Buy {s.market} {WD[s.buy_weekday]} open, sell {WD[s.sell_weekday]} close",
-    "buy_hold": lambda s: f"Buy and hold {s.market}",
+    "buy_hold": lambda s: f"{'Buy' if s.side == 'long' else 'Short'} and hold {s.market}",
     "basket_hold": lambda s: "Buy and hold " + ", ".join(f"{holding.weight * 100:g}% {holding.market}" for holding in s.holdings),
 }
 SPECS = (EventBuySpec, DipBuySpec, TailWalletSpec, MomentumSpec, MeanRevSpec, DcaSpec, WeekdaySpec, BuyHoldSpec, BasketHoldSpec)
 Spec = Annotated[Union[SPECS], Field(discriminator="type")]
 PlanAdapter: TypeAdapter = TypeAdapter(Annotated[Union[SPECS + (Clarify,)], Field(discriminator="type")])
 
-EXAMPLES = [
-    "What if I bought XMR every time a major company got hacked and held 7 days?",
-    "Buy SOL after it drops 10% in a day and sell 5 days later",
-    "Backtest a 3/10 momentum crossover on BTC over the last 90 days with $25k",
-    "DCA $100 into HYPE every week since January",
-    "What if I bought NVDA perps every Monday open and sold Friday close?",
-    "Fade 2 standard deviation moves in ETH on 4h bars, 20-bar lookback",
-    "Buy and hold SOL for the past year",
-    "Short BTC for 3 days after each of these dates: 2025-02-21, 2025-05-15",
+EXAMPLES = [  # the four ideas Protoss demos (Matthew, 2026-11-01); keep them in this order everywhere
+    "Let's buy XMR every time a major company gets hacked",
+    "I think robots are going to take over the world",
+    "The Anthropic bubble is going to pop",
+    "Dwarkesh is always right. Trade every new episode",
 ]
 
 # ------------------------------------------------------------------------------------------- LLM planner
@@ -196,12 +194,13 @@ Return exactly one of:
 {"type":"meanrev","market":str,"lookback":int,"z":float,"bar":"1h"|"4h"|"1d"}
 {"type":"dca","market":str,"every_days":int,"amount":float}
 {"type":"weekday","market":str,"buy_weekday":int,"sell_weekday":int}   (0=Monday)
-{"type":"buy_hold","market":str}
+{"type":"buy_hold","market":str,"side":"long"|"short"}
 {"type":"basket_hold","holdings":[{"market":str,"weight":float}]} (2-5 unique markets; weights sum to 1)
 {"type":"clarify","question":str}   when the message cannot be mapped; ask ONE specific question.
 Every spec may also carry "days" (lookback window, 2-730) and "starting_equity" when the user states them.
 Markets are Hyperliquid perp names: BTC, ETH, SOL, HYPE, XMR, DOGE; stocks/indices are HIP-3 names like xyz:NVDA, xyz:TSLA, xyz:SP500.
-"hacked/breach/exploit" means event_set major_hacks. Omit fields you are unsure about; defaults apply."""
+"hacked/breach/exploit" means event_set major_hacks. Dwarkesh or his podcast means event_buy with event_set "dwarkesh" on xyz:NVDA.
+Robots or humanoids taking over means buy_hold xyz:UNITREE. A bubble popping or something being overvalued means buy_hold with side "short". Omit fields you are unsure about; defaults apply."""
 
 
 def _plan_llm(message: str, defaults: dict) -> Union[Spec, Clarify, None]:
@@ -222,7 +221,7 @@ def _plan_llm(message: str, defaults: dict) -> Union[Spec, Clarify, None]:
             data = {**defaults, **{k: v for k, v in data.items() if v is not None}}
         planned = PlanAdapter.validate_python(data)
         if isinstance(planned, EventBuySpec) and "days" not in data:
-            planned.days = _event_window(planned.custom_dates, defaults["days"])
+            planned.days = _event_window(planned.custom_dates, defaults["days"], event_set=planned.event_set)
         if isinstance(planned, DipBuySpec) and "days" not in data:
             planned.days = 730  # drops worth testing are rare; reach back as far as the window allows
         return planned
@@ -231,10 +230,10 @@ def _plan_llm(message: str, defaults: dict) -> Union[Spec, Clarify, None]:
         return None
 
 
-def _event_window(dates: list[dt.date] | None, body_days: int, today: dt.date | None = None) -> int:
+def _event_window(dates: list[dt.date] | None, body_days: int, today: dt.date | None = None, event_set: str = "major_hacks") -> int:
     """Window for an event strategy with no window stated: reach back to the earliest event, capped at 730 days."""
     today = today or dt.datetime.now(dt.timezone.utc).date()
-    dates = dates or [r["date"] for r in load_hacks()]
+    dates = dates or [r["date"] for r in load_events(event_set)]
     return max(body_days, min(730, (today - min(dates)).days + 30)) if dates else body_days
 
 
@@ -252,6 +251,22 @@ DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sun
 DAY_RE = "|".join(d[:3] + "(?:" + d[3:] + ")?" for d in DAYS)
 MONTHS = ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"]
 UNITS = {"day": 1, "week": 7, "month": 30, "year": 365}
+# A plain belief maps to the market that expresses it, and the reply says why. First match wins.
+THEMES = [
+    (r"\b(robots?|robotics|humanoids?)\b", {"market": "xyz:UNITREE"},
+     "Robots taking over: Unitree, the humanoid robot maker, trades on Hyperliquid as xyz:UNITREE."),
+    (r"anthropic.*\b(bubble|pop|overvalued|overhyped|crash|dump|short|sell)|\b(bubble|overvalued|overhyped|short|sell)\b.*anthropic", {"market": "xyz:ANT", "side": "short"},
+     "A bubble that pops is a short: xyz:ANT is Hyperliquid's Anthropic-linked perp, not Anthropic shares."),
+    (r"\bdwarkesh\b", {"market": "xyz:NVDA", "kind": "event_buy", "event_set": "dwarkesh"},
+     "Dwarkesh mostly talks about AI, so each new episode is a signal to buy AI compute: xyz:NVDA, held 7 days. Release dates come from his podcast feed."),
+]
+
+
+def theme(message: str) -> tuple[dict, str] | None:
+    low = message.lower()
+    return next(((t, why) for pat, t, why in THEMES if re.search(pat, low)), None)
+
+
 KINDS = [  # first match wins; tail_wallet is handled before these
     ("event_buy", r"hack|breach|exploit|cyber ?attack|ransomware"),
     ("dip_buy", None),  # DIP_RE below
@@ -327,6 +342,8 @@ def plan_rules(message: str, starting_equity: float, days: int, known: set[str],
             continue
     low_nd = re.sub(r"\b20\d\d-\d\d-\d\d\b", " ", low)  # numbers inside dates must not look like parameters
     market = _market(raw, low, known)
+    themed = (theme(raw) or ({}, ""))[0]
+    market = market or themed.get("market")
     explicit_days = _days(low, today)
     common: dict = {"days": min(730, max(2, explicit_days or days)), "starting_equity": starting_equity}
     if m := re.search(r"(?:with|starting(?: with| at)?|start(?:ing)? at|using)\s+\$?\s?(\d[\d,]*(?:\.\d+)?)\s*(k|m|thousand|million)?\b", low_nd):
@@ -340,9 +357,13 @@ def plan_rules(message: str, starting_equity: float, days: int, known: set[str],
         return TailWalletSpec(address=address.group(0), **common)
 
     kind = next((k for k, pat in KINDS if (DIP_RE.search(low_nd) if pat is None else re.search(pat, low))), None)
+    if themed.get("kind") and kind in (None, "buy_hold"):
+        kind = themed["kind"]
+    if kind is None and themed:
+        kind = "buy_hold"
     if kind is None and iso_dates and re.search(r"\b(after|on|following)\b", low):
         kind = "event_buy"
-    if kind is None and market and re.search(r"\b(buy|long|go long|get|grab|ape|back|bet on)\b", low):
+    if kind is None and market and re.search(r"\b(buy|long|go long|get|grab|ape|back|bet on|short|sell)\b", low):
         kind = "buy_hold"  # "let's buy unitree" is a buy and hold until someone says otherwise
     # Explicit baskets are parsed before the single-market path. Never silently drop the second asset.
     weighted = re.findall(r"(\d+(?:\.\d+)?)\s*%\s*(?:in\s+)?([a-zA-Z][a-zA-Z0-9:]*)", raw)
@@ -372,8 +393,10 @@ def plan_rules(message: str, starting_equity: float, days: int, known: set[str],
     if kind == "event_buy":
         if iso_dates:
             extra = {"event_set": "custom", "custom_dates": iso_dates}
+        elif themed.get("event_set"):
+            extra = {"event_set": themed["event_set"]}
         if not explicit_days:
-            common["days"] = _event_window(iso_dates, days, today)
+            common["days"] = _event_window(iso_dates, days, today, extra.get("event_set", "major_hacks"))
         if m := HOLD_RE.search(low_nd):
             n, unit = next((g, u) for g, u in zip(m.groups()[::2], m.groups()[1::2]) if g)
             extra["hold_days"] = int(n) * (7 if unit == "week" else 1)
@@ -420,7 +443,8 @@ def plan_rules(message: str, starting_equity: float, days: int, known: set[str],
     if kind == "weekday":
         wds = [next(i for i, d in enumerate(DAYS) if d.startswith(f)) for f in re.findall(rf"\b({DAY_RE})\b", low)]
         return WeekdaySpec(market=market, buy_weekday=wds[0] if wds else 0, sell_weekday=wds[1] if len(wds) > 1 else 4, **common)
-    return BuyHoldSpec(market=market, **common)
+    short = themed.get("side") == "short" or bool(re.search(r"\b(short|sell)\b", low))
+    return BuyHoldSpec(market=market, side="short" if short else "long", **common)
 
 
 def plan(message: str, starting_equity: float = 10_000.0, days: int = 180, known: set[str] | None = None) -> Union[Spec, Clarify]:
@@ -502,6 +526,5 @@ def chat(body: ChatIn) -> dict:
         return _out("clarify", f"{msg[:1].upper()}{msg[1:]}. Which window should I use (for example 'over the last 730 days'), or which event dates?")
     except (SourceUnavailable, ValueError) as e:
         return _out("error", f"Could not run that backtest: {e}", spec=planned.model_dump(mode="json"))
-    if planned.type not in ("momentum", "meanrev"):
-        res.notes.append(f"no agent runtime for {planned.type} strategies yet: deploying creates the agent definition only")
-    return _out("backtest", _reply(planned, res, source.name != "hyperliquid"), planned.model_dump(mode="json"), res.as_dict(), _deployable(planned, res))
+    why = (theme(body.message) or (None, ""))[1]
+    return _out("backtest", " ".join(filter(None, [why, _reply(planned, res, source.name != "hyperliquid")])), planned.model_dump(mode="json"), res.as_dict(), _deployable(planned, res))

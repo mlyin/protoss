@@ -2,6 +2,11 @@
 
 Things Matthew corrected once. Do not make him say them twice.
 
+- 2026-11-01: Nothing fake on the website. No practice workspace, no simulated activity or leaderboard, no placeholder
+  addresses, no invented fills (the Lab no longer synthesizes a tail when a wallet has no fills). Show real positions from the
+  accounts we set up, read from Hyperliquid. The demo is four ideas only (see [[decisions]]).
+- 2026-11-01: Test what the site offers before calling it done: run every example and button against the live API. 5 of 8
+  Lab examples were failing on protoss.trade (hourly history only reaches ~208 days) while check.sh was GREEN.
 - 2026-10-31: The Lab can run on real Hyperliquid history offline: `FileCandles` reads `backend/app/data/candles/<MARKET>_1d.csv`, layered over SimCandles when the API is unreachable, and the result notes say which it used. Refresh the files from a machine that can reach api.hyperliquid.xyz (candleSnapshot, 1d).
 - 2026-10-31: Name is Protoss now. Blizzard owns the StarCraft Protoss trademark; flagged once, Matthew chose it for now.
 - 2026-10-31: Do not call the pooled org a phalanx (too hard to pronounce). It is a legion in copy; code stays org.

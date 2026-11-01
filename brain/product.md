@@ -57,6 +57,13 @@ Matthew's first strategy question. Daily XMR candles pulled from the public Hype
 - Binance $6.3B theft (2026-10-29) added to the list; XMR -2.9% day one.
 Lesson for the product: the Lab must always print the any-day baseline next to an event study, or people will read time-in-market as edge. Done the same day: every event_buy result carries a `baseline:` note (mean move after the events vs from any bar).
 
+## The four ideas, first results (2026-11-01, live Hyperliquid candles, $10k, fees and slippage, no funding)
+- XMR on hacks, hold 7d: 25 hacks in 730 days on daily bars, +25.7% vs +292.4% buy and hold; mean 7d move +1.33% vs +1.72% any day. No edge.
+- Robots, buy and hold xyz:UNITREE: listed 2026-08-05; +39.6% since, max drawdown 53.2%.
+- Short xyz:ANT: listed 2026-10-26, 6 days of history; -1.0% (ANT +0.7%). Too short to say anything.
+- NVDA on each Dwarkesh episode, hold 7d: xyz:NVDA listed 2025-11-12; 33 episodes, +29.1% vs +6.0% buy and hold; mean 7d move
+  +1.32% after an episode vs +0.34% any day, 67% up. Small sample, one year, one market.
+
 ## Study: buy the dip, real Hyperliquid data (2026-11-01)
 
 The Lab used to answer "buy NVDA when it drops 5% in a day, sell after 5 days" with buy and hold, because the bare word "buy"
