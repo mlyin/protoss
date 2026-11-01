@@ -1,5 +1,7 @@
 # Corrections
 
+- 2026-11-01: Account-owner privacy applies even when exchange addresses are public. Do not embed participants' wallet addresses or show group balances, positions or fills before connection. Matthew explicitly chose owner-only access. PR #12's public group-account panel contradicts that instruction; remove it, keep user-added friends and connected-owner reads, and test that disconnected visitors make zero account requests.
+
 Things Matthew corrected once. Do not make him say them twice.
 
 - 2026-11-01: Nothing fake on the website. No practice workspace, no simulated activity or leaderboard, no placeholder
