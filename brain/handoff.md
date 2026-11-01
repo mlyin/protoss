@@ -58,8 +58,10 @@ amount and the order goes out from their own account; the money is never combine
 1. Save the bot token once, in a real terminal on the MacBook (a chat `!` command cannot take typed input):
    `~/Documents/protoss2/deploy/macbook/save_token.sh`. The launchd agent starts the bot within 5 seconds. As of 2026-11-01
    11:20 it was still not saved, so the bot has never run on the new code and the group flow is unproven live.
-2. Mac mini: commit and push the dirty `/Users/aaaa/protoss` tree to a branch, then run main there (`protossctl restart`), so the
-   live Lab gets the bar-size fix and the four ideas. Stop the demo fleet (`protossctl`), nothing shows it any more.
+2. Mac mini: on the mini, `git -C ~/protoss fetch && git -C ~/protoss show origin/main:deploy/macmini/to_main.sh > /tmp/to_main.sh &&
+   bash /tmp/to_main.sh --dry-run`, then without `--dry-run`. It saves the dirty tree to a pushed `mini/wip-*` branch (never
+   .env, wallets.json or key files), switches to main and runs bootstrap.sh, so the live Lab gets main's fixes. Then stop the
+   demo fleet (`protossctl`); nothing shows it any more.
 3. Builder wallet: a separate standard-mode Hyperliquid account with >= 100 USDC; address in `HL_BUILDER_ADDRESS`.
 4. Keys when ready: `PRIVY_APP_ID`, `ONRAMP_MOONPAY_KEY/SECRET/WEBHOOK_KEY`, `ONRAMP_COINBASE_APP_ID`.
 5. X thread in `brand/x-thread.md`: drafted, his to post.
