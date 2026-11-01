@@ -675,3 +675,4 @@ def test_shared_status_does_not_query_wallet_connections_or_trade_receipts(clien
     assert not any('Wallet connections' in row['text'] or 'tg:111' in row['text'] for row in tg.sent)
     if wallet_review:
         assert tg.sent[-1]['text'].startswith('Your positions are private.')
+

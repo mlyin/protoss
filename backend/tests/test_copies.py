@@ -398,3 +398,20 @@ def test_buttons_and_replies_make_the_chat_interactive(live, tmp_path):
     assert tg.sent[-1]["text"].startswith("An account update is available privately")
     w.handle(named(6, 111, "Matthew", "what's my position?"))
     assert tg.sent[-1]["text"].startswith("Your positions are private.") and tg.sent[-1]["reply_parameters"]["message_id"] == 106
+
+
+def test_a_follow_up_to_episode_research_gets_an_answer_and_ideas_still_pass(live, tmp_path):
+    client, ex = live
+    h = client.post("/huddle", headers=ADMIN, json={"chat_id": f"telegram:{CHAT}", "title": "protoss beta testing", "quorum": 2}).json()
+    tg = PhotoTelegram()
+    w = bridge.Bridge(tg, LocalAPI(client), bridge.State(tmp_path / "s.json"), CHAT, [111, 222], "ProtossTradingDemoBot", h["id"], live=True)
+    named = lambda uid, text: {"update_id": uid, "message": {"message_id": 100 + uid, "chat": {"id": CHAT, "type": "supergroup"}, "from": {"id": 111, "first_name": "Matthew"}, "text": text}}  # noqa: E731
+    w.handle(named(1, "research a dwarkesh podcast"))
+    research = len(tg.sent)
+    w.handle(named(2, "figure out for the ones where we want to backtest"))
+    assert len(tg.sent) == research + 1 and tg.sent[-1]["text"].startswith("Got it. Episode research is not set up")
+    assert tg.sent[-1]["reply_parameters"]["message_id"] == 102
+    assert client.get(f"/huddle/{h['id']}", headers=ADMIN).json()["theses"] == []  # read-only: nothing was created
+    w.handle(named(3, "research a dwarkesh podcast"))
+    w.handle(named(4, "I think robots are going to take over the world"))  # a new idea is not swallowed
+    assert any("xyz:UNITREE" in t["label"] for t in client.get(f"/huddle/{h['id']}", headers=ADMIN).json()["theses"])

@@ -444,6 +444,17 @@ class Bridge:
             self.state.save()
         if not private and (chat.get("id") != self.chat or chat.get("type") not in ("group", "supergroup")):
             return
+        # A reply right after an episode-research answer is a follow-up to it, not chatter to ignore.
+        idea_like = re.search(r"\b(let'?s|buy|sell|short|long|i think|every ?time|what if|in for|back|bubble|robots?|hack|my position|close)\b", raw, re.I)
+        if not private and not callback and raw and not raw.startswith("/") and "dwarkesh" not in raw.lower() and not idea_like:
+            asked = self.state.data.get("episode_asked", {}).get(str(user_id))
+            if asked and time.time() - asked < 600:
+                self.state.data["episode_asked"].pop(str(user_id), None)
+                self.state.save()
+                # Episode research stays read-only in the group (Matthew: research each episode, then propose a trade).
+                return self.send(self.chat, "Got it. Episode research is not set up on this bot yet, so I can't pick which episodes "
+                                 "to trade or backtest from what was said. No market was chosen and nothing was traded. "
+                                 "The other three ideas work now: tap /demo.", f"update:{uid}", reply_to=message.get("message_id"))
         # The fourth idea is read-only in both trading modes. Resolve it before
         # either legacy huddle or wallet-review handlers can create a trade.
         if not private:
@@ -452,7 +463,10 @@ class Bridge:
             if 'dwarkesh' in episode_text.lower() and not (other_command and other_command[1].lower() != self.username.lower()):
                 if callback:
                     self.telegram.call('answerCallbackQuery', callback_query_id=callback['id'], text='Research only. No order placed.')
-                return self.episode_reply(self.chat, episode_text, f'update:{uid}', message.get('message_id'))
+                self.episode_reply(self.chat, episode_text, f'update:{uid}', message.get('message_id'))
+                self.state.data.setdefault("episode_asked", {})[str(user_id)] = time.time()  # their next message is a follow-up
+                self.state.save()
+                return
         if self.wallet_review:
             try:
                 return self.handle_live(update, user, message, private, callback)

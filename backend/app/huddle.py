@@ -380,6 +380,26 @@ def card_text(t: Thesis) -> str:
     return "\n".join(lines)
 
 
+ASK_WINDOW = dt.timedelta(minutes=10)
+
+
+def _ask(db: Session, h: Huddle, who: str, question: str) -> None:
+    """A question to one person. Their next message within ASK_WINDOW is read as the answer (see _answer)."""
+    say(db, h, question, "ask").target_guid = f"ask:{who}"[:80]
+
+
+def _answer(db: Session, h: Huddle, sender: str, text: str) -> str | None:
+    """When the bot's last word in this chat was a question to `sender`, their reply plus what they first said, as one
+    message; otherwise None. "the latest one" after "research a dwarkesh podcast" reads as both together."""
+    last = db.scalar(select(HuddleMessage).where(HuddleMessage.huddle_id == h.id, HuddleMessage.from_bot.is_(True)).order_by(HuddleMessage.id.desc()))
+    if not last or last.kind != "ask" or last.target_guid != f"ask:{sender}"[:80] or _aware(last.ts) < _now() - ASK_WINDOW:
+        return None
+    first = db.scalar(select(HuddleMessage).where(HuddleMessage.huddle_id == h.id, HuddleMessage.sender == sender, HuddleMessage.from_bot.is_(False),
+                                                  HuddleMessage.id < last.id).order_by(HuddleMessage.id.desc()))
+    before = ADDRESS.sub("", first.text, count=1) if first else ""
+    return f"{before} {text}".strip()
+
+
 def propose(db: Session, h: Huddle, author: str, text: str, addressed: bool) -> list[str]:
     """Plan the idea with the Lab. A spec gets a backtest card; a call gets logged; anything else is ignored
     unless the bot was addressed, in which case it asks the Lab's clarifying question."""
@@ -394,11 +414,13 @@ def propose(db: Session, h: Huddle, author: str, text: str, addressed: bool) -> 
     try:
         planned = plan(text, 10_000.0, 365, known)
     except LabError as e:
+        if addressed:
+            say(db, h, str(e))
         return [str(e)] if addressed else []
     n = (max((t.n for t in _theses(db, h) if t.n < COPY_BASE), default=0)) + 1
     if isinstance(planned, Clarify):
         if podcast_research_question(text, known):
-            say(db, h, planned.question)
+            _ask(db, h, author, planned.question)
             return [planned.question]
         if CALL_CUE.search(text):
             t = Thesis(huddle_id=h.id, n=n, author=author, text=text, kind="call", label=f"Call: {text.strip()[:150]}")
@@ -407,6 +429,8 @@ def propose(db: Session, h: Huddle, author: str, text: str, addressed: bool) -> 
             _backer(db, t, author).approved = True
             say(db, h, card_text(t), "card", t.id)
             return ["call"]
+        if addressed:
+            _ask(db, h, author, planned.question)
         return [planned.question] if addressed else []
     market = getattr(planned, "market", None)
     markets = [market] if market else (getattr(planned, "markets", None) or [])
@@ -981,6 +1005,8 @@ def ingest(db: Session, ex: ExchangeAdapter, h: Huddle, sender: str, text: str =
 
     addressed = bool(ADDRESS.match(text))
     body = ADDRESS.sub("", text, count=1) if addressed else text
+    if not addressed and (both := _answer(db, h, sender, text)):  # a reply to the bot's own question is an answer
+        addressed, body = True, both
     if not addressed and MINE_ASK.match(text):  # "what's my position?"
         addressed, body = True, "mine"
     if not addressed and (m := CLOSE_ASK.match(text)):  # "close my idea 2"
