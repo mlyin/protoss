@@ -49,3 +49,6 @@
 .owner-fills table { width: 100%; min-width: 0; border-collapse: collapse; }
 .owner-fills td { padding: 6px 8px; border-bottom: 1px solid var(--hair); font: 12px/1.4 var(--mono); }
 .owner-fills td.long { color: var(--pos, #1f8a5b); } .owner-fills td.short { color: var(--neg, #c0392b); }
+.wallet-choices { display: flex; flex-direction: column; gap: 8px; width: 100%; max-width: 320px; margin: 4px auto 8px; }
+.wallet-choices .btn { justify-content: center; gap: 10px; }
+.wallet-choices img { width: 20px; height: 20px; border-radius: 4px; }
