@@ -1,5 +1,7 @@
 # Runbooks
 
+- 2026-11-01: Preserve Telegram's private `/#/telegram/connect?token=...` and `/#/trade?token=...` links. They canonicalize to `/app/#/...`; tokens stay in fragments and authorization headers, never browser storage or query strings. These screens are private entry points, not extra public navigation. Pages uses its configured API origin. An API-hosted/local build without an explicit `VITE_API_ORIGIN` keeps private requests on its issuing origin; URL parameters cannot choose a backend. The bot's `APP_URL` and the frontend's private API must resolve to the same database. Do not point a local bot's links at Pages while its tokens exist only in a local database.
+
 - 2026-11-01: The homepage XMR study requests an explicit 180-day window and displays that scope in its button. This succeeds against the current public API without weakening its history-completeness checks. Show the ordinary-day baseline when returned, alongside the result and its data caveats. The current public backend uses hourly candles for this event rule. A longer window is not silently substituted.
 
 - 2026-11-01: Telegram private messages now answer greetings, offer the four research ideas, and use the read-only Lab in copies mode. Private research never posts into the group, creates a huddle, backs an idea, or places an order. Private positions link to the connected-wallet website. Ordinary group greetings also receive a reply. Existing group approval commands retain their behavior.

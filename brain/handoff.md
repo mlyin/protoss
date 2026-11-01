@@ -2,6 +2,8 @@
 
 ## Update, 2026-11-01
 
+Private account route repair: the simplified frontend had discarded the connection and trade-review links still issued by Telegram. The two private screens are restored without adding public navigation. Browser fixtures cover link preservation/reload, ownership click gating, owner changes, missing/expired links, public API destination, prepared-trade reloads and leaving during preparation. An isolated running API/database trace confirms actual issued links render the correct private records. No real wallet was connected and no trade was signed or submitted. Live acceptance still needs the bot and its issuing API available together; local-only links do not work for remote participants.
+
 The older runtime checklist below is historical. PR #8 is merged; the user confirmed replies in both private Telegram messages and the group. The bot is now an administrator of the upgraded supergroup. Do not repeat the admin setup or reset the delivery checkpoint.
 
 The fourth idea is research from an episode or specific claim, not a default NVDA purchase. The correction asks for that evidence before a trade card is created. Explicit market/direction release-date backtests remain available and are labeled as release-date studies, not transcript analysis. Podcast monitoring and transcript analysis are still not connected.

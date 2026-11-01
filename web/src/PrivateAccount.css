@@ -1,0 +1,19 @@
+.private-account, .trade-review { max-width: 720px; margin: 24px auto 64px; --accent: #287da1; --accent-hover: #226d8d; }
+.private-heading, .trade-heading { display: flex; align-items: center; gap: 16px; margin-bottom: 24px; }
+.private-heading img, .trade-heading img { width: 72px; height: 72px; flex-shrink: 0; }
+.private-heading h1, .trade-heading h1 { font-family: var(--sans); font-weight: 650; font-size: clamp(26px, 5vw, 40px); line-height: 1.15; margin: 4px 0; letter-spacing: -.8px; }
+.private-heading p, .trade-network { color: var(--muted); font-size: 13px; margin: 0; }
+.private-account .card, .trade-review .card { margin-top: 24px; }
+.private-account .addr, .trade-review .addr { overflow-wrap: anywhere; }
+.private-account pre { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; }
+.private-account .kv, .trade-review .kv { gap: 16px; align-items: baseline; }
+.private-account .kv strong, .trade-review .kv strong { text-align: right; overflow-wrap: anywhere; min-width: 0; }
+.private-return { display: inline-block; margin-top: 24px; }
+.trade-steps { display: flex; flex-wrap: wrap; gap: 8px 20px; font-size: 12px; color: var(--muted); padding: 12px 0; }
+.trade-consent { display: flex; align-items: flex-start; gap: 12px; padding: 16px 0; font-size: 14px; line-height: 1.5; }
+.trade-consent input { flex: 0 0 auto; width: 18px; height: 18px; margin: 2px 0 0; }
+.trade-review button, .private-account button { white-space: normal; }
+@media (max-width: 480px) {
+  .private-heading, .trade-heading { gap: 12px; }
+  .private-heading img, .trade-heading img { width: 48px; height: 48px; }
+}
