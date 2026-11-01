@@ -159,6 +159,7 @@ ADDRESS = re.compile(r"^\s*(?:@?protoss\b[\s,:]*|p[,:]\s+)", re.I)
 THESIS_CUE = re.compile(
     r"\b(every ?time|whenever|each time|what if|let'?s (?:buy|sell|short|long|go long|go short|bet|try|back|test)|"
     r"should we (?:buy|sell|short|long)|backtest|test this|thesis|bet (?:on|that)|i think)\b", re.I)
+EVENTS_ASK = re.compile(r"\b(show|list|see|what (?:are|were)|which (?:are|were))\b.{0,40}\b(events|hacks|episodes)\b", re.I)
 CALL_CUE = re.compile(
     r"\b(injur\w*|injured list|IL|come[s]? off|coming off|return(?:s|ing)? from|win(?:s|ning)?|lose|playoffs?|"
     r"series|odds|championship|finals?|election|ceasefire|fed (?:cut|hike)s?|approve[sd]?|launch(?:es)?)\b", re.I)
@@ -297,6 +298,7 @@ def _test_summary(spec, res) -> dict:
     if res.stats:
         out["events"] = res.stats
         out["hold_days"] = getattr(spec, "hold_days", None)
+        out["event_set"] = getattr(spec, "event_set", None)
     return out
 
 
@@ -683,6 +685,29 @@ def _status(db: Session, h: Huddle) -> str:
     return "\n".join(out)
 
 
+def _events(db: Session, h: Huddle, n: int | None) -> str:
+    """The events an event rule was tested on, each with the market's move over the hold after it."""
+    from .backtest import load_events
+
+    rules = [t for t in _theses(db, h) if ((t.test or {}).get("events") or {}).get("per_event")]
+    t = _by_n(db, h, n) if n else (rules[-1] if rules else None)
+    per = ((t.test or {}).get("events") or {}).get("per_event") if t else None
+    if not per:
+        return f"Idea {n} is not tested on events." if n else "No event idea here yet. Try \"let's buy XMR every time a major company gets hacked\"."
+    s = t.test
+    names: dict[str, list[str]] = {}
+    for r in load_events(s.get("event_set") or "major_hacks") if s.get("event_set") != "custom" else []:
+        names.setdefault(r["date"].isoformat(), []).append(r.get("company") or r.get("title") or "")
+    hold = s.get("hold_days") or 1
+    what = {"major_hacks": "hacks", "dwarkesh": "Dwarkesh episodes"}.get(s.get("event_set"), "dates")
+    up = sum(1 for _, m in per if m > 0)
+    lines = [f"Idea {t.n} was tested on {len(per)} {what}. {s['market']} over the {hold}d after each ({up} up):"]
+    lines += [f"{d}  {m:+.1f}%  {' / '.join(names.get(d, []))[:60]}".rstrip() for d, m in per]
+    ev = s["events"]
+    lines.append(f"Average {ev['event_mean_pct']:+.1f}% after an event, {ev['any_mean_pct']:+.1f}% after any day.")
+    return "\n".join(lines)
+
+
 def _score_board(db: Session, h: Huddle) -> str:
     people: dict[str, list[float]] = {}
     for t in _theses(db, h):
@@ -713,6 +738,9 @@ def command(db: Session, ex: ExchangeAdapter, h: Huddle, sender: str, body: str)
         return True
     if low in ("status", "theses", "board", "what's live", "whats live"):
         say(db, h, _status(db, h))
+        return True
+    if m := re.fullmatch(r"(?:show\s+(?:me\s+)?(?:the\s+)?)?events?(?:\s+(?:for\s+)?(?:idea\s+)?#?(\d+))?", low):
+        say(db, h, _events(db, h, int(m.group(1)) if m.group(1) else None))
         return True
     if low in ("score", "scoreboard", "leaderboard", "who's right", "whos right"):
         say(db, h, _score_board(db, h))
@@ -792,6 +820,8 @@ def ingest(db: Session, ex: ExchangeAdapter, h: Huddle, sender: str, text: str =
 
     addressed = bool(ADDRESS.match(text))
     body = ADDRESS.sub("", text, count=1) if addressed else text
+    if not addressed and EVENTS_ASK.search(text):  # "can you show me what the 25 events are"
+        addressed, body = True, "events" + (f" {m.group(1)}" if (m := re.search(r"idea\s+#?(\d+)", text, re.I)) else "")
     if addressed and command(db, ex, h, sender, body):
         return row
     t = _latest_open(db, h)

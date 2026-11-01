@@ -315,6 +315,8 @@ class Bridge:
             keyboard = None
             if row["kind"] == "card" and thesis and thesis["status"] == "proposed":
                 keyboard = [[{"text": "Back this idea", "callback_data": f"back:{thesis['n']}"}]]
+                if ((thesis.get("test") or {}).get("events") or {}).get("per_event"):
+                    keyboard[0].append({"text": "Show the events", "callback_data": f"events:{thesis['n']}"})
             text = tidy(friendly(row["text"]), self.state.data.get("names"))
             if not self.wallet_review and huddle.get("mode") in ("sim", "paper"):
                 text = "Paper demo. No real funds.\n" + text
@@ -379,6 +381,8 @@ class Bridge:
                 return
             if match:
                 text = f"protoss back {match[1]}"
+            elif events := re.fullmatch(r"events:([1-9][0-9]*)", payload):
+                text = f"protoss events {events[1]}"
             elif idea := next((said for _, data, said in IDEAS if data == payload), None):
                 text = "protoss " + idea
             else:
