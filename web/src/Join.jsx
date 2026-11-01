@@ -1,4 +1,9 @@
-import React, { useEffect, useRef, useState } from 'react'
+import { apiFetch as fetch, apiUrl } from './api.js'
+import React, { Suspense, lazy, useEffect, useRef, useState } from 'react'
+import { stakeInVault } from './hlsign.js'
+import FundingDemo from './FundingDemo.jsx'
+
+const PrivyWallet = lazy(() => import('./PrivyWallet.jsx'))
 
 // Join with card: pick a legion, an amount and a payment provider, get a wallet funded, stake it.
 // Talks to GET /onboard/options, POST /onboard/session and GET /onboard/session/{id}.
@@ -6,7 +11,7 @@ import React, { useEffect, useRef, useState } from 'react'
 const fmtUsd = (v) => (v == null ? '' : '$' + Number(v).toLocaleString(undefined, { maximumFractionDigits: Math.abs(v) < 100 ? 2 : 0 }))
 const RAIL = { card: 'Card', apple_pay: 'Apple Pay', bank: 'Bank transfer' }
 const CHAIN = { arbitrum: 'Arbitrum', ethereum: 'Ethereum', base: 'Base', hyperliquid: 'Hyperliquid' }
-const PRESETS = [50, 100, 250]
+const PRESETS = [20, 50, 100]
 const isAddr = (s) => /^0x[0-9a-fA-F]{40}$/.test((s || '').trim())
 const clock = (iso) => { try { return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) } catch { return '' } }
 const short = (a) => (a && a.length > 14 ? `${a.slice(0, 6)}…${a.slice(-4)}` : a || '')
@@ -57,7 +62,7 @@ export default function Join({ legion: preset }) {
     const go = () => getJson(`/onboard/session/${sid}`).then((d) => {
       if (!alive) return
       setSession(d)
-      if (d.status === 'staked' || d.status === 'expired') clearInterval(id)
+      if (d.status === 'staked' || d.status === 'expired' || d.status === 'failed') clearInterval(id)
     }).catch(() => {})
     go()
     return () => { alive = false; clearInterval(id) }
@@ -100,6 +105,8 @@ export default function Join({ legion: preset }) {
   const loading = opts === undefined
   const off = opts === null
 
+  if (opts?.mode === 'paper' || opts?.mode === 'sim') return <FundingDemo orgs={orgs || []} preset={preset} />
+
   return (
     <section className="narrow" style={{ maxWidth: 1040 }}>
       <div className="join-head">
@@ -109,7 +116,7 @@ export default function Join({ legion: preset }) {
 
       <div className="join">
         <form className="card" onSubmit={go}>
-          {res ? <Result res={res} session={session} prov={prov} org={org} onReset={reset} /> : (
+          {res ? <Result res={res} session={session} prov={prov} org={org} onReset={reset} onStaked={() => getJson(`/onboard/session/${res.session_id}`).then(setSession).catch(() => {})} /> : (
             <>
               <div className="fieldset">
                 <h3>Legion</h3>
@@ -159,7 +166,7 @@ export default function Join({ legion: preset }) {
                 <h3>Your wallet</h3>
                 <div className="wallet-row">
                   {opts?.wallet_provider?.app_id && (
-                    <div className="soon"><button type="button" disabled>Sign in with email</button><span className="sub">coming next</span></div>
+                    <div className="soon"><Suspense fallback={<button type="button" disabled>Loading</button>}><PrivyWallet appId={opts.wallet_provider.app_id} onAddress={(a) => { setWallet(a); saveWallet(a) }} /></Suspense></div>
                   )}
                   <input ref={walletRef} value={wallet} onChange={(e) => setWallet(e.target.value)} placeholder="0x…" spellCheck={false} autoComplete="off" aria-label="Your wallet address" aria-invalid={wallet !== '' && !walletOk} />
                   <div className="hint">{wallet !== '' && !walletOk ? 'A wallet address is 0x followed by 40 hex characters.' : 'Funds go to a wallet only you control. Protoss never holds them.'}</div>
@@ -193,14 +200,14 @@ export default function Join({ legion: preset }) {
           {opts?.notice && <div className="notice">{opts.notice}</div>}
           {org && (
             <div className="card pad list">
-              <div><b style={{ fontWeight: 500 }}>{org.name}</b><div className="sub">led by <a href={`#/u/${org.leader}`}>{org.leader}</a> · {org.members_live}/{org.members} agents live</div></div>
+              <div><b style={{ fontWeight: 500 }}>{org.name}</b><div className="sub">led by <a href={`/app/#/u/${org.leader}`}>{org.leader}</a> · {org.members_live}/{org.members} agents live</div></div>
               <div className="mandate">“{org.mandate}”</div>
               <div className="org-stats">
                 <span><span className="sub">worth</span>{fmtUsd(org.equity)}</span>
                 <span><span className="sub">people</span>{org.depositors}</span>
                 <span style={{ gridColumn: '1 / -1' }}><span className="sub">limits</span><span className="limitline">{org.limits.max_leverage}× · stop {org.limits.drawdown_flatten_pct}% · {org.limits.daily_loss_pct}%/day</span></span>
               </div>
-              <a className="back" href={`#/p/${org.slug}`}>Open the legion page</a>
+              <a className="back" href={`/app/#/p/${org.slug}`}>Open the legion page</a>
             </div>
           )}
         </aside>
@@ -209,7 +216,7 @@ export default function Join({ legion: preset }) {
   )
 }
 
-function Result({ res, session, prov, org, onReset }) {
+function Result({ res, session, prov, org, onReset, onStaked }) {
   if (res.status === 'unavailable') {
     return (
       <div className="fieldset">
@@ -226,8 +233,9 @@ function Result({ res, session, prov, org, onReset }) {
     <>
       <div className="fieldset">
         <h3>Next steps</h3>
+        {res.checkout_sandbox && <p className="notice">Coinbase sandbox checkout. No real funds are transferred.</p>}
         {res.steps?.length > 0 ? <ol className="steps">{res.steps.map((s, i) => <li key={i}>{s}</li>)}</ol> : <p className="sub">Follow the provider's checkout. Funds arrive in your wallet, then they are staked.</p>}
-        {dest?.address && <div className="sendto"><span className="sub">Send to</span><span className="addr">{dest.address}</span></div>}
+        {res.wallet && <div className="sendto"><span className="sub">Your funding wallet</span><span className="addr">{res.wallet}</span></div>}
         <div className="actions" style={{ margin: 0 }}>
           {res.url && <a className="btn primary" href={res.url} target="_blank" rel="noopener noreferrer">Open {prov?.name || 'checkout'}</a>}
           <button type="button" className={res.url ? 'ghost' : ''} onClick={onReset}>Start again</button>
@@ -237,11 +245,47 @@ function Result({ res, session, prov, org, onReset }) {
       <div className="fieldset">
         <div className="session" aria-live="polite">
           {(st === 'created' || st === 'redirected') && <><span className="skel" /><span>Waiting for funds</span></>}
+          {st === 'received' && <span className="amber">Provider reports {fmtUsd(session.funded_usd)} received in your wallet. Hyperliquid settlement and legion contribution are not verified.</span>}
           {st === 'funded' && <span className="pos">Funded {fmtUsd(session.funded_usd)}. Staking next.</span>}
+          {st === 'funded' && session?.can_stake && dest?.kind === 'vault' && <Stake res={res} session={session} org={org} onStaked={onStaked} />}
           {st === 'staked' && <span className="pos">Staked {fmtUsd(session.funded_usd)}{org ? ` in ${org.name}` : ''}.</span>}
           {st === 'expired' && <span className="amber">This session expired. Start again.</span>}
+          {st === 'failed' && <span className="amber">The payment did not go through, so nothing was staked. Start again or try another card.</span>}
         </div>
       </div>
     </>
+  )
+}
+
+// Sign `vaultTransfer` from the user's own wallet. The embedded wallet (window.protossWallet, set once Privy is wired)
+// signs Hyperliquid's chain-1337 typed data; an injected wallet may refuse it, and we say so rather than guess.
+function Stake({ res, session, org, onStaked }) {
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState(null)
+  async function stake() {
+    setErr(null); setBusy(true)
+    try {
+      const provider = window.protossWallet || window.ethereum
+      if (!provider) throw new Error('No wallet in this browser. Open the wallet that received the funds and try again.')
+      const [account] = await provider.request({ method: 'eth_requestAccounts' })
+      if (!account || account.toLowerCase() !== (res.wallet || '').toLowerCase()) throw new Error(`Switch to ${short(res.wallet)}, the wallet the funds went to.`)
+      const b = await getJson('/builder').catch(() => ({}))
+      const usd = Math.floor((session.funded_usd || 0) * 100) / 100
+      if (!(usd >= 1)) throw new Error('Nothing to stake yet. Wait for the funds to show, then try again.')
+      const j = await stakeInVault(provider, { account, vault: res.destination.address, usd, mainnet: b.network !== 'Testnet' })
+      await fetch(`/onboard/session/${res.session_id}/staked`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ tx: JSON.stringify(j.response || '').slice(0, 200) }) })
+      onStaked?.()
+    } catch (e) {
+      const m = e?.message || String(e)
+      setErr(/chain ?id|chainId/i.test(m) ? 'This wallet will not sign Hyperliquid actions. Use your Protoss wallet (sign in with email above), or stake from app.hyperliquid.xyz.' : m)
+    } finally {
+      setBusy(false)
+    }
+  }
+  return (
+    <span className="actions" style={{ margin: 0 }}>
+      <button type="button" className="primary" disabled={busy} onClick={stake}>{busy ? 'Signing' : `Stake ${fmtUsd(session.funded_usd)}${org ? ` in ${org.name}` : ''}`}</button>
+      {err && <span className="amber">{err}</span>}
+    </span>
   )
 }

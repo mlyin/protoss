@@ -1,3 +1,4 @@
+import { apiFetch as fetch, apiUrl } from './api.js'
 import React, { useEffect, useState } from 'react'
 import { SkelLines } from './ui.jsx'
 

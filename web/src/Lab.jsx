@@ -1,5 +1,7 @@
+import { apiFetch as fetch, apiUrl } from './api.js'
 import React, { useEffect, useRef, useState } from 'react'
 import { SkelLines } from './ui.jsx'
+import ResearchIdeas from './ResearchIdeas.jsx'
 
 // The Lab: ask a what-if in plain English, get a backtest back, deploy it as an agent.
 // Talks to POST /lab/chat (see backend/app/lab.py for the contract).
@@ -7,7 +9,7 @@ import { SkelLines } from './ui.jsx'
 const fmtUsd = (v) => (v == null ? '—' : '$' + Number(v).toLocaleString(undefined, { maximumFractionDigits: Math.abs(v) < 100 ? 2 : 0 }))
 const fmtPct = (v) => (v == null ? '—' : (v > 0 ? '+' : '') + Number(v).toFixed(2) + '%')
 const cls = (v) => (v > 0 ? 'pos' : v < 0 ? 'neg' : '')
-const day = (iso) => new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+const day = (iso) => new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' })
 
 function Curve({ a, b, w = 640, h = 180 }) {
   if (!a || a.length < 2) return null
@@ -48,7 +50,7 @@ function Result({ r, deployable }) {
       {r.benchmark_curve && <div className="legend"><span className="sw main" /> strategy <span className="sw bench" /> buy &amp; hold {r.market}</div>}
       {r.trades_sample?.length > 0 && (
         <details>
-          <summary className="sub">Trades ({r.trades_sample.length} of {r.trades})</summary>
+          <summary className="sub">Sample fills ({r.trades_sample.length})</summary>
           <div className="tablewrap"><table className="mini">
             <thead><tr><th>When</th><th>Side</th><th className="num">Price</th><th className="num">Size</th><th>Why</th></tr></thead>
             <tbody>{r.trades_sample.map((t, i) => <tr key={i}><td>{day(t.ts)}</td><td className={t.side === 'buy' ? 'pos' : 'neg'}>{t.side}</td><td className="num">{Number(t.px).toLocaleString()}</td><td className="num">{Number(t.size).toFixed(4)}</td><td className="text sub">{t.reason}</td></tr>)}</tbody>
@@ -58,7 +60,7 @@ function Result({ r, deployable }) {
       {r.notes?.length > 0 && <ul className="notes">{r.notes.map((n, i) => <li key={i}>{n}</li>)}</ul>}
       {deployable && (
         <div className="deploy">
-          <div><b>Deploy as an agent</b><div className="sub">Inside hard limits: {deployable.limits.max_leverage}× max · stop at {deployable.limits.drawdown_flatten_pct}% drawdown · {deployable.limits.daily_loss_pct}% daily loss · {deployable.markets.join(', ')} only</div></div>
+          <div><b>Developer configuration</b><div className="sub">Inside hard limits: {deployable.limits.max_leverage}× max · stop at {deployable.limits.drawdown_flatten_pct}% drawdown · {deployable.limits.daily_loss_pct}% daily loss · {deployable.markets.join(', ')} only</div></div>
           <button onClick={copy}>{copied ? 'Copied' : 'Copy fleet.yaml entry'}</button>
         </div>
       )}
@@ -66,10 +68,13 @@ function Result({ r, deployable }) {
   )
 }
 
-export default function Lab() {
+export default function Lab({ initialPrompt = '' }) {
   const [examples, setExamples] = useState([])
-  const [msgs, setMsgs] = useState([{ role: 'ai', text: 'Ask a what-if. I turn it into a rule set, run it on price history, and show you what would have happened, fees included. Then you can deploy it inside hard limits.' }])
-  const [q, setQ] = useState('')
+  const [msgs, setMsgs] = useState([{ role: 'ai', text: 'Describe a rule to test. Results identify the price source and include modeled trading fees and slippage. Funding and liquidation are not modeled. Trend and reversal rules can go long or short. Read the execution assumptions before interpreting results.' }])
+  const [q, setQ] = useState(initialPrompt)
+  const inputRef = useRef(null)
+  useEffect(() => { setQ(initialPrompt) }, [initialPrompt])
+  const selectIdea = (text) => { setQ(text); inputRef.current?.focus(); inputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }) }
   const [busy, setBusy] = useState(false)
   const endRef = useRef(null)
 
@@ -96,8 +101,8 @@ export default function Lab() {
   return (
     <section className="lab narrow">
       <div className="lab-head">
-        <h1>The Lab</h1>
-        <p className="sub">What if I bought XMR every time a major company got hacked? What if I tailed this wallet? Say it like you'd say it to a friend.</p>
+        <h1>Test your idea</h1>
+        <p className="sub">Start with a question, choose a rule, then inspect the evidence. Share ideas in the <a href="/app/#/huddle/demo">practice group chat</a>.</p>
       </div>
       <div className="thread">
         {msgs.map((m, i) => (
@@ -112,12 +117,13 @@ export default function Lab() {
         <div ref={endRef} />
       </div>
       {examples.length > 0 && msgs.length < 3 && (
-        <div className="examples">{examples.map((e) => <button key={e} onClick={() => ask(e)}>{e}</button>)}</div>
+        <div className="examples">{examples.map((e) => <button key={e} onClick={() => selectIdea(e)}>{e}</button>)}</div>
       )}
       <form className="ask" onSubmit={(e) => { e.preventDefault(); ask() }}>
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="what if I…" disabled={busy} autoFocus aria-label="Your what-if" />
+        <input ref={inputRef} value={q} onChange={(e) => setQ(e.target.value)} placeholder="what if I…" disabled={busy} aria-label="Your what-if" />
         <button className="primary" disabled={busy || !q.trim()}>Run</button>
       </form>
+      <ResearchIdeas onSelect={selectIdea} />
     </section>
   )
 }
