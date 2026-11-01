@@ -39,8 +39,10 @@ def main() -> None:
         res = run_backtest(spec, src)
         s = _test_summary(spec, res)
         verdict = _verdict(SimpleNamespace(n=n, text=said, label=res.label, spec=spec.model_dump(mode="json")), s)
-        (OUT / f"{idea_id}.png").write_bytes(card_png({"n": n, "author": "", "label": res.label, "test": s, "kind": "rule", "status": "proposed",
-                                                       "outcome": None, "pledged_usd": None, "record": {"closed": 0, "up": 0, "pnl_usd": 0}, "backers": []}))
+        card = {"n": n, "author": "", "label": res.label, "test": s, "kind": "rule", "status": "proposed",
+                "outcome": None, "pledged_usd": None, "record": {"closed": 0, "up": 0, "pnl_usd": 0}, "backers": []}
+        (OUT / f"{idea_id}.png").write_bytes(card_png(card))
+        (OUT / f"{idea_id}-phone.png").write_bytes(card_png(card, phone=True))  # the site serves this on narrow screens
         names: dict[str, list[str]] = {}
         if s.get("event_set") in ("major_hacks", "dwarkesh"):
             for r in load_events(s["event_set"]):

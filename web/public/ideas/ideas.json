@@ -1,5 +1,5 @@
 {
- "as_of": "2026-11-01T05:43+00:00",
+ "as_of": "2026-11-01T05:52+00:00",
  "source": "Hyperliquid candles, fees and slippage included, funding not",
  "ideas": [
   {
@@ -9,7 +9,7 @@
    "why": "",
    "verdict": [
     "No edge. XMR averaged -0.5% the day after a hack, +0.3% on any day. 12 of 26 were up.",
-    "As a rule since Nov 2024: -15.4%, worst drop 21.8%. Just holding XMR: +292.6%.",
+    "As a rule since Nov 2024: -15.4%, worst drop 21.8%. Just holding XMR: +293.0%.",
     "26 hacks is a small sample."
    ],
    "market": "XMR",
