@@ -51,7 +51,7 @@ async function marketData(page, { empty = false, fail = '', delay = 0 } = {}) {
 test('homepage contains the real account entry and no practice navigation', async ({ page }, info) => {
   const reads = await marketData(page)
   await page.goto('/')
-  await expect(page.getByRole('heading', { name: 'Your friends. Your own trade.' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Predict anything. Test anything. Trade anything. With your friends.' })).toBeVisible()
   await expect(page.getByRole('tab')).toHaveCount(4)
   await expect(page.getByRole('link', { name: 'Practice app', exact: true })).toHaveCount(0)
   await expect(page.getByRole('link', { name: 'Activity', exact: true })).toHaveCount(0)

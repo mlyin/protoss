@@ -1,5 +1,7 @@
 # Corrections
 
+- 2026-11-01: Matthew wants the public homepage headline to be "Predict anything. Test anything. Trade anything. With your friends." Keep the four idea previews underneath, with evidence, actual market availability and individual trade approval reflected in supporting copy.
+
 - 2026-11-01: "Connect my account" must target the existing Hyperliquid account. Never automatically select whichever extension owns window.ethereum. Offer explicit wallet choice before requesting accounts, including private Telegram ownership links. A Hyperliquid email wallet is separate; do not create a new wallet or accept an arbitrary address as proof of ownership.
 
 - 2026-11-01: Matthew asked to shorten episode replies again: default to direction, ticker, and one short reason, or just "No trade." Keep the source link and partial-source label. Risks, pre-trade checks, and evidence remain in the full authenticated analysis. This supersedes the longer default trade-card format below.
