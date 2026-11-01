@@ -6,7 +6,7 @@ export const TELEGRAM_BOT = 'https://t.me/ProtossTradingDemoBot'
 
 // Same four sentences, same order, as the Lab (backend/app/lab.py EXAMPLES) and the Telegram bot's /demo menu.
 export const IDEAS = [
-  { id: 'hacks', label: 'A company gets hacked', prompt: "Let's buy XMR every time a major company gets hacked", market: 'XMR', dex: '', direction: 'Long', title: 'Hacks → XMR for a day', ask: 'buy XMR after major hacks, hold 1 day, over the last 180 days using hourly candles', days: 180, event: 'A major company gets hacked', when: 'In the Telegram group, someone reports it ("protoss hack: …") and every armed copy buys XMR for one day.', risk: 'A hack does not have to raise demand for XMR. The test below says whether it has.' },
+  { id: 'hacks', label: 'A company gets hacked', prompt: "Let's buy XMR every time a major company gets hacked", market: 'XMR', dex: '', direction: 'Long', title: 'Hacks → XMR for a day', ask: 'buy XMR after major hacks, hold 1 day, over the last 180 days using hourly candles', days: 180, event: 'A major company gets hacked', when: 'In the Telegram group, someone reports it ("protoss hack: …") and every armed copy buys XMR for one day.', risk: 'A hack does not have to raise demand for XMR. The test above says whether it has.' },
   { id: 'robots', label: 'Robots take over', prompt: 'I think robots are going to take over the world', market: 'xyz:UNITREE', dex: 'xyz', direction: 'Long', title: 'Robotics → Unitree', risk: 'xyz:UNITREE is a Unitree-linked perpetual, not Unitree shares. It can move away from the company’s value.' },
   { id: 'anthropic', label: 'The Anthropic bubble pops', prompt: 'The Anthropic bubble is going to pop', market: 'xyz:ANT', dex: 'xyz', direction: 'Short', title: 'Anthropic → short', risk: 'xyz:ANT is a perpetual, not Anthropic stock. A short loses money when the price rises.' },
   { id: 'dwarkesh', label: 'A new Dwarkesh episode', prompt: 'Dwarkesh is always right. Trade every new episode', market: 'xyz:NVDA', dex: 'xyz', direction: 'Long', title: 'New episode → NVDA for 7 days', event: 'A new Dwarkesh Podcast episode', when: 'The Telegram bot reads his podcast feed every 10 minutes. A new episode buys NVDA for 7 days in every armed copy.', risk: 'An interview is not a price signal by itself. 33 episodes is a small sample.' },
@@ -75,7 +75,8 @@ export default function IdeaChat() {
         <div className="idea-user-bubble">{idea.prompt}</div>
         <div className="idea-bot-bubble"><span className="idea-bot-name">Probe</span><h3>{idea.title}</h3>
           {tested?.why && <p>{tested.why}</p>}
-          {tested && <img className="idea-card" src={`/ideas/${idea.id}.png`} alt={`${tested.label}: backtest chart against buy and hold`} width="1200" height="630" />}
+          {tested && <picture><source media="(max-width: 600px)" srcSet={`/ideas/${idea.id}-phone.png`} width="1080" height="1350" />
+            <img className="idea-card" src={`/ideas/${idea.id}.png`} alt={`${tested.label}: backtest chart against buy and hold`} width="1200" height="630" /></picture>}
           {tested ? <div className="idea-verdict">{tested.verdict.map((line, i) => <p key={i}>{line}</p>)}<small>Tested on Hyperliquid candles, fees and slippage included, funding not · {new Date(snap.as_of).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</small></div>
             : <p className="idea-risk">{snap === null ? 'Loading the test…' : 'The saved test is unavailable. Run it now for a fresh one.'}</p>}
           {tested?.events?.length > 0 && <details className="idea-events"><summary>The {tested.events.length} {idea.id === 'hacks' ? 'hacks' : 'episodes'} it was tested on</summary>

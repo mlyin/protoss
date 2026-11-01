@@ -260,6 +260,12 @@ def _who_line(bs: list[Backer]) -> str:
     return ", ".join(f"{b.who} {_usd(b.pledge_usd)}" if b.pledge_usd else b.who for b in on)
 
 
+def _name(t: Thesis) -> str:
+    """How the chat refers to a rule: per-person copies by owner and the idea they came from, never by their 1001 number."""
+    spec = t.spec or {}
+    return f"{spec['_telegram_copy_owner']}'s copy of idea {spec['_parent_n']}" if spec.get("_telegram_copy_owner") and spec.get("_parent_n") else f"Idea {t.n}"
+
+
 def _and(names: list[str]) -> str:
     return names[0] if len(names) == 1 else ", ".join(names[:-1]) + " and " + names[-1] if names else "nobody"
 
@@ -574,7 +580,7 @@ def arm(db: Session, ex: ExchangeAdapter, h: Huddle, t: Thesis) -> None:
         return  # the fill message already says it went out; one line per person is enough
     head = f"{owner}'s copy of idea {parent} is armed: {_usd(total)} of {money}" if owner and parent else f"Thesis {t.n} is live{where}. {_usd(total)} in {money} from {_who_line(bs)}"
     say(db, h, " ".join(x for x in [f"{head}, max {int(lim.max_leverage)}x leverage, flattens at -25%.", waiting,
-                                     f"Every fill is public: {_link('/#/feed')}"] if x), thesis_id=t.id)
+                                     "" if owner else f"Every fill is public: {_link('/#/feed')}"] if x), thesis_id=t.id)
 
 
 def _latest_live_rule(db: Session, h: Huddle) -> Thesis | None:
@@ -657,13 +663,20 @@ def fire(db: Session, ex: ExchangeAdapter, ev: HuddleEvent) -> int:
         if db.scalar(select(Trigger).where(Trigger.thesis_id == t.id, Trigger.event_id == ev.id)):
             continue
         h = db.get(Huddle, t.huddle_id)
-        tr = _open(db, ex, h, t, ev, f"thesis {t.n}: {ev.label[:80]}")
+        try:
+            tr = _open(db, ex, h, t, ev, f"thesis {t.n}: {ev.label[:80]}")
+        except Exception as e:  # one rule that cannot trade (no price, exchange refusal) must not stop the others
+            log.warning("thesis %s could not fire on event %s: %s", t.id, ev.id, e)
+            say(db, h, f"Idea {(t.spec or {}).get('_parent_n') or t.n} saw {ev.label} but could not trade: {str(e)[:120] or type(e).__name__}.", thesis_id=t.id)
+            continue
         if tr:
             opened += 1
-            verb = "Bought" if tr.side == "long" else "Shorted"
+            verb = "bought" if tr.side == "long" else "shorted"
             src = f" ({ev.source})" if ev.source else ""
-            say(db, h, f"Thesis {t.n} fired. {ev.label}{src}.\n{verb} {tr.size:.4g} {tr.market} at {_px(tr.entry_px)}, {_usd(tr.size * tr.entry_px)} of the pot. "
-                       f"Closing {_aware(tr.exit_at):%b %d}.", "result", t.id)
+            whose = f"of their {_usd(_pledged(backers(db, t)))}" if (t.spec or {}).get("_telegram_copy_owner") else "of the pot"
+            real = " Real order, from their own account." if _real(ex) and (t.spec or {}).get("_telegram_copy_owner") else ""
+            say(db, h, f"{_name(t)} fired on {ev.label}{src}: {verb} {tr.size:.4g} {tr.market} at {_px(tr.entry_px)}, {_usd(tr.size * tr.entry_px)} {whose}. "
+                       f"Closes {_aware(tr.exit_at):%b %-d}.{real}", "result", t.id)
     return opened
 
 
@@ -697,8 +710,9 @@ def settle(db: Session, ex: ExchangeAdapter, now: dt.datetime | None = None) -> 
         n, wins, pnl = score(db, t)
         h = db.get(Huddle, t.huddle_id)
         days = max(1, round((now - _aware(tr.opened_at)).total_seconds() / 86400))
-        say(db, h, f"Thesis {t.n} closed. {tr.market} {pct:+.1f}% in {days}d: {_px(tr.size * tr.entry_px)} became {_px(tr.size * tr.entry_px + tr.pnl_usd)}, {_signed_usd(tr.pnl_usd)}.\n"
-                   f"Record: {wins} of {n} up, {_signed_usd(pnl)} total.", "result", t.id)
+        span = "1 day" if days == 1 else f"{days} days"
+        say(db, h, f"{_name(t)} closed: {tr.market} {pct:+.1f}% over {span}, {_px(tr.size * tr.entry_px)} became {_px(tr.size * tr.entry_px + tr.pnl_usd)} ({_signed_usd(tr.pnl_usd)}). "
+                   f"Its record: {wins} of {n} up, {_signed_usd(pnl)}.", "result", t.id)
         closed += 1
     return closed
 
@@ -786,8 +800,9 @@ def _score_board(db: Session, h: Huddle) -> str:
             people[t.author][1] += t.outcome == "hit"
         elif t.kind == "rule":
             n, wins, pnl = score(db, t)
+            parent = _by_n(db, h, (t.spec or {}).get("_parent_n")) if (t.spec or {}).get("_parent_n") else None
             if n:
-                p = people.setdefault(t.author, [0, 0, 0.0])
+                p = people.setdefault(parent.author if parent else t.author, [0, 0, 0.0])
                 p[0] += n
                 p[1] += wins
                 p[2] += pnl

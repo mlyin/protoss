@@ -34,7 +34,7 @@ class FakeInfo:
         self.fills = {ACC1: [], ACC2: []}
 
     def all_mids(self, dex=""):
-        return {"BTC": "100000", "ETH": "3000"} if dex == "" else {"xyz:ANT": "111.0", "xyz:NVDA": "214", "xyz:UNITREE": "96.8"}
+        return {"BTC": "100000", "ETH": "3000", "XMR": "330"} if dex == "" else {"xyz:ANT": "111.0", "xyz:NVDA": "214", "xyz:UNITREE": "96.8"}
 
     def user_state(self, address, dex=""):
         pos = [{"position": {"coin": m, "szi": str(s), "entryPx": str(e)}} for m, (s, e) in self.positions[address].items() if (":" in m) == (dex == "xyz")]
@@ -54,7 +54,7 @@ class FakeInfo:
             return {"balances": [{"coin": "USDC", "total": "98.21"}]} if body["user"] == ACC2 else {"balances": []}
         if t == "meta":
             return {"universe": [{"name": "xyz:ANT", "szDecimals": 2}, {"name": "xyz:NVDA", "szDecimals": 2}, {"name": "xyz:UNITREE", "szDecimals": 2, "onlyIsolated": True}]} if body.get("dex") == "xyz" else \
-                   {"universe": [{"name": "BTC", "szDecimals": 5}, {"name": "ETH", "szDecimals": 4}]}
+                   {"universe": [{"name": "BTC", "szDecimals": 5}, {"name": "ETH", "szDecimals": 4}, {"name": "XMR", "szDecimals": 2}]}
         raise AssertionError(body)
 
 
@@ -315,3 +315,29 @@ def test_cards_go_out_as_a_chart_with_no_local_links(live, tmp_path):
     assert "http" not in card["text"] and "tg:111" not in card["text"] and "from P" in card["text"]
     # a thumbs up on the photo backs the idea like it did on the text card
     assert w.state.data["cards"][str(tg.sent.index(card) + 1)] == 1
+
+
+def test_hack_fires_each_copy_by_name_closes_and_scores_the_idea_author(live, tmp_path):
+    import datetime as dt
+
+    from app import huddle as HD
+    from app.db import session
+
+    client, ex = live
+    h = client.post("/huddle", headers=ADMIN, json={"chat_id": f"telegram:{CHAT}", "title": "protoss beta testing", "quorum": 2}).json()
+    tg = PhotoTelegram()
+    w = bridge.Bridge(tg, LocalAPI(client), bridge.State(tmp_path / "s.json"), CHAT, [111, 222], "ProtossTradingDemoBot", h["id"], live=True)
+    named = lambda uid, user, name, text: {"update_id": uid, "message": {"message_id": uid, "chat": {"id": CHAT, "type": "supergroup"}, "from": {"id": user, "first_name": name}, "text": text}}  # noqa: E731
+    w.handle(named(1, 111, "Matthew", "Let's buy XMR every time a major company gets hacked"))
+    w.handle(named(2, 222, "Lando", "in for 11"))
+    w.handle(named(3, 111, "Matthew", "in for 11"))
+    w.handle(named(4, 111, "Matthew", "protoss hack: Example Exchange drained for $40M"))
+    fired = [m["text"] for m in tg.sent if " fired on " in m["text"]]
+    assert {t.split(" fired")[0] for t in fired} == {"Matthew's copy of idea 1", "Lando's copy of idea 1"}
+    assert all("Real order, from their own account." in t and "of their $11" in t and "1001" not in t for t in fired)
+    with session() as db:
+        assert HD.settle(db, ex, now=dt.datetime.now(dt.timezone.utc) + dt.timedelta(days=2)) == 2
+    w.drain()
+    assert sum(" copy of idea 1 closed: XMR" in m["text"] for m in tg.sent) == 2
+    w.handle(named(5, 111, "Matthew", "protoss score"))
+    assert tg.sent[-1]["text"].splitlines()[1].startswith("Matthew: 0 of 2 right") or tg.sent[-1]["text"].splitlines()[1].startswith("Matthew: 2 of 2 right")
