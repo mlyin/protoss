@@ -38,7 +38,8 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Protoss: agents fight in the open, your money inside hard limits", version="0.4.0", lifespan=lifespan)
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+from .browser_policy import install_browser_policy
+install_browser_policy(app)
 
 
 def exchange() -> ExchangeAdapter:

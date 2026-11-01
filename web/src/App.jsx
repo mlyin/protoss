@@ -1,23 +1,18 @@
+import { apiFetch as fetch, apiUrl } from './api.js'
 import React, { useEffect, useState } from 'react'
 import Approve from './Approve.jsx'
 import Lab from './Lab.jsx'
+import Homepage from './Homepage.jsx'
 import Join from './Join.jsx'
+import Huddle from './Huddle.jsx'
 import { Feed, Profile, Legion, useMe } from './Social.jsx'
 import NewLegion from './NewLegion.jsx'
-import heroRaw from '../../brand/hero.svg?raw'
 import { SkelLines, SkelRows } from './ui.jsx'
 
 const fmtUsd = (v) => (v == null ? '—' : '$' + Number(v).toLocaleString(undefined, { maximumFractionDigits: v < 100 ? 2 : 0 }))
 const fmtPct = (v) => (v == null ? '—' : (v > 0 ? '+' : '') + Number(v).toFixed(2) + '%')
 const cls = (v) => (v > 0 ? 'pos' : v < 0 ? 'neg' : '')
 const time = (iso) => new Date(iso).toLocaleTimeString([], { hour12: false })
-
-// brand/hero.svg, inlined: drop its own <style> so the page's ink/paper tokens color it, let it scale, and
-// prefix its classes (.ink -> .hero-ink) because descendant selectors do not reach inside <use> instances.
-const HERO = heroRaw
-  .replace(/<style>[\s\S]*?<\/style>/, '')
-  .replace(/\swidth="1600"\sheight="600"/, '')
-  .replace(/class="([^"]*)"/g, (_, c) => `class="${c.split(/\s+/).map((x) => 'hero-' + x).join(' ')}"`)
 
 function usePoll(url, ms = 3000) {
   const [data, setData] = useState(null)
@@ -161,8 +156,9 @@ function OrgDrawer({ slug, onClose }) {
         </div>
       </div>
       <div className="actions" style={{ margin: 0 }}>
-        <a className="btn sm" href={`#/p/${d.slug}`}>Open legion page</a>
-        <a className="btn sm ghost" href={`#/join?legion=${encodeURIComponent(d.slug)}`}>Join with card</a>
+        <a className="btn sm" href={`/app/#/p/${d.slug}`}>Open legion page</a>
+        <a className="btn sm ghost" href={`/app/#/join?legion=${encodeURIComponent(d.slug)}`}>Add funds</a>
+        <a className="btn sm ghost" href={`/app/#/huddle/${encodeURIComponent(d.slug)}`}>Group chat</a>
       </div>
     </div>
   )
@@ -179,7 +175,7 @@ function useHash() {
 }
 
 function Mark() {
-  return <img src="/mark.svg" alt="" onError={(e) => { e.currentTarget.style.display = 'none' }} />
+  return <img src="/favicon.svg" alt="" onError={(e) => { e.currentTarget.style.display = 'none' }} />
 }
 
 // ink or paper. The stored choice wins; otherwise the system setting (see styles.css).
@@ -208,36 +204,13 @@ function ThemeToggle() {
   )
 }
 
-const MODE_NOTE = {
-  sim: 'Sim mode: synthetic prices, no real money.',
-  paper: 'Paper mode: real Hyperliquid prices, simulated fills, no real money.',
-  testnet: 'Testnet: real orders on Hyperliquid testnet, no real money.',
-}
-
-function Hero({ mode }) {
-  return (
-    <section className="hero">
-      <div className="hero-copy">
-        <h1>Your friends.<br />One wall.</h1>
-        <p>Pool $100 each with your friends. Agents trade it inside the lines you drew. Every fill and every rejected order is public.</p>
-        <div className="hero-cta">
-          <a className="btn primary lg" href="#/new">Start a legion</a>
-          <a className="btn lg" href="#/join">Join with card</a>
-        </div>
-        {MODE_NOTE[mode] && <div className="hero-mode">{MODE_NOTE[mode]}</div>}
-      </div>
-      <div className="hero-art" aria-hidden="true" dangerouslySetInnerHTML={{ __html: HERO }} />
-    </section>
-  )
-}
-
-function Strip({ stats, halted, loading }) {
+function Strip({ stats, halted, loading, mode }) {
   const v = (x, w = 72) => (loading ? <span className="skel lg" style={{ width: w }} /> : x)
   return (
     <section className="strip" aria-label="Arena stats">
       <div><span className="label">Agents live</span><span className="value">{v(stats ? `${stats.agents_live} / ${stats.agents_total}` : '—', 56)}</span><span className="sub">of all registered</span></div>
-      <div><span className="label">Routed, 24h</span><span className="value">{v(stats ? fmtUsd(stats.volume_24h_usd) : '—', 110)}</span><span className="sub">notional through the builder code</span></div>
-      <div><span className="label">Builder fees, 24h</span><span className="value">{v(stats ? '$' + stats.builder_fees_24h_usd.toFixed(2) : '—', 80)}</span><span className="sub">{stats ? `${(stats.builder_fee_tenths_bp / 1000).toFixed(3)}% of notional` : 'of routed notional'}</span></div>
+      <div><span className="label">{["paper", "sim"].includes(mode) ? "Simulated volume, 24h" : "Volume, 24h"}</span><span className="value">{v(stats ? fmtUsd(stats.volume_24h_usd) : '—', 110)}</span><span className="sub">notional through the builder code</span></div>
+      <div><span className="label">Estimated fees, 24h</span><span className="value">{v(stats ? '$' + stats.builder_fees_24h_usd.toFixed(2) : '—', 80)}</span><span className="sub">{stats ? `${(stats.builder_fee_tenths_bp / 1000).toFixed(3)}% of notional` : 'of routed notional'}</span></div>
       <div><span className="label">Stopped at the line</span><span className="value limit">{v(halted, 32)}</span><span className="sub">agents flattened by the sandbox</span></div>
     </section>
   )
@@ -254,20 +227,20 @@ function Arena({ onAgent, onOrg, sel, selOrg, mode }) {
   const loading = !lb && !lbErr
   return (
     <>
-      <Hero mode={mode} />
-      {lbErr && <div className="notice warn">API unreachable ({lbErr}). Start it with <code>cd backend && uvicorn app.main:app</code></div>}
+      <div className="app-intro"><h1>Practice workspace</h1><p>Real market prices, simulated positions. Explore strategies, test an idea, or open your group chat.</p></div>
+      {lbErr && <div className="notice warn">Practice activity is temporarily unavailable. Please try again shortly.</div>}
 
-      <Strip stats={stats} halted={halted} loading={loading && !stats} />
+      <Strip mode={mode} stats={stats} halted={halted} loading={loading && !stats} />
 
-      <section>
-        <div className="sec-head"><h2>Legions</h2><span className="sub">pooled money under one mandate, traded by agents inside hard limits</span><span className="spacer" /><a className="btn" href="#/new">Start a legion</a></div>
+      <section id="legions">
+        <div className="sec-head"><h2>Practice groups</h2><span className="sub">Practice groups, called legions, share a plan and trading limits</span><span className="spacer" /><a className="btn" href="/app/#/new">Start a legion</a></div>
         {!orgs && !orgsErr ? (
           <div className="orgs-grid"><div className="card org" aria-hidden="true"><SkelLines n={4} /></div></div>
         ) : (!orgs || orgs.length === 0) ? (
           <div className="card empty">
             <b>No legions yet</b>
             <span>Write a mandate, draw the lines, invite your friends. <code>python scripts/demo.py</code> fills the arena with a sample.</span>
-            <a className="btn primary" href="#/new">Start a legion</a>
+            <a className="btn primary" href="/app/#/new">Start a legion</a>
           </div>
         ) : (
           <div className="orgs-grid">
@@ -357,6 +330,7 @@ function Arena({ onAgent, onOrg, sel, selOrg, mode }) {
 
 export default function App() {
   const hash = useHash()
+  const landing = !location.pathname.startsWith('/app')
   const [sel, setSel] = useState(null)
   const [selOrg, setSelOrg] = useState(null)
   const [me, setMe] = useMe()
@@ -370,7 +344,7 @@ export default function App() {
 
   const [route, qs] = hash.split('?')
   const query = new URLSearchParams(qs || '')
-  const page = route.startsWith('#/lab') ? 'lab' : route.startsWith('#/feed') ? 'feed' : route.startsWith('#/u/') ? 'user' : route.startsWith('#/p/') ? 'legion' : route.startsWith('#/approve') ? 'approve' : route.startsWith('#/new') ? 'new' : route.startsWith('#/join') ? 'join' : 'arena'
+  const page = route.startsWith('#/lab') ? 'lab' : route.startsWith('#/feed') ? 'feed' : route.startsWith('#/u/') ? 'user' : route.startsWith('#/p/') ? 'legion' : route.startsWith('#/approve') ? 'approve' : route.startsWith('#/new') ? 'new' : route.startsWith('#/join') ? 'join' : route.startsWith('#/huddle') ? 'huddle' : 'arena'
   const param = decodeURIComponent(route.split('/')[2] || '')
   const is = (p) => (page === p ? 'on' : '')
 
@@ -378,32 +352,36 @@ export default function App() {
     <>
       <header className="header">
         <div className="header-in">
-          <a className="brand" href="#/" aria-label="Protoss, home"><Mark /><span className="word">PROTOSS</span></a>
+          <a className="brand" href="/" aria-label="Protoss, home"><Mark /><span className="word">Protoss</span></a>
           <nav className="nav" aria-label="Main">
-            <a className={is('arena')} href="#/">Arena</a>
-            <a className={is('feed')} href="#/feed">Feed</a>
-            <a className={is('lab')} href="#/lab">Lab</a>
-            <a className={is('approve')} href="#/approve">Builder fee</a>
+            <a className={landing ? 'on' : ''} href="/">Home</a>
+            <a className={!landing ? is('arena') : ''} href="/app/">Practice app</a>
+            <a className={is('feed')} href="/app/#/feed">Activity</a>
+            <a className={is('lab')} href="/app/#/lab">Test an idea</a>
+            <a className={is('huddle')} href="/app/#/huddle/demo">Group chat</a>
           </nav>
           <span className="spacer" />
           <div className="header-right">
-            {health && <span className={`mode ${health.mode}`}><i /><b>{health.mode}</b><span>· {health.markets} markets</span></span>}
-            <a className="api-link" href="/docs">API</a>
+            {health && <span className={`mode ${health.mode}`}><i /><b>{['paper', 'sim'].includes(health.mode) ? 'Practice mode' : health.mode}</b></span>}
             <ThemeToggle />
           </div>
         </div>
       </header>
 
       <main className={`page ${page === 'arena' ? 'arena' : ''}`}>
+        {landing ? <Homepage /> : <>
         {page === 'arena' && <Arena sel={sel} selOrg={selOrg} mode={health?.mode} onAgent={(id) => { setSel(id); if (id) setSelOrg(null) }} onOrg={(s) => { setSelOrg(s); if (s) setSel(null) }} />}
-        {page === 'lab' && <Lab />}
+        {page === 'lab' && <Lab initialPrompt={query.get('idea') || ''} />}
         {page === 'feed' && <Feed me={me} setMe={setMe} />}
         {page === 'user' && <Profile handle={param} me={me} />}
         {page === 'legion' && <Legion slug={param} me={me} setMe={setMe} />}
         {page === 'new' && <NewLegion me={me} setMe={setMe} />}
         {page === 'join' && <Join legion={query.get('legion')} me={me} />}
-        {page === 'approve' && <div className="one"><Approve /><a className="back" href="#/">Back to the arena</a></div>}
+        {page === 'huddle' && <Huddle key={param || 'demo'} name={param || 'demo'} me={me} />}
+        {page === 'approve' && <div className="one"><Approve /><a className="back" href="/app/#/">Back to the arena</a></div>}
+        </>}
       </main>
+      <footer className="site-footer"><span>Protoss · Test your ideas with friends</span><a href="/app/#/approve">Trading fee settings</a><a href={apiUrl('/docs')}>Developer API</a></footer>
     </>
   )
 }

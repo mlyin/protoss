@@ -1,3 +1,4 @@
+import { apiFetch as fetch, apiUrl } from './api.js'
 import React, { useEffect, useState } from 'react'
 
 // A leader writes a mandate, draws the lines, puts in the first money, and gets an invite link.
@@ -36,19 +37,19 @@ export default function NewLegion({ me, setMe }) {
   }
 
   if (done) {
-    const link = `${location.origin}/#/p/${done.slug}`
+    const link = `${location.origin}/app/#/p/${done.slug}`
     return (
       <section className="one">
         <h1>{done.name} is open</h1>
         <p className="sub">Send the link to your friends. Your org key is below; it is the only thing that can add agents or change the mandate, and it is shown once.</p>
         <div className="card pad list">
-          <div className="kv"><span>Invite link</span><span><a href={`#/p/${done.slug}`}>{link}</a></span></div>
+          <div className="kv"><span>Invite link</span><span><a href={`/app/#/p/${done.slug}`}>{link}</a></span></div>
           <div className="kv"><span>Org key</span><span style={{ wordBreak: 'break-all' }}>{done.org_key}</span></div>
           <div className="kv"><span>Pool</span><span>${done.pool_cash} from {done.depositors} depositor</span></div>
         </div>
         <div className="actions">
           <button className="primary" onClick={() => navigator.clipboard?.writeText(link)}>Copy invite link</button>
-          <a className="btn" href={`#/p/${done.slug}`}>Open the legion</a>
+          <a className="btn" href={`/app/#/p/${done.slug}`}>Open the legion</a>
         </div>
         <p className="sub">Next: give an agent a slice of the pool with <code>POST /orgs/{done.slug}/agents</code> (org key as bearer) or add it under <code>orgs:</code> in <code>fleet.yaml</code>.</p>
       </section>
