@@ -69,7 +69,7 @@ function MarketQuote({ idea }) {
     load()
     return () => { alive = false; controller.abort(); clearTimeout(timer) }
   }, [idea.id])
-  return <div className="idea-quote"><div><span>Proposed direction</span><b>{idea.direction} {idea.market}</b></div><div><span>Hyperliquid mark</span><b>{quote ? new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 4 }).format(Number(quote.mark)) : 'Unavailable'}</b></div>{quote && <small>Read at {quote.time.toLocaleTimeString()} · Indicative price, not an execution quote</small>}{error && <small role="status">{error}</small>}</div>
+  return <div className="idea-quote"><div><span>Proposed direction</span><b>{idea.direction} {idea.market}</b></div><div><span>Hyperliquid mark</span><b>{quote ? new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 4 }).format(Number(quote.mark)) : error ? 'Unavailable' : 'Loading…'}</b></div>{quote && <small>Read at {quote.time.toLocaleTimeString()} · Indicative price, not an execution quote</small>}{error && <small role="status">{error}</small>}</div>
 }
 
 export default function IdeaChat() {
